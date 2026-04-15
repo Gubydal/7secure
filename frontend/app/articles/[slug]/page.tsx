@@ -7,7 +7,6 @@ import { formatDate } from "../../../lib/utils";
 import { supabasePublic, type ArticleRecord } from "../../../lib/supabase";
 
 export const runtime = "edge";
-export const revalidate = 86400;
 
 const getArticleBySlug = async (slug: string): Promise<ArticleRecord | null> => {
   const { data } = await supabasePublic
@@ -31,10 +30,7 @@ const getRelated = async (category: string, currentSlug: string): Promise<Articl
   return (data as ArticleRecord[] | null) ?? [];
 };
 
-export async function generateStaticParams() {
-  const { data } = await supabasePublic.from("articles").select("slug");
-  return (data ?? []).map((row: { slug: string }) => ({ slug: row.slug }));
-}
+// Removed generateStaticParams because Cloudflare Pages Edge Runtime does not support static param generation alongside the edge runtime.
 
 export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> }
