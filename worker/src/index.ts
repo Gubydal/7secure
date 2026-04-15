@@ -65,6 +65,6 @@ export default {
     env: WorkerEnv,
     ctx: ExecutionContext
   ): Promise<void> {
-    ctx.waitUntil(runDailyPipeline(env));
+    await runDailyPipeline(env);
   }
 };
