@@ -6,6 +6,7 @@ import { SubscribeForm } from "../../../components/SubscribeForm";
 import { formatDate } from "../../../lib/utils";
 import { supabasePublic, type ArticleRecord } from "../../../lib/supabase";
 
+export const runtime = "edge";
 export const revalidate = 86400;
 
 const getArticleBySlug = async (slug: string): Promise<ArticleRecord | null> => {

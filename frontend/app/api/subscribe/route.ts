@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 
+export const runtime = "edge";
+
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const buildWelcomeHtml = (email: string): string => {

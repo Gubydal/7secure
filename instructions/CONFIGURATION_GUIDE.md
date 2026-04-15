@@ -25,13 +25,13 @@ Resend will manage our subscriber audience and send the actual daily newsletters
 3. **Create an API Key:** Go to **API Keys** -> **Create API Key**. Give it "Full Access" and copy the key to your notepad.
 4. **Set Up an Audience:** Go to **Audiences** -> **Create Audience**. Name it "7secure Subscribers". Once created, copy the **Audience ID** (a long string of characters) to your notepad.
 
-## 3. OpenAI / Anthropic (LLM Processing)
-Since this is an AI newsletter, we need an API key to rewrite the cybersecurity articles.
+## 3. LongCat (LLM Processing)
+Since this is an AI newsletter, we originally used OpenAI but shifted to LongCat-Flash-Thinking-2601 seamlessly! 
 
-**Dashboard Steps (OpenAI example):**
-1. Go to [OpenAI Platform](https://platform.openai.com/api-keys).
-2. Click **Create new secret key**.
-3. Name it "7secure worker" and copy the key to your notepad.
+**Dashboard Steps:**
+1. Just make sure you grab your LongCat API Key. 
+
+*Your worker code has already been updated to communicate with `https://api.longcat.chat/openai/v1` and specifically requested the `LongCat-Flash-Thinking-2601` model.*
 
 ## 4. Applying the Configurations
 
@@ -50,11 +50,10 @@ Open your `worker/wrangler.toml` file. Ensure the plain text variables match you
 For secrets, open your VS Code terminal and run the following commands inside the `worker` directory. It will prompt you to paste the values:
 
 ```bash
-npx wrangler secret put SUPABASE_URL
 npx wrangler secret put SUPABASE_SERVICE_KEY
 npx wrangler secret put RESEND_API_KEY
 npx wrangler secret put RESEND_AUDIENCE_ID
-npx wrangler secret put OPENAI_API_KEY
+npx wrangler secret put LLM_API_KEY
 ```
 
 ## Summary Checklist for the AI (Provide these back to me when ready!):
