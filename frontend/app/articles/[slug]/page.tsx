@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import ReactMarkdown from "react-markdown";
 import { CategoryBadge } from "../../../components/CategoryBadge";
 import { SubscribeForm } from "../../../components/SubscribeForm";
+import { MarkdownRenderer } from "../../../components/MarkdownRenderer";
 import { formatDate } from "../../../lib/utils";
 import { supabasePublic, type ArticleRecord } from "../../../lib/supabase";
 
@@ -108,7 +108,7 @@ export default async function ArticlePage(
       </p>
 
       <div className="article-content">
-        <ReactMarkdown>{article.content}</ReactMarkdown>
+        <MarkdownRenderer content={article.content} />
       </div>
 
       <p>
