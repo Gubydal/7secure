@@ -29,26 +29,32 @@ export async function POST(request: Request) {
     const supabase = getSupabaseAdmin();
     const resend = new Resend(process.env.RESEND_API_KEY);
 
-    const { data: existing } = await supabase
+    const { data: existing, error: selectError } = await supabase
       .from("subscribers")
       .select("id,email")
       .eq("email", email)
       .maybeSingle();
 
+    if (selectError) {
+      console.error("Supabase select error:", selectError);
+    }
+
     if (!existing) {
-      await supabase.from("subscribers").insert({
+      const { error: insertError } = await supabase.from("subscribers").insert({
         email,
         confirmed: true,
         unsubscribed_at: null
       });
+      if (insertError) console.error("Supabase insert error:", insertError);
     } else {
-      await supabase
+      const { error: updateError } = await supabase
         .from("subscribers")
         .update({ confirmed: true, unsubscribed_at: null })
         .eq("email", email);
+      if (updateError) console.error("Supabase update error:", updateError);
     }
 
-    await fetch("https://api.resend.com/audiences/contacts", {
+    const contactRes = await fetch("https://api.resend.com/audiences/contacts", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -60,16 +66,24 @@ export async function POST(request: Request) {
         unsubscribed: false
       })
     });
+    if (!contactRes.ok) {
+      console.error("Resend audience API error:", contactRes.status, await contactRes.text());
+    }
 
-    await resend.emails.send({
+    const emailRes = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL as string,
       to: [email],
       subject: "Welcome to 7secure — Your daily security briefing 🔐",
       html: buildWelcomeHtml(email)
     });
+    if (emailRes.error) {
+      console.error("Resend email send error:", emailRes.error);
+      throw emailRes.error;
+    }
 
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
+    console.error("Subscription crash:", error);
     return NextResponse.json({ success: false, error: "Failed to subscribe" }, { status: 500 });
   }
 }
