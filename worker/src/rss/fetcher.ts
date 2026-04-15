@@ -32,8 +32,12 @@ const fetchSingleSource = async (source: RSSSource): Promise<RawFeedItem[]> => {
 };
 
 export const fetchFeeds = async (): Promise<RawFeedItem[]> => {
+  // Shuffle sources to rotate the cybersecurity feeds evenly across days
+  // Take 15 sources max to ensure we stay well below Cloudflare's 50 subrequests limit
+  const subset = [...RSS_SOURCES].sort(() => 0.5 - Math.random()).slice(0, 15);
+
   const settled = await Promise.allSettled(
-    RSS_SOURCES.map((source) => fetchSingleSource(source))
+    subset.map((source) => fetchSingleSource(source))
   );
 
   return settled

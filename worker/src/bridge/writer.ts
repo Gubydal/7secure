@@ -120,7 +120,8 @@ const rewriteItem = async (
       source_url: parsed.source_url || item.sourceUrl,
       original_url: parsed.original_url || item.url
     };
-  } catch {
+  } catch (error) {
+    console.error(`LLM Rewrite Error (${item.title}):`, (error as Error).message);
     return null;
   }
 };
@@ -129,7 +130,8 @@ export const writeArticles = async (
   items: RawFeedItem[],
   env: WorkerEnv
 ): Promise<NewsletterArticle[]> => {
-  const settled = await Promise.allSettled(items.slice(0, 30).map((item) => rewriteItem(item, env)));
+  // Only process top 5 to keep LLM calls fast and under Cloudflare's subrequest limit
+  const settled = await Promise.allSettled(items.slice(0, 5).map((item) => rewriteItem(item, env)));
 
   return settled
     .filter((result): result is PromiseFulfilledResult<NewsletterArticle | null> => result.status === "fulfilled")
