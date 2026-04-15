@@ -67,9 +67,14 @@ const rewriteItem = async (
   item: RawFeedItem,
   env: WorkerEnv
 ): Promise<NewsletterArticle | null> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 seconds max
+
   try {
+    console.log(`Sending to LongCat: ${item.title.substring(0, 30)}...`);
     const response = await fetch(`${env.LLM_BASE_URL.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
+      signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${env.LLM_API_KEY}`
@@ -119,8 +124,14 @@ const rewriteItem = async (
       original_url: parsed.original_url || item.url || "https://example.com"
     } as NewsletterArticle;
   } catch (error) {
-    console.error(`LLM Rewrite Error (${item.title}):`, (error as Error).message);
+    if ((error as Error).name === 'AbortError') {
+      console.error(`LLM Rewrite Timeout after 20s for: ${item.title.substring(0, 30)}...`);
+    } else {
+      console.error(`LLM Rewrite Error (${item.title}):`, (error as Error).message);
+    }
     return null;
+  } finally {
+    clearTimeout(timeoutId);
   }
 };
 
