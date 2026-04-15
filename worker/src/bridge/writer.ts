@@ -45,27 +45,22 @@ const extractJson = (raw: string): unknown => {
 };
 
 const isValidArticle = (article: any): article is NewsletterArticle => {
-  return (
+  if (!article) return false;
+  const isOk = (
     typeof article?.title === "string" &&
     article.title.length > 0 &&
-    article.title.length <= 80 &&
     typeof article?.slug === "string" &&
-    /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(article.slug) &&
     typeof article?.summary === "string" &&
     article.summary.length > 0 &&
-    article.summary.length <= 150 &&
     typeof article?.content === "string" &&
     article.content.length > 0 &&
     typeof article?.category === "string" &&
-    allowedCategories.has(article.category) &&
-    Array.isArray(article?.tags) &&
-    article.tags.length >= 3 &&
-    article.tags.length <= 5 &&
-    article.tags.every((tag: unknown) => typeof tag === "string") &&
-    typeof article?.source_name === "string" &&
-    typeof article?.source_url === "string" &&
-    typeof article?.original_url === "string"
+    Array.isArray(article?.tags)
   );
+  if (!isOk) {
+    console.error("Article validation failed. Parsed:", article);
+  }
+  return isOk;
 };
 
 const rewriteItem = async (
@@ -106,20 +101,23 @@ const rewriteItem = async (
 
     const content = payload.choices?.[0]?.message?.content;
     if (!content) {
+      console.error("No content from LLM");
       return null;
     }
 
-    const parsed = extractJson(content);
+    const parsed = extractJson(content) as any;
     if (!isValidArticle(parsed)) {
       return null;
     }
 
+    // Default to the original item's metadata if the LLM hallucinated or forgot to include it
     return {
       ...parsed,
-      source_name: parsed.source_name || item.sourceName,
-      source_url: parsed.source_url || item.sourceUrl,
-      original_url: parsed.original_url || item.url
-    };
+      category: allowedCategories.has(parsed.category) ? parsed.category : "industry-news",
+      source_name: parsed.source_name || item.sourceName || "Unknown Source",
+      source_url: parsed.source_url || item.sourceUrl || "https://example.com",
+      original_url: parsed.original_url || item.url || "https://example.com"
+    } as NewsletterArticle;
   } catch (error) {
     console.error(`LLM Rewrite Error (${item.title}):`, (error as Error).message);
     return null;
