@@ -96,6 +96,7 @@ const rewriteItem = async (
     });
 
     if (!response.ok) {
+      console.error("LongCat API Error:", response.status, await response.text());
       return null;
     }
 

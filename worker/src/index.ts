@@ -6,17 +6,29 @@ import { fetchFeeds } from "./rss/fetcher";
 import type { WorkerEnv } from "./types";
 
 export const runDailyPipeline = async (env: WorkerEnv): Promise<void> => {
-  const raw = await fetchFeeds();
-  const cleaned = cleanItems(raw);
-  const rewritten = await writeArticles(cleaned, env);
-  await saveArticles(env, rewritten);
-  const digestResult = await sendDigest(env);
-  await logDigest(
-    env,
-    digestResult.articleCount,
-    digestResult.subscriberCount,
-    digestResult.status
-  );
+  try {
+    console.log("Starting daily pipeline...");
+    const raw = await fetchFeeds();
+    console.log(`Fetched ${raw.length} raw items`);
+    const cleaned = cleanItems(raw);
+    console.log(`Cleaned down to ${cleaned.length} items`);
+    const rewritten = await writeArticles(cleaned, env);
+    console.log(`Successfully rewrote ${rewritten.length} articles via LLM`);
+    await saveArticles(env, rewritten);
+    console.log("Saved articles to Supabase");
+    const digestResult = await sendDigest(env);
+    console.log("Sent newsletter digests via Resend");
+    await logDigest(
+      env,
+      digestResult.articleCount,
+      digestResult.subscriberCount,
+      digestResult.status
+    );
+    console.log("Pipeline finished successfully!");
+  } catch (error) {
+    console.error("FATAL ERROR IN PIPELINE:", (error as Error).message);
+    throw error;
+  }
 };
 
 const unauthorized = () =>
