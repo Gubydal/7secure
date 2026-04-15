@@ -10,17 +10,21 @@ const fetchSingleSource = async (source: RSSSource): Promise<RawFeedItem[]> => {
     const response = await fetch(source.url, {
       signal: controller.signal,
       headers: {
-        "User-Agent": "7secure-worker/1.0"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
       }
     });
 
     if (!response.ok) {
+      console.error(`Failed to fetch ${source.url}: HTTP ${response.status}`);
       return [];
     }
 
     const xml = await response.text();
-    return parseFeedXml(xml, source);
-  } catch {
+    const parsed = parseFeedXml(xml, source);
+    console.log(`Successfully parsed ${parsed.length} items from ${source.url}`);
+    return parsed;
+  } catch (error) {
+    console.error(`Error fetching/parsing ${source.url}:`, (error as Error).message);
     return [];
   } finally {
     clearTimeout(timeout);
