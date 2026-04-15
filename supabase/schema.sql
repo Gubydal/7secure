@@ -1,0 +1,46 @@
+CREATE TABLE articles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug TEXT UNIQUE NOT NULL,
+  title TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  content TEXT NOT NULL,
+  category TEXT NOT NULL,
+  source_name TEXT NOT NULL,
+  source_url TEXT NOT NULL,
+  original_url TEXT NOT NULL,
+  image_url TEXT,
+  published_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  is_featured BOOLEAN DEFAULT FALSE,
+  tags TEXT[] DEFAULT '{}'
+);
+
+CREATE TABLE subscribers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT UNIQUE NOT NULL,
+  confirmed BOOLEAN DEFAULT FALSE,
+  resend_contact_id TEXT,
+  subscribed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  unsubscribed_at TIMESTAMPTZ
+);
+
+CREATE TABLE digest_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  article_count INT NOT NULL,
+  subscriber_count INT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'success'
+);
+
+CREATE INDEX idx_articles_published_at ON articles(published_at DESC);
+CREATE INDEX idx_articles_category ON articles(category);
+CREATE INDEX idx_articles_slug ON articles(slug);
+CREATE INDEX idx_subscribers_email ON subscribers(email);
+
+ALTER TABLE articles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subscribers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE digest_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public read articles" ON articles FOR SELECT USING (true);
+CREATE POLICY "Service role full access articles" ON articles USING (auth.role() = 'service_role');
+CREATE POLICY "Service role full access subscribers" ON subscribers USING (auth.role() = 'service_role');
+CREATE POLICY "Service role full access digest_logs" ON digest_logs USING (auth.role() = 'service_role');
