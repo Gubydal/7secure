@@ -17,7 +17,8 @@ import {
   Search,
   CheckCircle2,
   X,
-  Menu
+  Menu,
+  Send
 } from "lucide-react";
 
 export default function Home() {
@@ -166,9 +167,23 @@ export default function Home() {
           <p className="text-base md:text-lg text-zinc-400 mb-10 max-w-2xl px-4">
             Get the latest cybersecurity news, understand current threats, and learn how to secure your infrastructure against modern attacks.
           </p>
-                      <div className="flex w-full max-w-sm mx-auto mt-4 mb-4">
-              <Button variant="primary" onPress={() => setIsOpen(true)} className="bg-white text-black font-bold h-12 w-full rounded-lg hover:bg-zinc-200 transition-colors">
-                Subscribe for Free
+                      <div className="flex bg-white w-full max-w-md mx-auto mt-4 mb-4 rounded-[0.85rem] p-[5px] items-center">
+              <input 
+                type="email" 
+                placeholder="Email Address" 
+                autoComplete="email"
+                className="flex-1 bg-transparent border-none outline-none px-4 text-zinc-900 placeholder:text-zinc-500 text-[15px]"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") setIsOpen(true);
+                }}
+              />
+              <Button 
+                variant="primary" 
+                onPress={() => setIsOpen(true)} 
+                className="bg-[#18181b] text-white font-semibold text-[15px] h-10 px-5 rounded-lg hover:bg-zinc-800 transition-colors flex items-center justify-center min-w-max"
+              >
+                <span>Subscribe</span>
+                <Send className="w-4 h-4 ml-1.5 opacity-90 stroke-[2px]" />
               </Button>
             </div>
           <div className="mt-8 flex flex-col items-center">
