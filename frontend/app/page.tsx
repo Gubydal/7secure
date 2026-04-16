@@ -176,7 +176,7 @@ export default function Home() {
             </p>
             <div className="flex justify-center items-center opacity-60 hover:opacity-80 transition-opacity">
               {/* Replace generic texts with actual company logo SVG line */}
-              <Image src="/icons.svg" alt="Leading Companies" width={400} height={45} className="max-w-full" />
+              <Image src="/icons.svg" alt="Leading Companies" width={400} height={45} className="max-w-full invert brightness-0" />
             </div>
           </div>
         </div>
@@ -251,7 +251,7 @@ export default function Home() {
                       {/* Author Area */}
                       <div className="flex items-center mt-auto border-t border-zinc-100 pt-5">
                         <div className="w-9 h-9 rounded-full bg-zinc-200 overflow-hidden relative mr-3 border border-zinc-200 flex items-center justify-center shrink-0 text-zinc-400 text-xs font-bold">
-                           <Image src={article.authorImage} alt={article.author} fill className="object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                           <Image src={article.authorImage} alt={article.author} fill className={article.authorImage.includes("Small_Icon") ? "object-contain bg-[#09090b] p-[6px]" : "object-cover"} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                         </div>
                         <div>
                           <p className="text-sm font-semibold text-zinc-900 leading-none">{article.author}</p>
@@ -302,7 +302,7 @@ export default function Home() {
       </main>
 
       {/* 3. INTERSECTION QUOTE SECTION (BLACK) */}
-      <section className="w-full bg-[#09090b] text-[#fafafa] pt-32 pb-24 px-6 text-center border-t border-white/5 relative -mt-10 z-10 rounded-b-[2.5rem]">
+      <section className="w-[calc(100%-2rem)] max-w-6xl mx-auto bg-[#09090b] text-[#fafafa] pt-24 pb-24 px-6 text-center border border-white/10 relative -mt-10 z-10 rounded-[2.5rem] shadow-2xl">
         <div className="max-w-3xl mx-auto text-center flex flex-col items-center">
           <h2 className="text-2xl md:text-4xl font-bold mb-8 leading-snug">
             "Information security is not a project, it's an ongoing discipline. Stay updated daily."
@@ -314,7 +314,7 @@ export default function Home() {
       </section>
 
       {/* 4. EXTANDED FOOTER (WHITE) */}
-      <footer className="w-full bg-white border-t border-zinc-200 py-16 px-6 relative z-10">
+      <footer className="w-[calc(100%-2rem)] max-w-6xl mx-auto bg-white border border-zinc-200 py-16 px-6 relative z-10 rounded-[2.5rem] mt-6 mb-6 shadow-xl">
         <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-10">
           
           <div className="flex flex-col items-start gap-4 md:col-span-1">
@@ -381,7 +381,7 @@ export default function Home() {
               <div className="p-8">
                 {/* Header */}
                 <div className="flex flex-col items-center justify-center mb-8">
-                  <Image src="/Small_Icon.svg" alt="Icon" width={36} height={36} className="mb-3 brightness-0" />
+                  <Image src="/Small_Icon.svg" alt="Icon" width={32} height={32} className="mb-3 bg-[#09090b] rounded-full p-1.5" />
                   <h2 className="text-2xl font-bold text-zinc-900 text-center">Join 7secure</h2>
                   {modalStep !== 4 && (
                     <p className="text-sm text-zinc-500 mt-1 text-center">Step {modalStep} of 3</p>
