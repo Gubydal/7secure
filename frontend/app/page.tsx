@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { supabasePublic, type ArticleRecord } from '../lib/supabase';
+import { AnimatedHero } from '../components/AnimatedHero';
+import { SectionFade } from '../components/SectionFade';
 import { SubscribeForm } from '../components/SubscribeForm';
 
 export const revalidate = 3600;
@@ -19,153 +21,128 @@ export default async function HomePage() {
   const recentList = articles.slice(1, 4);
 
   return (
-    <main className="max-w-7xl mx-auto px-4 pb-24 md:px-8 flex flex-col gap-16 overflow-hidden">
+    <main className="flex flex-col w-full bg-[#0A0A0A] overflow-hidden selection:bg-blue-600 selection:text-white pt-24">
       
-      {/* HERO SECTION */}
-      <section className="relative w-full rounded-[2.5rem] bg-[#111116] overflow-hidden text-center py-20 px-6 mt-4 shadow-2xl flex flex-col items-center justify-center">
-        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(circle at top left, rgba(255, 110, 140, 0.15) 0%, transparent 50%), radial-gradient(circle at top right, rgba(0, 200, 255, 0.05) 0%, transparent 50%)' }}></div>
-        
-        <p className="text-brand-pink text-xs font-bold tracking-[0.25em] mb-8 uppercase">Daily Security Briefing</p>
-        
-        <h1 className="text-white text-5xl md:text-[5.5rem] font-bold leading-[1.05] tracking-tight max-w-4xl mx-auto mb-6">
-          Learn cyber in <span className="text-brand-pink">5 minutes</span> a day.
-        </h1>
-        
-        <p className="text-gray-300 text-lg md:text-xl max-w-2xl mx-auto mb-10">
-          Get high-signal threat intelligence, practical security habits, and trending tools in one fast read.
-        </p>
+      {/* 1. ANIMATED HERO SECTION (Full Width SaaS Look) */}
+      <AnimatedHero />
 
-        {/* Real Subscribe Form Wrapped for Figma UI */}
-        <div className="flex w-full max-w-[500px] mx-auto bg-[#1A1C23] border border-[#2B2D31] p-1.5 rounded-full items-center mb-8 relative z-10 transition-shadow focus-within:shadow-[0_0_0_2px_rgba(255,107,139,0.3)]">
-          <SubscribeForm 
-            mode="subscribe" 
-            className="flex w-full"
-          />
-        </div>
-
-        <div className="flex flex-wrap gap-4 justify-center mb-16 relative z-10">
-          <Link href="/articles" className="bg-[#1A1C23] border border-[#2B2D31] text-white/90 px-6 py-2.5 rounded-full text-sm font-bold hover:bg-[#252830] transition">
-            Browse articles
-          </Link>
-          <Link href="/practices" className="bg-[#1A1C23] border border-[#2B2D31] text-white/90 px-6 py-2.5 rounded-full text-sm font-bold hover:bg-[#252830] transition">
-            Explore practices
-          </Link>
-        </div>
-
-        <div className="relative z-10 w-full max-w-4xl opacity-80">
-          <p className="text-gray-400 text-xs font-semibold mb-4">Trusted by teams using</p>
-          <div className="flex flex-wrap justify-center gap-3">
-            {['Google', 'Microsoft', 'Cisco', 'Cloudflare', 'IBM', 'OpenAI'].map(brand => (
-              <div key={brand} className="bg-[#16181D] border border-[#2B2D31] rounded-full px-8 py-2.5 text-[0.8rem] font-bold text-gray-300 hover:text-white transition cursor-default">
-                {brand}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* LATEST ARTICLES section */}
-      <section className="bg-white rounded-[2.5rem] p-8 md:p-14 shadow-sm border border-[#E5E7EB]">
-        <div className="flex justify-between items-end mb-10">
-          <div>
-            <p className="text-brand-pink text-xs font-bold tracking-[0.2em] mb-3 uppercase">Latest Articles</p>
-            <h2 className="text-4xl font-extrabold tracking-tight mb-3">Latest Articles</h2>
-            <p className="text-gray-500 max-w-xl text-sm leading-relaxed">The latest cybersecurity stories rewritten into concise blocks that are easy to scan.</p>
-          </div>
-          <Link href="/articles" className="bg-[#111] text-white px-6 py-2.5 rounded-full font-bold text-sm tracking-wide hover:bg-black/80 transition hidden md:block">
-            Show more
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_minmax(0,1fr)] gap-8">
-          {featured && (
-            <div className="flex flex-col gap-4">
-              <div className="w-full aspect-[4/3] rounded-2xl bg-gradient-to-br from-pink-100 to-indigo-100 mb-2 overflow-hidden border border-gray-100">
-                {featured.image_url && <img src={featured.image_url} alt={featured.title} className="w-full h-full object-cover mix-blend-multiply opacity-80" />}
-              </div>
-              <div className="inline-block border border-brand-pink text-brand-pink text-[9px] font-extrabold px-3 py-1 rounded-full uppercase tracking-widest self-start">
-                {featured.category || 'AI Security'}
-              </div>
-              <Link href={`/articles/${featured.slug}`} className="text-[1.75rem] md:text-[2rem] font-extrabold leading-tight hover:text-brand-pink transition-colors">
-                {featured.title}
-              </Link>
-              <p className="text-gray-600 text-[1.1rem] leading-relaxed line-clamp-3">
-                {featured.summary}
-              </p>
+      {/* 2. LATEST ARTICLES (Full Width Dark Section) */}
+      <SectionFade className="w-full relative z-10 py-32 border-t border-white/[0.05] bg-[#0A0A0A]">
+        <div className="max-w-7xl mx-auto px-6 md:px-12 w-full">
+          <div className="flex flex-col md:flex-row justify-between md:items-end mb-20 gap-6">
+            <div>
+              <p className="text-blue-500 text-xs font-bold tracking-[0.2em] mb-4 uppercase">Latest Briefings</p>
+              <h2 className="text-white text-4xl md:text-5xl font-extrabold tracking-tight mb-4">Latest Articles</h2>
+              <p className="text-gray-400 max-w-xl text-base leading-relaxed">High-signal intelligence rewritten into concise read protocols that respect your time.</p>
             </div>
-          )}
+            <Link href="/articles" className="bg-[#1A1A1A] border border-[#2B2B2B] text-white px-8 py-3 rounded-full font-bold text-sm tracking-wide hover:bg-[#252525] hover:border-blue-500/30 hover:shadow-[0_0_20px_rgba(59,130,246,0.15)] transition-all">
+              View all insights
+            </Link>
+          </div>
 
-          <div className="flex flex-col gap-4">
-            {recentList.map(a => (
-              <div key={a.id} className="flex flex-col sm:flex-row gap-5 border border-gray-100 rounded-3xl p-4 hover:shadow-[0_4px_20px_rgba(0,0,0,0.03)] transition bg-white items-start">
-                <div className="w-full sm:w-28 h-32 sm:h-28 rounded-[1.25rem] bg-gradient-to-br from-blue-50 to-orange-50 shrink-0 overflow-hidden border border-gray-50">
-                  {a.image_url && <img src={a.image_url} alt={a.title} className="w-full h-full object-cover opacity-80" />}
-                </div>
-                <div className="flex-1 flex flex-col justify-center h-full">
-                  <div className="inline-block border border-orange-400 text-orange-400 text-[9px] font-bold px-3 py-0.5 rounded-full uppercase tracking-wider self-start mb-2.5">
-                    {a.category || 'Vulnerabilities'}
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_minmax(0,1fr)] gap-10">
+            {featured && (
+              <div className="flex flex-col group cursor-pointer h-full">
+                <div className="w-full relative aspect-[16/10] rounded-2xl bg-[#111] border border-white/[0.05] overflow-hidden mb-6 group-hover:border-blue-500/30 transition-colors">
+                  {featured.image_url && <img src={featured.image_url} alt={featured.title} className="w-full h-full object-cover opacity-60 group-hover:scale-105 group-hover:opacity-80 transition-all duration-700 mix-blend-screen" />}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+                  <div className="absolute bottom-6 left-6 flex items-center gap-3">
+                    <span className="bg-blue-500 text-white text-[10px] font-extrabold px-3 py-1 rounded-sm uppercase tracking-widest">
+                      {featured.category || 'AI Security'}
+                    </span>
                   </div>
-                  <Link href={`/articles/${a.slug}`} className="text-[1.1rem] font-bold leading-tight hover:text-brand-pink transition-colors mb-2 line-clamp-2">
-                    {a.title}
+                </div>
+                <Link href={`/articles/${featured.slug}`} className="text-white text-[2rem] font-extrabold leading-[1.1] group-hover:text-blue-400 transition-colors mb-4">
+                  {featured.title}
+                </Link>
+                <p className="text-gray-400 text-lg leading-relaxed line-clamp-3">
+                  {featured.summary}
+                </p>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-6 h-full justify-between">
+              {recentList.map(a => (
+                <div key={a.id} className="group flex flex-col sm:flex-row gap-6 p-5 border border-white/[0.05] rounded-2xl hover:bg-white/[0.02] hover:border-blue-500/20 transition-all items-start h-full">
+                  <div className="w-full sm:w-36 h-36 rounded-xl bg-[#111] overflow-hidden border border-white/[0.05] shrink-0">
+                    {a.image_url && <img src={a.image_url} alt={a.title} className="w-full h-full object-cover opacity-50 group-hover:scale-105 transition-all duration-500" />}
+                  </div>
+                  <div className="flex-1 flex flex-col justify-between h-full py-1">
+                    <div className="flex flex-col gap-3">
+                      <span className="text-blue-500 text-[10px] font-bold uppercase tracking-wider">
+                        {a.category || 'Vulnerabilities'}
+                      </span>
+                      <Link href={`/articles/${a.slug}`} className="text-white text-[1.2rem] font-bold leading-tight group-hover:text-blue-400 transition-colors line-clamp-2">
+                        {a.title}
+                      </Link>
+                    </div>
+                    <p className="text-gray-500 text-sm font-medium mt-4">
+                      {new Date(a.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </SectionFade>
+
+      {/* 3. TRENDING TOOLS */}
+      <SectionFade className="w-full relative py-32 bg-black border-t border-white/[0.05]">
+        <div className="max-w-7xl mx-auto px-6 md:px-12 w-full">
+          <div className="flex flex-col md:flex-row justify-between md:items-end mb-16 gap-6">
+            <div>
+              <p className="text-blue-500 text-xs font-bold tracking-[0.2em] mb-4 uppercase">Trending Tools</p>
+              <h2 className="text-white text-4xl md:text-5xl font-extrabold tracking-tight mb-4">Tactical Arsenal</h2>
+              <p className="text-gray-400 max-w-xl text-base leading-relaxed">The resources that remove guesswork and noise from your security operations.</p>
+            </div>
+            <Link href="/tools" className="bg-[#1A1A1A] border border-[#2B2B2B] text-white px-8 py-3 rounded-full font-bold text-sm tracking-wide hover:bg-[#252525] hover:border-blue-500/30 transition-all">
+              Explore Arsenal
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              { cat: 'Exposure', title: 'Shodan API Map', desc: 'Monitor exposed services and risky ports directly.', icon: 'M5 12h14M12 5l7 7-7 7' },
+              { cat: 'Ingestion', title: 'Feedly Threat Board', desc: 'Centralize tagged stories into clean daily workflows.', icon: 'M4 6h16M4 12h16m-7 6h7' },
+              { cat: 'Analysis', title: 'VirusTotal Graph', desc: 'Fast reputation context mapping for active threats.', icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
+              { cat: 'Compliance', title: 'NIST Cyber Engine', desc: 'Official references for control frameworks.', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' }
+            ].map((t, idx) => (
+              <div key={idx} className="group flex flex-col p-8 border border-white/[0.05] bg-[#0A0A0A] hover:bg-[#111] rounded-2xl hover:-translate-y-1 transition-all h-full shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 group-hover:text-blue-500 transition-all transform group-hover:translate-x-2 group-hover:-translate-y-2">
+                  <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d={t.icon}></path></svg>
+                </div>
+                <div className="flex-1 flex flex-col relative z-10">
+                  <p className="text-gray-500 text-[10px] font-bold tracking-[0.15em] mb-4 uppercase">{t.cat}</p>
+                  <h3 className="text-xl font-bold leading-snug mb-3 text-white group-hover:text-blue-400 transition-colors">{t.title}</h3>
+                  <p className="text-gray-400 text-sm leading-relaxed mb-8 flex-1">{t.desc}</p>
+                  <Link href="/tools" className="text-blue-500 font-bold text-sm tracking-wide group-hover:underline underline-offset-4 decoration-blue-500/30 flex items-center gap-2">
+                    Access tool 
+                    <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                   </Link>
-                  <p className="text-gray-400 text-xs font-medium mt-auto">
-                    {new Date(a.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </p>
                 </div>
               </div>
             ))}
           </div>
         </div>
-      </section>
+      </SectionFade>
 
-      {/* TRENDING TOOLS */}
-      <section className="bg-white rounded-[2.5rem] p-8 md:p-14 shadow-sm border border-[#E5E7EB]">
-        <div className="flex justify-between items-end mb-10">
-          <div>
-            <p className="text-brand-pink text-xs font-bold tracking-[0.2em] mb-3 uppercase">Trending Tools</p>
-            <h2 className="text-4xl font-extrabold tracking-tight mb-3">Tools worth keeping open</h2>
-            <p className="text-gray-500 max-w-xl text-sm leading-relaxed">The references and utilities that reduce guesswork when something needs checking fast.</p>
-          </div>
-          <Link href="/tools" className="bg-[#111] text-white px-6 py-2.5 rounded-full font-bold text-sm tracking-wide hover:bg-black/80 transition hidden md:block">
-            Show more
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[
-            { cat: 'Trending', title: 'Shodan for exposure tracking', desc: 'Monitor exposed services, risky ports, and unexpected internet-facing assets in your environment.', color: 'from-blue-50 to-indigo-100' },
-            { cat: 'Automation', title: 'Use Feedly to centralize your threat intel', desc: 'Collect sources, tag stories, and move the most relevant articles into a clean daily workflow.', color: 'from-cyan-50 to-sky-100' },
-            { cat: 'Analysis', title: 'VirusTotal for quick domain checks', desc: 'Fast reputation checks for domains, hashes, and URLs when something looks suspicious.', color: 'from-pink-50 to-rose-100' },
-            { cat: 'Reference', title: 'NIST CSRC for control mapping', desc: 'Use the official source when you need a control, framework, or compliance reference that sticks.', color: 'from-orange-50 to-amber-100' }
-          ].map((t, idx) => (
-            <div key={idx} className="flex flex-col border border-gray-100 bg-[#FAFAFA] rounded-3xl hover:shadow-[0_4px_20px_rgba(0,0,0,0.03)] transition overflow-hidden h-full">
-              <div className={`h-[140px] bg-gradient-to-br ${t.color} w-full`}></div>
-              <div className="p-6 flex-1 flex flex-col pt-5">
-                <p className="text-[#64748B] text-[10px] font-bold tracking-[0.15em] mb-3 uppercase">{t.cat}</p>
-                <h3 className="text-lg font-bold leading-snug mb-3 text-[#111]">{t.title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed mb-6 flex-1">{t.desc}</p>
-                <Link href="/tools" className="text-brand-pink font-bold text-sm hover:underline underline-offset-4 mt-auto border-b border-transparent hover:border-brand-pink pb-0.5 inline-block self-start">Read more</Link>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* FOOTER CTA */}
-      <section className="bg-[#111116] rounded-[2.5rem] p-10 md:p-16 text-center text-white shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-pink-500/10 to-transparent rounded-full blur-3xl"></div>
-        <div className="relative z-10">
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">Never miss critical security updates</h2>
-          <p className="text-gray-400 mb-10 max-w-lg mx-auto text-[0.95rem]">Join 7secure for your daily intelligence briefing in one modern email.</p>
+      {/* 4. CALL TO ACTION FOOTING */}
+      <SectionFade className="w-full border-t border-white/[0.05] bg-[#0A0A0A] py-32 relative overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-blue-600/10 blur-[120px] rounded-full pointer-events-none"></div>
+        <div className="max-w-4xl mx-auto px-6 text-center relative z-10">
+          <h2 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-6 text-white">Join the frontline tier.</h2>
+          <p className="text-gray-400 mb-12 text-lg md:text-xl">Stop drowning in noise. Subscribe for clear, vetted, and actionable cybersecurity intelligence.</p>
           
-          <div className="flex w-full max-w-[450px] mx-auto bg-[#1A1C23] border border-[#2B2D31] p-1.5 rounded-full items-center relative transition-shadow focus-within:shadow-[0_0_0_2px_rgba(255,107,139,0.3)]">
+          <div className="flex w-full max-w-[450px] mx-auto bg-[#141414] border border-white/[0.1] p-1.5 rounded-full items-center relative transition-shadow focus-within:shadow-[0_0_0_2px_rgba(59,130,246,0.3)] shadow-2xl">
             <SubscribeForm 
               mode="subscribe" 
               className="flex w-full"
             />
           </div>
         </div>
-      </section>
+      </SectionFade>
+
     </main>
   );
 }

@@ -33,8 +33,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className="bg-[#F4F1EB]">
-      <body className={`${alsAgro.variable} ${jetBrainsMono.variable} antialiased min-h-screen flex flex-col font-sans`}>
+    <html lang="en" className="scroll-smooth">
+      <body className={`${alsAgro.variable} ${jetBrainsMono.variable} antialiased min-h-screen flex flex-col font-sans bg-[#0A0A0A] text-[#EDEDED]`}>
         <Header />
         {children}
         <Footer />

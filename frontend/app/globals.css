@@ -4,8 +4,8 @@
 
 @layer base {
   :root {
-    --background: #F4F1EB;
-    --foreground: #111111;
+    --background: #0A0A0A;
+    --foreground: #EDEDED;
   }
   body {
     background-color: var(--background);
@@ -17,12 +17,18 @@
 
 @layer utilities {
   .text-brand-pink {
-    color: #FF7B93;
+    color: #FF7B93; /* We might keep a hint, or use blue as requested */
   }
-  .bg-brand-dark {
-    background: linear-gradient(135deg, #1C151B 0%, #0A1118 100%);
+  .text-brand-blue {
+    background: linear-gradient(90deg, #3B82F6, #60A5FA);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
   }
-  .border-brand-dark {
-    border-color: rgba(255, 255, 255, 0.1);
+  .bg-glass {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
   }
 }
