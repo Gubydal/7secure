@@ -49,7 +49,7 @@ export function SubscribeForm({
   };
 
   return (
-    <form className={\\\.trim()} onSubmit={onSubmit}>
+    <form className={`${className || ''}`.trim()} onSubmit={onSubmit}>
       <input
         type="email"
         required

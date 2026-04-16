@@ -86,7 +86,7 @@ export default async function HomePage() {
               <div className="inline-block border border-brand-pink text-brand-pink text-[9px] font-extrabold px-3 py-1 rounded-full uppercase tracking-widest self-start">
                 {featured.category || 'AI Security'}
               </div>
-              <Link href={\/articles/\\} className="text-[1.75xl] md:text-[2rem] font-extrabold leading-tight hover:text-brand-pink transition-colors">
+              <Link href={`/articles/${featured.slug}`} className="text-[1.75xl] md:text-[2rem] font-extrabold leading-tight hover:text-brand-pink transition-colors">
                 {featured.title}
               </Link>
               <p className="text-gray-600 text-[1.1rem] leading-relaxed line-clamp-3">
@@ -105,7 +105,7 @@ export default async function HomePage() {
                   <div className="inline-block border border-orange-400 text-orange-400 text-[9px] font-bold px-3 py-0.5 rounded-full uppercase tracking-wider self-start mb-2.5">
                     {a.category || 'Vulnerabilities'}
                   </div>
-                  <Link href={\/articles/\\} className="text-[1.1rem] font-bold leading-tight hover:text-brand-pink transition-colors mb-2 line-clamp-2">
+                  <Link href={`/articles/${a.slug}`} className="text-[1.1rem] font-bold leading-tight hover:text-brand-pink transition-colors mb-2 line-clamp-2">
                     {a.title}
                   </Link>
                   <p className="text-gray-400 text-xs font-medium mt-auto">
@@ -139,7 +139,7 @@ export default async function HomePage() {
             { cat: 'Reference', title: 'NIST CSRC for control mapping', desc: 'Use the official source when you need a control, framework, or compliance reference that sticks.', color: 'from-orange-50 to-amber-100' }
           ].map((t, idx) => (
             <div key={idx} className="flex flex-col border border-gray-100 bg-[#FAFAFA] rounded-3xl hover:shadow-[0_4px_20px_rgba(0,0,0,0.03)] transition overflow-hidden h-full">
-              <div className={\h-[140px] bg-gradient-to-br \ w-full\}></div>
+              <div className={`h-[140px] bg-gradient-to-br ${t.color} w-full`}></div>
               <div className="p-6 flex-1 flex flex-col pt-5">
                 <p className="text-[#64748B] text-[10px] font-bold tracking-[0.15em] mb-3 uppercase">{t.cat}</p>
                 <h3 className="text-lg font-bold leading-snug mb-3 text-[#111]">{t.title}</h3>
