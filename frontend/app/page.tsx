@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { Button, Checkbox } from "@heroui/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Star, 
@@ -45,28 +45,23 @@ export default function Home() {
   ];
 
   // Placeholder for Supabase Articles
-  const [articles, setArticles] = useState([
-    {
-      id: 1,
-      title: "Zero-Day Exploit Found in Popular VPN",
-      excerpt: "Attackers are exploiting a new vulnerability in market-leading VPN software. Here is how to patch it immediately.",
-      label: "Security",
-      author: "7secure",
-      authorImage: "/Small_Icon.svg", 
-      cover: "/cover.avif", 
-      date: "Oct 24, 2026",
-    },
-    {
-      id: 2,
-      title: "The Rise of AI-Generated Phishing",
-      excerpt: "How threat actors are utilizing LLMs to craft hyper-personalized and error-free phishing campaigns at scale.",
-      label: "Agents",
-      author: "Jane Doe",
-      authorImage: "/cover.avif",
-      cover: "/cover.avif",
-      date: "Oct 22, 2026",
-    }
-  ]);
+  const [articles, setArticles] = useState<any[]>([]);
+
+  useEffect(() => {
+    import("../lib/supabase").then(({ supabasePublic }) => {
+      supabasePublic.from("articles").select("*").order("published_at", { ascending: false }).limit(6).then(({ data, error }) => {
+        if (data && !error) {
+          setArticles(data);
+        } else {
+          // Fallback dummy data if DB is empty or fails
+          setArticles([
+            { id: "fallback-1", slug: "zero-day-exploit-vpn", title: "Zero-Day Exploit Found in Popular VPN", summary: "Attackers are exploiting a new vulnerability in market-leading VPN software. Here is how to patch it immediately.", category: "Security", published_at: "2026-10-24T00:00:00Z" },
+            { id: "fallback-2", slug: "rise-of-ai-phishing", title: "The Rise of AI-Generated Phishing", summary: "How threat actors are utilizing LLMs to craft hyper-personalized and error-free phishing campaigns at scale.", category: "Agents", published_at: "2026-10-22T00:00:00Z" }
+          ]);
+        }
+      });
+    });
+  }, []);
 
   const toggleInterest = (interest: string) => {
     setInterests(prev => 
@@ -171,7 +166,11 @@ export default function Home() {
           <p className="text-base md:text-lg text-zinc-400 mb-10 max-w-2xl px-4">
             Get the latest cybersecurity news, understand current threats, and learn how to secure your infrastructure against modern attacks.
           </p>
-          
+                      <div className="flex w-full max-w-sm mx-auto mt-4 mb-4">
+              <Button variant="primary" onPress={() => setIsOpen(true)} className="bg-white text-black font-bold h-12 w-full rounded-lg hover:bg-zinc-200 transition-colors">
+                Subscribe for Free
+              </Button>
+            </div>
           <div className="mt-8 flex flex-col items-center">
             <p className="text-sm font-medium text-zinc-500 mb-6 uppercase tracking-wider">
               Join readers from leading companies
@@ -233,30 +232,30 @@ export default function Home() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
                {articles.map((article) => (
-                  <article key={article.id} onClick={() => window.location.href=`/articles/${article.id}`} className="group flex flex-col bg-white border border-zinc-200 rounded-xl overflow-hidden hover:border-zinc-300 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer relative bg-clip-padding">
+                  <article key={article.id} onClick={() => window.location.href=`/articles/${article.slug}`} className="group flex flex-col bg-white border border-zinc-200 rounded-xl overflow-hidden hover:border-zinc-300 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer relative bg-clip-padding">
                     <div className="aspect-[16/9] w-full bg-zinc-200 relative overflow-hidden flex items-center justify-center">
                       <span className="text-zinc-400 font-mono text-xs">Cover Image Placeholder</span>
                       <div className="absolute bottom-3 left-3 bg-white border border-zinc-200 shadow-sm text-xs font-bold text-zinc-800 px-3 py-1.5 rounded-md backdrop-blur">
-                        {article.label}
+                        {article.category}
                       </div>
                     </div>
                     
                     <div className="p-6 flex flex-col flex-1">
-                      <p className="text-xs text-zinc-400 font-mono mb-3">{article.date}</p>
+                      <p className="text-xs text-zinc-400 font-mono mb-3">{new Date(article.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
                       <h3 className="text-xl font-bold text-zinc-900 mb-3 leading-tight group-hover:text-blue-600 transition-colors">
                         {article.title}
                       </h3>
                       <p className="text-zinc-600 text-sm leading-relaxed line-clamp-3 mb-6 flex-1">
-                        {article.excerpt}
+                        {article.summary}
                       </p>
                       
                       {/* Author Area */}
                       <div className="flex items-center mt-auto border-t border-zinc-100 pt-5">
                         <div className="w-9 h-9 rounded-full bg-zinc-200 overflow-hidden relative mr-3 border border-zinc-200 flex items-center justify-center shrink-0 text-zinc-400 text-xs font-bold">
-                           <Image src={article.authorImage} alt={article.author} fill className={article.authorImage.includes("Small_Icon") ? "object-contain bg-[#09090b] p-[6px]" : "object-cover"} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                           <Image src={article.authorImage || "/Small_Icon.svg"} alt={(article.author || "7secure")} fill className={article.authorImage || "/Small_Icon.svg".includes("Small_Icon") ? "object-contain bg-[#09090b] p-[6px]" : "object-cover"} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-zinc-900 leading-none">{article.author}</p>
+                          <p className="text-sm font-semibold text-zinc-900 leading-none">{(article.author || "7secure")}</p>
                           <p className="text-xs text-zinc-500 mt-1">Source Analysis</p>
                         </div>
                       </div>
@@ -304,7 +303,7 @@ export default function Home() {
       </main>
 
       {/* 3. INTERSECTION QUOTE SECTION (BLACK) */}
-      <section className="w-[calc(100%-2rem)] max-w-6xl mx-auto bg-[#09090b] text-[#fafafa] pt-24 pb-24 px-6 text-center border border-white/10 relative -mt-10 z-10 rounded-[2.5rem] shadow-2xl">
+      <section className="w-full bg-[#09090b] text-[#fafafa] pt-24 pb-24 px-6 text-center relative z-10 -mt-10 rounded-b-[2.5rem]">
         <div className="max-w-3xl mx-auto text-center flex flex-col items-center">
           <h2 className="text-2xl md:text-4xl font-bold mb-8 leading-snug">
             "Information security is not a project, it's an ongoing discipline. Stay updated daily."
@@ -316,7 +315,7 @@ export default function Home() {
       </section>
 
       {/* 4. EXTANDED FOOTER (WHITE) */}
-      <footer className="w-[calc(100%-2rem)] max-w-6xl mx-auto bg-white border border-zinc-200 py-16 px-6 relative z-10 rounded-[2.5rem] mt-6 mb-6 shadow-xl">
+      <footer className="w-full bg-white border-t border-zinc-200 py-16 px-6 relative z-10 mt-12 md:mt-24 rounded-t-[2.5rem]">
         <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-10">
           
           <div className="flex flex-col items-start gap-4 md:col-span-1">
