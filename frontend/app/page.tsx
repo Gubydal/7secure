@@ -74,9 +74,24 @@ export default function Home() {
     );
   };
 
-  const handleSubscribeSubmit = () => {
+  const handleSubscribeSubmit = async () => {
+    try {
+      const res = await fetch("/api/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, interests }),
+      });
+      if (!res.ok) {
+        console.error("Subscription failed");
+        // You might want to show an error toast here
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    
     // Trigger Success Animation
     setIsSuccess(true);
+    setModalStep(4);
     setTimeout(() => {
       setIsOpen(false);
       // Reset after close animation completes
@@ -99,9 +114,7 @@ export default function Home() {
         <header className="flex items-center justify-between px-4 sm:px-6 py-4 sticky top-0 bg-[#09090b]/80 backdrop-blur-md z-40 border-b border-white/10">
           <div className="flex items-center">
             <a href="/">
-               <Image src="/7secure_logo.svg" alt="7secure logo" width={130} height={35} priority className="pl-2" />
-            </a>
-          </div>
+                <Image src="/7secure_logo.svg" alt="7secure logo" width={100} height={28} priority className="pl-2" />
           
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-zinc-400">
@@ -111,7 +124,9 @@ export default function Home() {
           </nav>
           
           <div className="hidden md:flex items-center gap-4">
-            <a href="/login" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors">Login</a>
+              <Button as="a" href="/login" variant="primary" className="bg-white text-black font-semibold text-sm h-9 px-4 rounded-md hover:bg-zinc-200 transition-colors">
+                Login
+              </Button>
             <Button variant="primary" onPress={() => setIsOpen(true)} className="bg-white text-black font-semibold text-sm h-9 px-4 rounded-md hover:bg-zinc-200 transition-colors">
               Subscribe
             </Button>
@@ -136,7 +151,9 @@ export default function Home() {
               <a href="#practices" className="text-white font-medium pl-2" onClick={() => setIsMobileMenuOpen(false)}>Playbook</a>
               <a href="#tools" className="text-white font-medium pl-2" onClick={() => setIsMobileMenuOpen(false)}>Tools</a>
               <hr className="border-white/10 my-2" />
-              <a href="/login" className="text-white font-medium pl-2">Login</a>
+                <Button as="a" href="/login" variant="primary" className="bg-white text-black font-semibold text-sm h-10 w-full rounded-md mt-2">
+                  Login
+                </Button>
               <Button variant="primary" onPress={() => { setIsMobileMenuOpen(false); setIsOpen(true); }} className="bg-white text-black font-semibold text-sm h-10 w-full rounded-md mt-2">
                 Subscribe
               </Button>
@@ -165,8 +182,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 2. NEWSLETTER CONTENT (WHITE) -> Rounded top intersection */}
-      <main className="flex-1 w-full bg-white text-zinc-900 rounded-t-[2.5rem] -mt-10 relative z-10 pt-16 pb-20 shadow-[-10px_-10px_30px_0px_rgba(0,0,0,0.5)]">
+      {/* 2. NEWSLETTER CONTENT (WHITE) -> Rounded top & bottom intersection */}
+      <main className="flex-1 w-full bg-white text-zinc-900 rounded-[2.5rem] -mt-10 relative z-20 pt-16 pb-20 shadow-2xl">
         <div className="max-w-5xl mx-auto px-6 text-center">
           
           {/* SEARCH & FILTERS */}
@@ -272,14 +289,11 @@ export default function Home() {
                        <p className="text-sm text-zinc-500">Framework Guide • Updated Today</p>
                      </div>
                    </div>
-                   <div className="w-8 h-8 rounded-full bg-white border border-zinc-200 flex items-center justify-center text-zinc-400 group-hover:text-blue-600 group-hover:border-blue-200 transition-colors">
-                      →
-                   </div>
-                 </a>
+                   </a>
                ))}
                <div className="mt-8 text-center pt-4">
                  <a href="/tools" className="text-blue-600 font-medium hover:text-blue-700 text-sm inline-flex items-center gap-1">
-                   View all tools and practices <span aria-hidden="true">&rarr;</span>
+                     View all tools and practices
                  </a>
                </div>
             </div>
@@ -288,7 +302,7 @@ export default function Home() {
       </main>
 
       {/* 3. INTERSECTION QUOTE SECTION (BLACK) */}
-      <section className="w-full bg-[#09090b] text-[#fafafa] py-24 px-6 text-center border-t border-white/5 relative z-0">
+      <section className="w-full bg-[#09090b] text-[#fafafa] pt-32 pb-24 px-6 text-center border-t border-white/5 relative -mt-10 z-10 rounded-b-[2.5rem]">
         <div className="max-w-3xl mx-auto text-center flex flex-col items-center">
           <h2 className="text-2xl md:text-4xl font-bold mb-8 leading-snug">
             "Information security is not a project, it's an ongoing discipline. Stay updated daily."
@@ -304,7 +318,7 @@ export default function Home() {
         <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-10">
           
           <div className="flex flex-col items-start gap-4 md:col-span-1">
-             <Image src="/7secure_logo.svg" alt="7secure logo" width={110} height={28} className="brightness-0" />
+              <Image src="/7secure_logo.svg" alt="7secure logo" width={90} height={24} className="brightness-0" />
              <p className="text-sm text-zinc-500 mt-2 leading-relaxed">
                Empowering teams with actionable security intel directly to your inbox.
              </p>

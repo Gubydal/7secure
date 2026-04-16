@@ -1,89 +1,81 @@
-import { NextResponse } from "next/server";
-import { Resend } from "resend";
-import { getSupabaseAdmin } from "../../../lib/supabase";
+﻿import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { Resend } from 'resend';
 
-export const runtime = "edge";
+export const runtime = 'edge';
 
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Initialize Clients directly (skips the old lib)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-const buildWelcomeHtml = (email: string): string => {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-  return `
-  <div style="background:#0a0a0f;padding:24px;font-family:Inter,Arial,sans-serif;color:#e8e8f0;">
-    <div style="max-width:620px;margin:0 auto;background:#10101a;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:22px;">
-      <h1 style="margin:0 0 10px 0;color:#00d4ff;">Welcome to 7secure</h1>
-      <p style="line-height:1.6;color:#cfcfe0;">Your daily security briefing is now active. Expect one concise update every day with high-signal cybersecurity and AI security news.</p>
-      <p style="font-size:13px;color:#8f8fab;">Need to leave anytime? <a style="color:#00d4ff;" href="${siteUrl}/unsubscribe?email=${encodeURIComponent(email)}">Unsubscribe</a>.</p>
-    </div>
-  </div>`;
-};
+if (!supabaseUrl || !supabaseKey) {
+  console.warn('Supabase URL or Key is missing');
+}
+const supabase = createClient(supabaseUrl, supabaseKey);
+const resend = new Resend(process.env.RESEND_API_KEY || '');
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const { email } = (await request.json()) as { email?: string };
+    const { name, email, interests } = await req.json();
 
-    if (!email || !emailRegex.test(email)) {
-      return NextResponse.json({ success: false, error: "Invalid email" }, { status: 400 });
+    if (!email) {
+      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
-    const supabase = getSupabaseAdmin();
-    const resend = new Resend(process.env.RESEND_API_KEY);
+    // 1. Save Subscriber to Supabase (mapping 'name' to the 'role' column from schema)
+    const { error: supabaseError } = await supabase
+      .from('subscribers')
+      .insert([
+        { 
+          email: email, 
+          role: name || null, 
+          interests: interests || []
+        }
+      ]);
 
-    const { data: existing, error: selectError } = await supabase
-      .from("subscribers")
-      .select("id,email")
-      .eq("email", email)
-      .maybeSingle();
-
-    if (selectError) {
-      console.error("Supabase select error:", selectError);
+    if (supabaseError && supabaseError.code !== '23505') { // 23505 is unique violation
+      console.error('Supabase Error:', supabaseError);
+      return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
 
-    if (!existing) {
-      const { error: insertError } = await supabase.from("subscribers").insert({
-        email,
-        confirmed: true,
-        unsubscribed_at: null
-      });
-      if (insertError) console.error("Supabase insert error:", insertError);
-    } else {
-      const { error: updateError } = await supabase
-        .from("subscribers")
-        .update({ confirmed: true, unsubscribed_at: null })
-        .eq("email", email);
-      if (updateError) console.error("Supabase update error:", updateError);
+    // 2. Add to Resend Audience & Send Email (ignoring errors for local testing)
+    if (process.env.RESEND_API_KEY) {
+      if (process.env.RESEND_AUDIENCE_ID) {
+        await fetch('https://api.resend.com/audiences/contacts', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: \Bearer  + "$" + {process.env.RESEND_API_KEY}\
+          },
+          body: JSON.stringify({
+            email,
+            first_name: name,
+            audience_id: process.env.RESEND_AUDIENCE_ID,
+            unsubscribed: false
+          })
+        }).catch(err => console.error("Resend audience error", err));
+      }
+
+      await resend.emails.send({
+        from: \7secure < + "$" + {FROM_EMAIL}>\,
+        to: email,
+        subject: 'Welcome to 7secure 🛡️',
+        html: \
+          <div style="background:#09090b;padding:24px;font-family:Inter,Arial,sans-serif;color:#fafafa;">
+            <h2>Hi  + "$" + {name || 'there'},</h2>
+            <p>You're officially on the 7secure list! We're excited to send you the latest in cybersecurity.</p>
+            <p>You indicated interest in: <strong> + "$" + {interests?.join(', ') || 'General News'}</strong>.</p>
+            <br/>
+            <p>Stay safe,<br/>The 7secure Team</p>
+          </div>
+        \,
+      }).catch(err => console.error("Resend send error", err));
     }
 
-    const contactRes = await fetch("https://api.resend.com/audiences/contacts", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`
-      },
-      body: JSON.stringify({
-        email,
-        audience_id: process.env.RESEND_AUDIENCE_ID,
-        unsubscribed: false
-      })
-    });
-    if (!contactRes.ok) {
-      console.error("Resend audience API error:", contactRes.status, await contactRes.text());
-    }
-
-    const emailRes = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL as string,
-      to: [email],
-      subject: "Welcome to 7secure — Your daily security briefing 🔐",
-      html: buildWelcomeHtml(email)
-    });
-    if (emailRes.error) {
-      console.error("Resend email send error:", emailRes.error);
-      throw emailRes.error;
-    }
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, message: "Subscription completed" }, { status: 200 });
   } catch (error) {
-    console.error("Subscription crash:", error);
-    return NextResponse.json({ success: false, error: "Failed to subscribe" }, { status: 500 });
+    console.error('API Error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
