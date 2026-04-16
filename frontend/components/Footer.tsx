@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SubscribeForm } from "./SubscribeForm";
+import { sectionLinks } from "../lib/newsletter-content";
 
 export function Footer() {
   return (
@@ -7,12 +8,10 @@ export function Footer() {
       <div className="container footer-shell">
         <div className="footer-brand-col">
           <div className="footer-brand-row">
-            <span className="logo-seven">7</span>
-            <span className="logo-text">secure</span>
+            <img src="/brand/7secure_logo.svg" alt="7secure" className="footer-logo" />
           </div>
           <p>
-            Get the latest cyber and AI security developments in one fast daily briefing.
-            Built for security teams, founders, and technical leaders.
+            A focused cybersecurity newsletter with articles, practices, and tools designed to keep the daily read sharp.
           </p>
           <SubscribeForm
             mode="subscribe"
@@ -23,26 +22,25 @@ export function Footer() {
         </div>
 
         <div className="footer-link-col">
-          <h4>Stay Updated</h4>
-          <Link href="/">Articles</Link>
-          <Link href="/">Threat Intel</Link>
-          <Link href="/">Guides</Link>
+          <h4>Explore</h4>
+          {sectionLinks.map((item) => (
+            <Link key={item.label} href={item.href}>
+              {item.label}
+            </Link>
+          ))}
+        </div>
+
+        <div className="footer-link-col">
+          <h4>Daily Read</h4>
+          <Link href="/">Newsletter</Link>
+          <Link href="/articles">Latest Articles</Link>
+          <Link href="/practices">Practices</Link>
+          <Link href="/tools">Tools</Link>
+        </div>
+
+        <div className="footer-link-col">
+          <h4>Support</h4>
           <Link href="/subscribe">Subscribe</Link>
-        </div>
-
-        <div className="footer-link-col">
-          <h4>Security University</h4>
-          <Link href="/">Courses</Link>
-          <Link href="/">Certifications</Link>
-          <Link href="/">Labs</Link>
-          <Link href="/">Workshops</Link>
-        </div>
-
-        <div className="footer-link-col">
-          <h4>Company</h4>
-          <Link href="/">Advertise</Link>
-          <Link href="/">Careers</Link>
-          <Link href="/">Contact</Link>
           <Link href="/unsubscribe">Unsubscribe</Link>
         </div>
       </div>

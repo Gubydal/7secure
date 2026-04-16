@@ -10,6 +10,57 @@ const safeText = (val: any): string => {
   return String(val).trim();
 };
 
+const pickDirectUrl = (value: any): string => {
+  if (!value) return "";
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return /^https?:\/\//i.test(trimmed) ? trimmed : "";
+  }
+  if (Array.isArray(value)) return pickDirectUrl(value[0]);
+  if (typeof value === "object") {
+    return (
+      safeText(value["@_url"]) ||
+      safeText(value["@_href"]) ||
+      pickDirectUrl(value.url) ||
+      pickDirectUrl(value.href) ||
+      pickDirectUrl(value.src)
+    );
+  }
+  return "";
+};
+
+const extractImageUrlFromMarkup = (markup: string): string => {
+  const match = markup.match(/<img[^>]+src=["']([^"']+)["']/i);
+  return match?.[1] || "";
+};
+
+const extractImageUrl = (...candidates: any[]): string | null => {
+  for (const candidate of candidates) {
+    if (typeof candidate === "string") {
+      const fromMarkup = extractImageUrlFromMarkup(candidate);
+      if (fromMarkup) return fromMarkup;
+
+      const direct = pickDirectUrl(candidate);
+      if (direct) return direct;
+      continue;
+    }
+
+    const direct = pickDirectUrl(candidate);
+    if (direct) return direct;
+
+    if (candidate && typeof candidate === "object") {
+      const nested = pickDirectUrl(candidate.url) || pickDirectUrl(candidate.href) || pickDirectUrl(candidate.src);
+      if (nested) return nested;
+
+      const markup = safeText(candidate["#text"]) || safeText(candidate.description) || safeText(candidate.content);
+      const fromMarkup = extractImageUrlFromMarkup(markup);
+      if (fromMarkup) return fromMarkup;
+    }
+  }
+
+  return null;
+};
+
 const parseDate = (value: any): string | null => {
   const str = safeText(value);
   if (!str) return null;
@@ -40,6 +91,15 @@ export const parseFeedXml = (xml: string, source: RSSSource): RawFeedItem[] => {
         const url = safeText(item.link);
         const summary = safeText(item.description) || safeText(item["content:encoded"]);
         const publishedAt = parseDate(item.pubDate);
+        const imageUrl = extractImageUrl(
+          item["media:content"],
+          item["media:thumbnail"],
+          item.enclosure,
+          item.image,
+          item.thumbnail,
+          item.description,
+          item["content:encoded"]
+        );
 
         if (!title || !url || !summary || !publishedAt) continue;
 
@@ -50,7 +110,8 @@ export const parseFeedXml = (xml: string, source: RSSSource): RawFeedItem[] => {
           publishedAt,
           sourceName: source.name,
           sourceUrl,
-          category: source.category
+          category: source.category,
+          imageUrl
         });
 
         if (parsed.length >= 5) break;
@@ -76,6 +137,15 @@ export const parseFeedXml = (xml: string, source: RSSSource): RawFeedItem[] => {
         
         const summary = safeText(entry.summary) || safeText(entry.content);
         const publishedAt = parseDate(entry.updated) || parseDate(entry.published);
+        const imageUrl = extractImageUrl(
+          entry["media:content"],
+          entry["media:thumbnail"],
+          entry.enclosure,
+          entry.image,
+          entry.thumbnail,
+          entry.content,
+          entry.summary
+        );
 
         if (!title || !url || !summary || !publishedAt) continue;
 
@@ -86,7 +156,8 @@ export const parseFeedXml = (xml: string, source: RSSSource): RawFeedItem[] => {
           publishedAt,
           sourceName: source.name,
           sourceUrl,
-          category: source.category
+          category: source.category,
+          imageUrl
         });
 
         if (parsed.length >= 5) break;

@@ -6,6 +6,17 @@ interface Subscriber {
   email: string;
 }
 
+export const getExistingUrls = async (env: WorkerEnv, urls: string[]): Promise<Set<string>> => {
+  if (!urls.length) return new Set();
+  
+  const { data } = await getSupabaseAdmin(env)
+    .from("articles")
+    .select("original_url")
+    .in("original_url", urls);
+
+  return new Set((data || []).map(row => row.original_url));
+};
+
 export const getSupabaseAdmin = (env: WorkerEnv) =>
   createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY, {
     auth: {
@@ -52,10 +63,11 @@ export const getSubscribers = async (env: WorkerEnv): Promise<Subscriber[]> => {
 };
 
 export const getRecentArticles = async (env: WorkerEnv) => {
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  // Only grab articles inserted in the last 23 hours to prevent yesterday's articles from leaking into today's digest if cron runs at slightly off intervals
+  const since = new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString();
   const { data } = await getSupabaseAdmin(env)
     .from("articles")
-    .select("title,slug,summary,category,published_at")
+    .select("title,slug,summary,category,published_at,image_url")
     .gte("published_at", since)
     .order("published_at", { ascending: false });
 

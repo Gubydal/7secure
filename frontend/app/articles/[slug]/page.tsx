@@ -11,7 +11,7 @@ export const runtime = "edge";
 const getArticleBySlug = async (slug: string): Promise<ArticleRecord | null> => {
   const { data } = await supabasePublic
     .from("articles")
-    .select("id,slug,title,summary,content,category,source_name,source_url,original_url,published_at,is_featured,tags")
+    .select("id,slug,title,summary,content,category,source_name,source_url,original_url,published_at,is_featured,tags,image_url")
     .eq("slug", slug)
     .single();
 
@@ -21,7 +21,7 @@ const getArticleBySlug = async (slug: string): Promise<ArticleRecord | null> => 
 const getRelated = async (category: string, currentSlug: string): Promise<ArticleRecord[]> => {
   const { data } = await supabasePublic
     .from("articles")
-    .select("id,slug,title,summary,content,category,source_name,source_url,original_url,published_at,is_featured,tags")
+    .select("id,slug,title,summary,content,category,source_name,source_url,original_url,published_at,is_featured,tags,image_url")
     .eq("category", category)
     .neq("slug", currentSlug)
     .order("published_at", { ascending: false })
@@ -101,35 +101,46 @@ export default async function ArticlePage(
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <CategoryBadge category={article.category} />
-      <h1>{article.title}</h1>
-      <p className="article-meta">
-        {formatDate(article.published_at)} · Source: <a href={article.original_url}>{article.source_name}</a>
-      </p>
+      <div className="article-hero">
+        <CategoryBadge category={article.category} />
+        <h1>{article.title}</h1>
+        <p className="article-meta">
+          {formatDate(article.published_at)} · Source: <a href={article.original_url}>{article.source_name}</a>
+        </p>
+        {article.image_url ? (
+          <div className="article-hero-media">
+            <img src={article.image_url} alt={article.title} />
+          </div>
+        ) : null}
+      </div>
 
       <div className="article-content">
         <MarkdownRenderer content={article.content} />
       </div>
 
-      <p>
-        <Link href="/">Back to latest</Link>
-      </p>
+      <div className="article-actions">
+        <Link href="/" className="article-back-link">Back to latest</Link>
+        <Link href="/articles" className="article-back-link article-back-link--secondary">Browse articles</Link>
+      </div>
 
       <section className="cta-block">
         <h2>Get the daily briefing in your inbox</h2>
-        <SubscribeForm mode="subscribe" />
+        <p>One clean email. No filler. Just the stories and tools worth your time.</p>
+        <SubscribeForm mode="subscribe" className="subscribe-form-cta" />
       </section>
 
       <section>
         <h3>Related in {article.category.replace(/-/g, " ")}</h3>
         <div className="related-grid">
           {related.map((item) => (
-            <div key={item.slug} className="article-card">
-              <h4>
-                <Link href={`/articles/${item.slug}`}>{item.title}</Link>
-              </h4>
-              <p>{item.summary}</p>
-            </div>
+            <Link key={item.slug} href={`/articles/${item.slug}`} className="related-card">
+              {item.image_url ? <img src={item.image_url} alt={item.title} /> : null}
+              <div>
+                <CategoryBadge category={item.category} />
+                <h4>{item.title}</h4>
+                <p>{item.summary}</p>
+              </div>
+            </Link>
           ))}
         </div>
       </section>

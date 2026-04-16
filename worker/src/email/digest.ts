@@ -14,6 +14,7 @@ interface DigestArticle {
   summary: string;
   category: string;
   published_at: string;
+  image_url?: string | null;
 }
 
 const categoryColor = (category: string): string => {
@@ -68,10 +69,19 @@ const articleRows = (articles: DigestArticle[], siteUrl: string): string =>
   articles
     .map((article) => {
       const href = `${siteUrl.replace(/\/$/, "")}/articles/${article.slug}`;
+      const imageBlock = article.image_url
+        ? `
+      <tr>
+        <td style="padding:14px 14px 0 14px;">
+          <img src="${article.image_url}" alt="${article.title}" width="100%" style="display:block;width:100%;max-height:200px;object-fit:cover;border-radius:12px;" />
+        </td>
+      </tr>`
+        : "";
       return `
       <tr>
         <td style="padding:0 20px 14px 20px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#10101a;border:1px solid rgba(255,255,255,0.08);border-left:4px solid ${categoryColor(article.category)};border-radius:10px;">
+            ${imageBlock}
             <tr>
               <td style="padding:14px 14px 10px 14px;font-family:Inter,Arial,sans-serif;">
                 <div style="font-size:12px;color:#7a7a99;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">${article.category.replace(/-/g, " ")}</div>
@@ -102,16 +112,18 @@ const buildHtmlDigest = (
         <td align="center">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;border-collapse:collapse;">
             <tr>
-              <td style="padding:20px;background:#10101a;border:1px solid rgba(255,255,255,0.07);border-radius:12px 12px 0 0;">
+              <td style="padding:24px 20px 18px;background:#06070c;border:1px solid rgba(255,255,255,0.08);border-radius:14px 14px 0 0;">
                 <svg width="130" height="28" viewBox="0 0 130 28" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="7secure">
                   <text x="0" y="20" fill="#00d4ff" font-size="22" font-family="Inter,Arial,sans-serif" font-weight="700">7secure</text>
                 </svg>
-                <div style="margin-top:8px;font-size:12px;color:#7a7a99;font-family:Inter,Arial,sans-serif;">${date} · Daily Security Briefing</div>
+                <div style="margin-top:10px;font-size:12px;color:#7a7a99;font-family:Inter,Arial,sans-serif;text-transform:uppercase;letter-spacing:0.12em;">${date} · Daily Security Briefing</div>
+                <div style="margin-top:10px;font-size:24px;line-height:1.2;color:#f2f3f8;font-family:Inter,Arial,sans-serif;font-weight:700;">Cyber news in one clean daily read.</div>
+                <div style="margin-top:8px;font-size:14px;line-height:1.55;color:#c9c9db;font-family:Inter,Arial,sans-serif;">Fresh stories, practical guidance, and trending tools - condensed into a block-based digest.</div>
               </td>
             </tr>
             ${articleRows(articles, siteUrl)}
             <tr>
-              <td style="padding:18px 20px 24px 20px;background:#10101a;border:1px solid rgba(255,255,255,0.07);border-top:none;border-radius:0 0 12px 12px;font-family:Inter,Arial,sans-serif;">
+              <td style="padding:18px 20px 24px 20px;background:#10101a;border:1px solid rgba(255,255,255,0.07);border-top:none;border-radius:0 0 14px 14px;font-family:Inter,Arial,sans-serif;">
                 <p style="font-size:12px;line-height:1.5;color:#7a7a99;margin:0;">
                   You are receiving this daily briefing because you subscribed to 7secure.
                   <a href="${unsubscribeUrl}" style="color:#00d4ff;text-decoration:none;">Unsubscribe</a>
@@ -172,7 +184,7 @@ export const sendDigest = async (env: WorkerEnv): Promise<DigestSendResult> => {
 
   try {
     for (const batch of batches) {
-      await resend.batch.send(
+      const response = await resend.batch.send(
         batch.map((subscriber) => ({
           from: env.RESEND_FROM_EMAIL,
           to: [subscriber.email],
@@ -181,6 +193,12 @@ export const sendDigest = async (env: WorkerEnv): Promise<DigestSendResult> => {
           text: buildTextDigest(digestArticles, subscriber.email, env.NEXT_PUBLIC_SITE_URL)
         }))
       );
+      
+      if (response.error) {
+        console.error("Resend batch send error:", response.error);
+      } else {
+        console.log("Resend batch sent successfully:", response.data);
+      }
     }
 
     return {
@@ -188,7 +206,8 @@ export const sendDigest = async (env: WorkerEnv): Promise<DigestSendResult> => {
       subscriberCount: subscribers.length,
       status: "success"
     };
-  } catch {
+  } catch (error) {
+    console.error("Fatal error during batch sending:", error);
     return {
       articleCount: digestArticles.length,
       subscriberCount: subscribers.length,

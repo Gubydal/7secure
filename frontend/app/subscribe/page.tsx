@@ -2,10 +2,20 @@ import { SubscribeForm } from "../../components/SubscribeForm";
 
 export default function SubscribePage() {
   return (
-    <section className="cta-block">
-      <h1>Subscribe to 7secure</h1>
-      <p>Get one clean daily briefing at 7:00 AM UTC with top cyber + AI security stories.</p>
-      <SubscribeForm mode="subscribe" />
-    </section>
+    <div className="section-page">
+      <section className="section-hero section-hero--dark">
+        <p className="hero-kicker">Subscribe</p>
+        <h1>Get one clean briefing every day.</h1>
+        <p className="hero-subtext">
+          Join 7secure for a concise daily newsletter focused on cyber news, practical plays, and useful tools.
+        </p>
+      </section>
+
+      <section className="cta-block">
+        <h2>Join the newsletter</h2>
+        <p>Use the form below to receive the daily digest in your inbox.</p>
+        <SubscribeForm mode="subscribe" className="subscribe-form-cta" placeholder="Email Address" buttonLabelOverride="Subscribe" />
+      </section>
+    </div>
   );
 }

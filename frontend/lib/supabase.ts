@@ -31,4 +31,5 @@ export interface ArticleRecord {
   published_at: string;
   is_featured: boolean;
   tags: string[];
+  image_url?: string | null;
 }

@@ -11,12 +11,13 @@ Rules:
 - Tags: 3-5 lowercase tags.
 - Category: threat-intel | vulnerabilities | industry-news | research | ai-security | government
 - Slug: URL-safe, lowercase, hyphens only.
+- image_url: optional canonical thumbnail URL if the source provided one.
 
 Return ONLY valid JSON:
 {
   'title': '...', 'slug': '...', 'summary': '...', 'content': '...',
   'category': '...', 'tags': ['...'], 'source_name': '...', 'source_url': '...',
-  'original_url': '...'
+  'original_url': '...', 'image_url': '...'
 }`;
 
 const allowedCategories = new Set([
@@ -121,7 +122,8 @@ const rewriteItem = async (
       category: allowedCategories.has(parsed.category) ? parsed.category : "industry-news",
       source_name: parsed.source_name || item.sourceName || "Unknown Source",
       source_url: parsed.source_url || item.sourceUrl || "https://example.com",
-      original_url: parsed.original_url || item.url || "https://example.com"
+      original_url: parsed.original_url || item.url || "https://example.com",
+      image_url: parsed.image_url || item.imageUrl || null
     } as NewsletterArticle;
   } catch (error) {
     if ((error as Error).name === 'AbortError') {

@@ -20,6 +20,7 @@ export interface RawFeedItem {
   sourceName: string;
   sourceUrl: string;
   category: ArticleCategory;
+  imageUrl?: string | null;
 }
 
 export interface NewsletterArticle {

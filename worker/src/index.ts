@@ -1,6 +1,6 @@
 import { cleanItems } from "./bridge/cleaner";
 import { writeArticles } from "./bridge/writer";
-import { logDigest, saveArticles } from "./db/supabase";
+import { logDigest, saveArticles, getExistingUrls } from "./db/supabase";
 import { sendDigest } from "./email/digest";
 import { fetchFeeds } from "./rss/fetcher";
 import type { WorkerEnv } from "./types";
@@ -12,10 +12,26 @@ export const runDailyPipeline = async (env: WorkerEnv): Promise<void> => {
     console.log(`Fetched ${raw.length} raw items`);
     const cleaned = cleanItems(raw);
     console.log(`Cleaned down to ${cleaned.length} items`);
-    const rewritten = await writeArticles(cleaned, env);
+    
+    // De-duplicate against the database using original_url to prevent LLM from rewriting yesterday's articles over and over again
+    const allUrls = cleaned.map(item => item.url);
+    const existingUrlSet = await getExistingUrls(env, allUrls);
+    const newItems = cleaned.filter(item => !existingUrlSet.has(item.url));
+    console.log(`Found ${newItems.length} truly NEW articles`);
+
+    if (newItems.length === 0) {
+      console.log("No new articles to process. Exiting pipeline.");
+      return;
+    }
+
+    const rewritten = await writeArticles(newItems, env);
     console.log(`Successfully rewrote ${rewritten.length} articles via LLM`);
-    await saveArticles(env, rewritten);
-    console.log("Saved articles to Supabase");
+    
+    if (rewritten.length > 0) {
+      await saveArticles(env, rewritten);
+      console.log("Saved articles to Supabase");
+    }
+
     const digestResult = await sendDigest(env);
     console.log("Sent newsletter digests via Resend");
     await logDigest(

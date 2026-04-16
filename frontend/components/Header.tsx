@@ -1,20 +1,14 @@
 import Link from "next/link";
+import { sectionLinks } from "../lib/newsletter-content";
 
 export function Header() {
-  const navItems = [
-    { label: "Threat Intel", href: "/threat-intel" },
-    { label: "Vulnerabilities", href: "/vulnerabilities" },
-    { label: "AI Security", href: "/ai-security" },
-    { label: "Tools", href: "/tools" },
-    { label: "Sponsor", href: "/sponsor" }
-  ];
+  const navItems = sectionLinks.slice(0, 3);
 
   return (
     <header className="site-header">
       <div className="container header-inner">
         <Link href="/" className="logo-link" aria-label="7secure homepage">
-          <span className="logo-seven">7</span>
-          <span className="logo-text">secure</span>
+          <img src="/brand/7secure_logo.svg" alt="7secure" className="logo-mark" />
         </Link>
         <nav className="header-nav">
           {navItems.map((item) => (
@@ -24,7 +18,7 @@ export function Header() {
           ))}
         </nav>
         <Link href="/subscribe" className="header-login-btn">
-          Log in
+          Subscribe
         </Link>
       </div>
     </header>
