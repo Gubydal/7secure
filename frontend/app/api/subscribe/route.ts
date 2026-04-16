@@ -46,7 +46,7 @@ export async function POST(req: Request) {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: \Bearer  + "$" + {process.env.RESEND_API_KEY}\
+            Authorization: `Bearer ${process.env.RESEND_API_KEY}`
           },
           body: JSON.stringify({
             email,
@@ -54,26 +54,26 @@ export async function POST(req: Request) {
             audience_id: process.env.RESEND_AUDIENCE_ID,
             unsubscribed: false
           })
-        }).catch(err => console.error("Resend audience error", err));
+        }).catch(err => console.error('Resend audience error', err));
       }
 
       await resend.emails.send({
-        from: \7secure < + "$" + {FROM_EMAIL}>\,
+        from: `7secure <${FROM_EMAIL}>`,
         to: email,
         subject: 'Welcome to 7secure 🛡️',
-        html: \
+        html: `
           <div style="background:#09090b;padding:24px;font-family:Inter,Arial,sans-serif;color:#fafafa;">
-            <h2>Hi  + "$" + {name || 'there'},</h2>
+            <h2>Hi ${name || 'there'},</h2>
             <p>You're officially on the 7secure list! We're excited to send you the latest in cybersecurity.</p>
-            <p>You indicated interest in: <strong> + "$" + {interests?.join(', ') || 'General News'}</strong>.</p>
+            <p>You indicated interest in: <strong>${interests?.join(', ') || 'General News'}</strong>.</p>
             <br/>
             <p>Stay safe,<br/>The 7secure Team</p>
           </div>
-        \,
-      }).catch(err => console.error("Resend send error", err));
+        `,
+      }).catch(err => console.error('Resend send error', err));
     }
 
-    return NextResponse.json({ success: true, message: "Subscription completed" }, { status: 200 });
+    return NextResponse.json({ success: true, message: 'Subscription completed' }, { status: 200 });
   } catch (error) {
     console.error('API Error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

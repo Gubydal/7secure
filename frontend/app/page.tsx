@@ -115,6 +115,8 @@ export default function Home() {
           <div className="flex items-center">
             <a href="/">
                 <Image src="/7secure_logo.svg" alt="7secure logo" width={100} height={28} priority className="pl-2" />
+            </a>
+          </div>
           
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-zinc-400">
@@ -124,9 +126,9 @@ export default function Home() {
           </nav>
           
           <div className="hidden md:flex items-center gap-4">
-              <Button as="a" href="/login" variant="primary" className="bg-white text-black font-semibold text-sm h-9 px-4 rounded-md hover:bg-zinc-200 transition-colors">
+              <a href="/login" className="bg-white text-black font-semibold text-sm h-9 px-4 rounded-md hover:bg-zinc-200 transition-colors inline-flex items-center justify-center">
                 Login
-              </Button>
+              </a>
             <Button variant="primary" onPress={() => setIsOpen(true)} className="bg-white text-black font-semibold text-sm h-9 px-4 rounded-md hover:bg-zinc-200 transition-colors">
               Subscribe
             </Button>
@@ -151,9 +153,9 @@ export default function Home() {
               <a href="#practices" className="text-white font-medium pl-2" onClick={() => setIsMobileMenuOpen(false)}>Playbook</a>
               <a href="#tools" className="text-white font-medium pl-2" onClick={() => setIsMobileMenuOpen(false)}>Tools</a>
               <hr className="border-white/10 my-2" />
-                <Button as="a" href="/login" variant="primary" className="bg-white text-black font-semibold text-sm h-10 w-full rounded-md mt-2">
-                  Login
-                </Button>
+                  <a href="/login" className="bg-white text-black font-semibold text-sm h-10 w-full rounded-md mt-2 inline-flex items-center justify-center">
+                    Login
+                  </a>
               <Button variant="primary" onPress={() => { setIsMobileMenuOpen(false); setIsOpen(true); }} className="bg-white text-black font-semibold text-sm h-10 w-full rounded-md mt-2">
                 Subscribe
               </Button>
