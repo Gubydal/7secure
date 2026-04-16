@@ -5,7 +5,18 @@ module.exports = {
     "./components/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        sans: ['var(--font-display)', 'sans-serif'],
+        mono: ['var(--font-mono)', 'monospace'],
+      },
+      colors: {
+        brand: {
+          pink: '#FF7B93',
+          dark: '#1C151B',
+        }
+      }
+    },
   },
   plugins: [],
 }

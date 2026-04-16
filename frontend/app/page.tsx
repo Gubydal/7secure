@@ -86,7 +86,7 @@ export default async function HomePage() {
               <div className="inline-block border border-brand-pink text-brand-pink text-[9px] font-extrabold px-3 py-1 rounded-full uppercase tracking-widest self-start">
                 {featured.category || 'AI Security'}
               </div>
-              <Link href={`/articles/${featured.slug}`} className="text-[1.75xl] md:text-[2rem] font-extrabold leading-tight hover:text-brand-pink transition-colors">
+              <Link href={`/articles/${featured.slug}`} className="text-[1.75rem] md:text-[2rem] font-extrabold leading-tight hover:text-brand-pink transition-colors">
                 {featured.title}
               </Link>
               <p className="text-gray-600 text-[1.1rem] leading-relaxed line-clamp-3">
