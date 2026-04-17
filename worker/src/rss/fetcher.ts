@@ -32,25 +32,7 @@ const fetchSingleSource = async (source: RSSSource): Promise<RawFeedItem[]> => {
 };
 
 export const fetchFeeds = async (): Promise<RawFeedItem[]> => {
-  const blockedSourceNames = new Set([
-    "Abuse.ch",
-    "Alignment Forum",
-    "BankInfoSecurity",
-    "Bitdefender Labs",
-    "CISA Alerts",
-    "Darknet Diaries",
-    "Fortinet",
-    "GitHub Changelog",
-    "Kaspersky",
-    "Naked Security",
-    "NCSC UK",
-    "Risky Business",
-    "Talos Intelligence",
-    "The Cyber Wire",
-    "Threatpost"
-  ]);
-
-  const preferredSourceNames = new Set([
+  const reliableSourceNames = new Set([
     "Malwarebytes",
     "Dark Reading",
     "SecurityWeek",
@@ -58,16 +40,18 @@ export const fetchFeeds = async (): Promise<RawFeedItem[]> => {
     "ZDNet Security",
     "Palo Alto Unit42",
     "SANS ISC",
-    "Medium Cybersecurity"
+    "Medium Cybersecurity",
+    "BleepingComputer",
+    "Krebs on Security",
+    "Ars Technica",
+    "AWS Security",
+    "Cloudflare Security",
+    "Google Cloud Security"
   ]);
 
-  const usableSources = RSS_SOURCES.filter((source) => !blockedSourceNames.has(source.name));
-  const preferredSources = usableSources.filter((source) => preferredSourceNames.has(source.name));
-  const remainingSources = usableSources.filter((source) => !preferredSourceNames.has(source.name));
-
-  // Prefer the sources that have been returning items reliably, then fill the rest with the broader pool.
-  // Keep the total under Cloudflare's subrequest limit.
-  const subset = [...preferredSources, ...remainingSources].slice(0, 15);
+  // Keep the worker focused on sources that are actually returning usable items.
+  // This avoids wasting subrequests on feeds that routinely 404, rate-limit, or emit invalid XML.
+  const subset = RSS_SOURCES.filter((source) => reliableSourceNames.has(source.name)).slice(0, 15);
 
   const settled = await Promise.allSettled(
     subset.map((source) => fetchSingleSource(source))
