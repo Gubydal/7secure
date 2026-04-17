@@ -34,13 +34,27 @@ export const runDailyPipeline = async (env: WorkerEnv): Promise<void> => {
     }
 
     const digestResult = await sendDigest(env);
-    console.log("Sent newsletter digests via Resend");
+    if (digestResult.status === "success") {
+      console.log(
+        `Digest accepted by Resend for ${digestResult.subscriberCount} subscribers using ${digestResult.articleCount} articles`
+      );
+    } else {
+      console.error(
+        `Digest send encountered failures. Subscribers=${digestResult.subscriberCount}, Articles=${digestResult.articleCount}`
+      );
+    }
+
     await logDigest(
       env,
       digestResult.articleCount,
       digestResult.subscriberCount,
       digestResult.status
     );
+
+    if (digestResult.status === "failed") {
+      throw new Error("Digest delivery failed. Check Resend sender/domain settings and worker logs.");
+    }
+
     console.log("Pipeline finished successfully!");
   } catch (error) {
     console.error("FATAL ERROR IN PIPELINE:", (error as Error).message);

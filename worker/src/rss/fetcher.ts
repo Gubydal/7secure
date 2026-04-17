@@ -47,14 +47,11 @@ export const fetchFeeds = async (): Promise<RawFeedItem[]> => {
     "AWS Security",
     "Cloudflare Security",
     "Google Cloud Security",
-    "Rapid7",
-    "Snyk",
-    "Palo Alto Unit42",
     "OpenAI Blog",
-    "Anthropic",
     "Google Research",
     "NIST CSRC",
-    "CISA Alerts"
+    "CISA Alerts",
+    "Microsoft Security"
   ]);
 
   // Keep the worker focused on sources that are actually returning usable items.
@@ -62,6 +59,8 @@ export const fetchFeeds = async (): Promise<RawFeedItem[]> => {
   const subset = RSS_SOURCES
     .filter((source) => reliableSourceNames.has(source.name))
     .slice(0, 20);
+
+  console.log(`Fetching ${subset.length} curated RSS sources`);
 
   const settled = await Promise.allSettled(
     subset.map((source) => fetchSingleSource(source))

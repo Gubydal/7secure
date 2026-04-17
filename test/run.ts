@@ -55,7 +55,7 @@ const targetedFeeds = [
   },
   {
     name: "BleepingComputer",
-    url: "https://www.bleepingcomputer.com/rss/",
+    url: "https://www.bleepingcomputer.com/feed/",
     category: "industry-news" as const
   }
 ];

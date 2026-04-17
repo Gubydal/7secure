@@ -90,7 +90,11 @@ export const parseFeedXml = (xml: string, source: RSSSource): RawFeedItem[] => {
       for (const item of items.slice(0, 20)) {
         const title = safeText(item.title);
         const url = safeText(item.link);
-        const summary = safeText(item.description) || safeText(item["content:encoded"]);
+        const summary =
+          safeText(item.description) ||
+          safeText(item["content:encoded"]) ||
+          safeText(item.content) ||
+          `${title} - read the full report from ${source.name}.`;
         const publishedAt = parseDate(item.pubDate);
         const imageUrl = extractImageUrl(
           item["media:content"],
@@ -102,7 +106,7 @@ export const parseFeedXml = (xml: string, source: RSSSource): RawFeedItem[] => {
           item["content:encoded"]
         );
 
-        if (!title || !url || !summary || !publishedAt) continue;
+        if (!title || !url || !publishedAt) continue;
 
         parsed.push({
           title,
@@ -136,7 +140,10 @@ export const parseFeedXml = (xml: string, source: RSSSource): RawFeedItem[] => {
         const entryAlt = entryLinks.find((l: any) => l && l["@_rel"] === "alternate");
         const url = entryAlt ? entryAlt["@_href"] : (entryLinks[0] ? entryLinks[0]["@_href"] : "");
         
-        const summary = safeText(entry.summary) || safeText(entry.content);
+        const summary =
+          safeText(entry.summary) ||
+          safeText(entry.content) ||
+          `${title} - read the full report from ${source.name}.`;
         const publishedAt = parseDate(entry.updated) || parseDate(entry.published);
         const imageUrl = extractImageUrl(
           entry["media:content"],
@@ -148,7 +155,7 @@ export const parseFeedXml = (xml: string, source: RSSSource): RawFeedItem[] => {
           entry.summary
         );
 
-        if (!title || !url || !summary || !publishedAt) continue;
+        if (!title || !url || !publishedAt) continue;
 
         parsed.push({
           title,

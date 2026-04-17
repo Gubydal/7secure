@@ -58,7 +58,7 @@ export async function POST(req: Request) {
       }
 
       await resend.emails.send({
-        from: `7secure <${FROM_EMAIL}>`,
+        from: FROM_EMAIL,
         to: email,
         subject: 'Welcome to 7secure 🛡️',
         html: `

@@ -17,6 +17,38 @@ interface DigestArticle {
   image_url?: string | null;
 }
 
+const serializeError = (error: unknown): string => {
+  if (!error) {
+    return "Unknown error";
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  if (error instanceof Error) {
+    return `${error.name}: ${error.message}`;
+  }
+
+  if (typeof error === "object") {
+    const maybe = error as { name?: unknown; message?: unknown };
+    const name = typeof maybe.name === "string" ? maybe.name : "error";
+    const message = typeof maybe.message === "string" ? maybe.message : "";
+
+    if (message) {
+      return `${name}: ${message}`;
+    }
+
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return name;
+    }
+  }
+
+  return String(error);
+};
+
 const categoryColor = (category: string): string => {
   switch (category) {
     case "threat-intel":
@@ -168,7 +200,17 @@ export const sendDigest = async (env: WorkerEnv): Promise<DigestSendResult> => {
   ]);
 
   const digestArticles = pickDigestArticles(allArticles as DigestArticle[]);
+  console.log(
+    `Digest prep: ${digestArticles.length} articles selected for ${subscribers.length} confirmed subscribers`
+  );
+
   if (!digestArticles.length || !subscribers.length) {
+    if (!digestArticles.length) {
+      console.warn("Digest skipped: no recent articles available to send.");
+    }
+    if (!subscribers.length) {
+      console.warn("Digest skipped: no confirmed subscribers found.");
+    }
     return {
       articleCount: digestArticles.length,
       subscriberCount: subscribers.length,
@@ -176,8 +218,23 @@ export const sendDigest = async (env: WorkerEnv): Promise<DigestSendResult> => {
     };
   }
 
+  if (!env.RESEND_API_KEY) {
+    console.error("Digest failed: RESEND_API_KEY is missing.");
+    return {
+      articleCount: digestArticles.length,
+      subscriberCount: subscribers.length,
+      status: "failed"
+    };
+  }
+
   const resend = new Resend(env.RESEND_API_KEY);
   const fromEmail = env.RESEND_FROM_EMAIL || "7secure <onboarding@resend.dev>";
+  if (/onboarding@resend\.dev/i.test(fromEmail)) {
+    console.warn(
+      "RESEND_FROM_EMAIL is set to onboarding@resend.dev. Resend sandbox mode only delivers to your account email until a domain/sender is verified."
+    );
+  }
+
   const batches: Array<typeof subscribers> = [];
   for (let i = 0; i < subscribers.length; i += 100) {
     batches.push(subscribers.slice(i, i + 100));
@@ -186,7 +243,11 @@ export const sendDigest = async (env: WorkerEnv): Promise<DigestSendResult> => {
   let hadErrors = false;
 
   try {
-    for (const batch of batches) {
+    for (let index = 0; index < batches.length; index += 1) {
+      const batch = batches[index];
+      const batchLabel = `${index + 1}/${batches.length}`;
+      console.log(`Sending digest batch ${batchLabel} (${batch.length} recipients)`);
+
       const response = await resend.batch.send(
         batch.map((subscriber) => ({
           from: fromEmail,
@@ -199,9 +260,39 @@ export const sendDigest = async (env: WorkerEnv): Promise<DigestSendResult> => {
       
       if (response.error) {
         hadErrors = true;
-        console.error("Resend batch send error:", response.error);
+        console.error(`Resend batch ${batchLabel} error: ${serializeError(response.error)}`);
+
+        let fallbackDelivered = 0;
+        for (const subscriber of batch) {
+          const single = await resend.emails.send({
+            from: fromEmail,
+            to: [subscriber.email],
+            subject: "7secure Daily Security Briefing",
+            html: buildHtmlDigest(digestArticles, subscriber.email, env.NEXT_PUBLIC_SITE_URL),
+            text: buildTextDigest(digestArticles, subscriber.email, env.NEXT_PUBLIC_SITE_URL)
+          });
+
+          if (single.error) {
+            console.error(
+              `Resend single-send fallback failed for ${subscriber.email}: ${serializeError(single.error)}`
+            );
+          } else {
+            fallbackDelivered += 1;
+          }
+        }
+
+        console.log(
+          `Resend fallback delivered ${fallbackDelivered}/${batch.length} recipients for batch ${batchLabel}`
+        );
       } else {
-        console.log("Resend batch sent successfully:", response.data);
+        const accepted = response.data?.data?.length ?? 0;
+        console.log(`Resend batch ${batchLabel} accepted ${accepted}/${batch.length} messages`);
+        if (accepted < batch.length) {
+          hadErrors = true;
+          console.error(
+            `Resend batch ${batchLabel} accepted fewer messages than requested. Requested=${batch.length}, accepted=${accepted}`
+          );
+        }
       }
     }
 
@@ -211,7 +302,7 @@ export const sendDigest = async (env: WorkerEnv): Promise<DigestSendResult> => {
       status: hadErrors ? "failed" : "success"
     };
   } catch (error) {
-    console.error("Fatal error during batch sending:", error);
+    console.error(`Fatal error during digest sending: ${serializeError(error)}`);
     return {
       articleCount: digestArticles.length,
       subscriberCount: subscribers.length,
