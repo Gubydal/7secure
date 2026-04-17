@@ -20,6 +20,42 @@ Return ONLY valid JSON:
   'original_url': '...', 'image_url': '...'
 }`;
 
+const slugify = (value: string): string =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-");
+
+const hashString = (value: string): string => {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(index);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36);
+};
+
+const fallbackArticle = (item: RawFeedItem): NewsletterArticle => {
+  const baseSlug = slugify(item.title) || "security-update";
+  const uniqueSlug = `${baseSlug}-${hashString(item.url).slice(0, 6)}`;
+  const summary = item.summary.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+
+  return {
+    title: item.title,
+    slug: uniqueSlug,
+    summary: summary.length > 220 ? `${summary.slice(0, 217)}...` : summary,
+    content: `# ${item.title}\n\n${summary}\n\n## Why it matters\n\nThis item was automatically captured from ${item.sourceName} while the rewrite service was unavailable. You can still use it as a live update in the daily briefing.\n\nSource: [${item.sourceName}](${item.sourceUrl})`,
+    category: item.category,
+    tags: [item.category, "daily-brief", "rss"],
+    source_name: item.sourceName,
+    source_url: item.sourceUrl,
+    original_url: item.url,
+    image_url: item.imageUrl || null,
+    is_featured: false
+  };
+};
+
 const allowedCategories = new Set([
   "threat-intel",
   "vulnerabilities",
@@ -98,7 +134,7 @@ const rewriteItem = async (
 
     if (!response.ok) {
       console.error("LongCat API Error:", response.status, await response.text());
-      return null;
+      return fallbackArticle(item);
     }
 
     const payload = (await response.json()) as {
@@ -108,12 +144,12 @@ const rewriteItem = async (
     const content = payload.choices?.[0]?.message?.content;
     if (!content) {
       console.error("No content from LLM");
-      return null;
+      return fallbackArticle(item);
     }
 
     const parsed = extractJson(content) as any;
     if (!isValidArticle(parsed)) {
-      return null;
+      return fallbackArticle(item);
     }
 
     // Default to the original item's metadata if the LLM hallucinated or forgot to include it
@@ -131,7 +167,7 @@ const rewriteItem = async (
     } else {
       console.error(`LLM Rewrite Error (${item.title}):`, (error as Error).message);
     }
-    return null;
+    return fallbackArticle(item);
   } finally {
     clearTimeout(timeoutId);
   }

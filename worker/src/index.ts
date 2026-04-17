@@ -24,11 +24,11 @@ export const runDailyPipeline = async (env: WorkerEnv): Promise<void> => {
       return;
     }
 
-    const rewritten = await writeArticles(newItems, env);
-    console.log(`Successfully rewrote ${rewritten.length} articles via LLM`);
+    const preparedArticles = await writeArticles(newItems, env);
+    console.log(`Prepared ${preparedArticles.length} articles for Supabase`);
     
-    if (rewritten.length > 0) {
-      await saveArticles(env, rewritten);
+    if (preparedArticles.length > 0) {
+      await saveArticles(env, preparedArticles);
       console.log("Saved articles to Supabase");
     }
 

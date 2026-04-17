@@ -49,7 +49,7 @@ export const saveArticles = async (
 
   await getSupabaseAdmin(env)
     .from("articles")
-    .upsert(payload, { onConflict: "slug", ignoreDuplicates: true });
+    .upsert(payload, { onConflict: "slug" });
 };
 
 export const getSubscribers = async (env: WorkerEnv): Promise<Subscriber[]> => {

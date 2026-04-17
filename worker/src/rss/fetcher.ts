@@ -32,9 +32,42 @@ const fetchSingleSource = async (source: RSSSource): Promise<RawFeedItem[]> => {
 };
 
 export const fetchFeeds = async (): Promise<RawFeedItem[]> => {
-  // Shuffle sources to rotate the cybersecurity feeds evenly across days
-  // Take 15 sources max to ensure we stay well below Cloudflare's 50 subrequests limit
-  const subset = [...RSS_SOURCES].sort(() => 0.5 - Math.random()).slice(0, 15);
+  const blockedSourceNames = new Set([
+    "Abuse.ch",
+    "Alignment Forum",
+    "BankInfoSecurity",
+    "Bitdefender Labs",
+    "CISA Alerts",
+    "Darknet Diaries",
+    "Fortinet",
+    "GitHub Changelog",
+    "Kaspersky",
+    "Naked Security",
+    "NCSC UK",
+    "Risky Business",
+    "Talos Intelligence",
+    "The Cyber Wire",
+    "Threatpost"
+  ]);
+
+  const preferredSourceNames = new Set([
+    "Malwarebytes",
+    "Dark Reading",
+    "SecurityWeek",
+    "The Hacker News",
+    "ZDNet Security",
+    "Palo Alto Unit42",
+    "SANS ISC",
+    "Medium Cybersecurity"
+  ]);
+
+  const usableSources = RSS_SOURCES.filter((source) => !blockedSourceNames.has(source.name));
+  const preferredSources = usableSources.filter((source) => preferredSourceNames.has(source.name));
+  const remainingSources = usableSources.filter((source) => !preferredSourceNames.has(source.name));
+
+  // Prefer the sources that have been returning items reliably, then fill the rest with the broader pool.
+  // Keep the total under Cloudflare's subrequest limit.
+  const subset = [...preferredSources, ...remainingSources].slice(0, 15);
 
   const settled = await Promise.allSettled(
     subset.map((source) => fetchSingleSource(source))

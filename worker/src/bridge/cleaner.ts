@@ -5,7 +5,12 @@ const HIGH_SIGNAL_SOURCES = new Set([
   "Krebs on Security",
   "BleepingComputer",
   "The Hacker News",
-  "Dark Reading"
+  "Dark Reading",
+  "Malwarebytes",
+  "SecurityWeek",
+  "ZDNet Security",
+  "Palo Alto Unit42",
+  "SANS ISC"
 ]);
 
 const normalizeTitle = (title: string): string =>
