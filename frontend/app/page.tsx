@@ -1,34 +1,18 @@
 "use client";
 
 import Image from "next/image";
-import { Button, Checkbox } from "@heroui/react";
+import { Button } from "@heroui/react";
 import { useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { supabasePublic } from "../lib/supabase";
-import { 
-  Star, 
-  LayoutGrid, 
-  Bot, 
-  Users, 
-  Code, 
-  Rocket, 
-  PenTool, 
-  Shield, 
-  Briefcase,
-  Search,
-  CheckCircle2,
-  X,
-  Menu,
-  Send
-} from "lucide-react";
-
-type CategoryKey =
-  | "industry-news"
-  | "threat-intel"
-  | "vulnerabilities"
-  | "ai-security"
-  | "research"
-  | "government";
+import { Bot, CheckCircle2, Search, Send, Shield, Star, X } from "lucide-react";
+import {
+  CATEGORY_META,
+  CATEGORY_ORDER,
+  getCategoryLabel,
+  normalizeCategory,
+  type CategoryKey
+} from "../lib/category-meta";
 
 interface HomeArticle {
   id: string;
@@ -40,54 +24,6 @@ interface HomeArticle {
   image_url?: string | null;
   source_name?: string | null;
 }
-
-const CATEGORY_ORDER: CategoryKey[] = [
-  "industry-news",
-  "threat-intel",
-  "vulnerabilities",
-  "ai-security",
-  "research",
-  "government"
-];
-
-const CATEGORY_LABELS: Record<CategoryKey, string> = {
-  "industry-news": "Industry News",
-  "threat-intel": "Threat Intel",
-  vulnerabilities: "Vulnerabilities",
-  "ai-security": "AI Security",
-  research: "Research",
-  government: "Government"
-};
-
-const normalizeCategory = (value: string | null | undefined): CategoryKey => {
-  const normalized = String(value || "")
-    .toLowerCase()
-    .replace(/\s+/g, "-") as CategoryKey;
-
-  return CATEGORY_ORDER.includes(normalized) ? normalized : "industry-news";
-};
-
-const getCategoryIcon = (category: CategoryKey) => {
-  switch (category) {
-    case "industry-news":
-      return <LayoutGrid className="h-4 w-4" />;
-    case "threat-intel":
-      return <Shield className="h-4 w-4" />;
-    case "vulnerabilities":
-      return <Search className="h-4 w-4" />;
-    case "ai-security":
-      return <Bot className="h-4 w-4" />;
-    case "research":
-      return <PenTool className="h-4 w-4" />;
-    case "government":
-      return <Briefcase className="h-4 w-4" />;
-    default:
-      return <LayoutGrid className="h-4 w-4" />;
-  }
-};
-
-const getCategoryLabel = (category: string | null | undefined): string =>
-  CATEGORY_LABELS[normalizeCategory(category)];
 
 const getSourceInitials = (sourceName?: string | null): string => {
   const cleaned = (sourceName || "7secure")
@@ -118,7 +54,6 @@ const TOOL_CATEGORY_SET = new Set<CategoryKey>([
 
 export default function Home() {
   const [isOpen, setIsOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<"all" | CategoryKey>("all");
   const [query, setQuery] = useState("");
 
@@ -193,13 +128,20 @@ export default function Home() {
       : CATEGORY_ORDER
     ).map((category) => ({
       key: category,
-      label: CATEGORY_LABELS[category],
-      icon: getCategoryIcon(category)
+      label: CATEGORY_META[category].label,
+      Icon: CATEGORY_META[category].icon
     }));
 
     return [
       { key: "all" as const, label: "All", icon: <Star className="h-4 w-4" /> },
-      ...orderedCategories
+      ...orderedCategories.map((category) => {
+        const Icon = category.Icon;
+        return {
+          key: category.key,
+          label: category.label,
+          icon: <Icon className="h-4 w-4" />
+        };
+      })
     ];
   }, [articles]);
 
@@ -290,66 +232,13 @@ export default function Home() {
     <div className="flex flex-col min-h-screen font-sans bg-[#09090b]">
       
       {/* 1. HERO SECTION (BLACK) */}
-      <section className="w-full bg-[#09090b] text-[#fafafa] flex flex-col justify-start relative pb-32">
-        {/* Navigation */}
-        <header className="flex items-center justify-between px-4 sm:px-6 py-4 sticky top-0 bg-[#09090b]/80 backdrop-blur-md z-40 border-b border-white/10">
-          <div className="flex items-center">
-            <a href="/">
-                <Image src="/7secure_logo.svg" alt="7secure logo" width={100} height={28} priority className="pl-2" />
-            </a>
-          </div>
-          
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-zinc-400">
-            <a href="#articles" className="hover:text-white transition-colors">Latest News</a>
-            <a href="#practices" className="hover:text-white transition-colors">Playbook</a>
-            <a href="#tools" className="hover:text-white transition-colors">Tools</a>
-          </nav>
-          
-          <div className="hidden md:flex items-center gap-4">
-              <a href="/login" className="bg-white text-black font-semibold text-sm h-9 px-4 rounded-md hover:bg-zinc-200 transition-colors inline-flex items-center justify-center">
-                Login
-              </a>
-            <Button variant="primary" onPress={() => setIsOpen(true)} className="bg-white text-black font-semibold text-sm h-9 px-4 rounded-md hover:bg-zinc-200 transition-colors">
-              Subscribe
-            </Button>
-          </div>
-
-          {/* Mobile Nav Toggle */}
-          <button className="md:hidden p-2 text-zinc-400 hover:text-white" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </header>
-
-        {/* Mobile Menu Dropdown */}
-        <AnimatePresence>
-          {isMobileMenuOpen && (
-            <motion.div 
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="md:hidden absolute top-[70px] left-0 w-full bg-[#09090b] border-b border-white/10 flex flex-col p-4 gap-4 z-30"
-            >
-              <a href="#articles" className="text-white font-medium pl-2" onClick={() => setIsMobileMenuOpen(false)}>Latest News</a>
-              <a href="#practices" className="text-white font-medium pl-2" onClick={() => setIsMobileMenuOpen(false)}>Playbook</a>
-              <a href="#tools" className="text-white font-medium pl-2" onClick={() => setIsMobileMenuOpen(false)}>Tools</a>
-              <hr className="border-white/10 my-2" />
-                  <a href="/login" className="bg-white text-black font-semibold text-sm h-10 w-full rounded-md mt-2 inline-flex items-center justify-center">
-                    Login
-                  </a>
-              <Button variant="primary" onPress={() => { setIsMobileMenuOpen(false); setIsOpen(true); }} className="bg-white text-black font-semibold text-sm h-10 w-full rounded-md mt-2">
-                Subscribe
-              </Button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div className="flex-1 w-full max-w-5xl mx-auto px-6 pt-16 pb-8 flex flex-col items-center text-center">
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-white mb-6">
+      <section className="relative flex w-full flex-col justify-start bg-[#09090b] pb-16 text-[#fafafa] md:pb-20">
+        <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center px-6 pb-6 pt-8 text-center md:pt-10">
+          <h1 className="mb-5 text-3xl font-bold tracking-tight text-white md:text-5xl lg:text-6xl">
             Master InfoSec with <br className="hidden md:block"/>
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600">Daily Updates</span>
           </h1>
-          <p className="text-base md:text-lg text-zinc-400 mb-10 max-w-2xl px-4">
+          <p className="mb-8 max-w-2xl px-4 text-sm text-zinc-400 md:text-base">
             Get the latest cybersecurity news, understand current threats, and learn how to secure your infrastructure against modern attacks.
           </p>
           <div className="mx-auto mb-4 mt-4 flex w-full max-w-[760px] items-center overflow-hidden rounded-[0.9rem] border border-zinc-200 bg-white p-1.5 shadow-[0_14px_40px_rgba(0,0,0,0.20)]">
@@ -368,7 +257,7 @@ export default function Home() {
               className="flex h-11 min-w-max items-center justify-center gap-2 rounded-[0.65rem] bg-[#18181b] px-4 text-sm font-semibold text-white transition-colors hover:bg-zinc-800 sm:h-12 sm:rounded-[0.75rem] sm:px-6 sm:text-[15px]"
             >
               <span>Subscribe</span>
-              <Send className="hidden h-4 w-4 shrink-0 translate-y-px stroke-[2px] opacity-90 sm:block" />
+              <Send className="h-4 w-4 shrink-0 translate-y-px stroke-[2px] opacity-90" />
             </Button>
           </div>
           <div className="mt-8 flex flex-col items-center">
@@ -396,7 +285,7 @@ export default function Home() {
       </section>
 
       {/* 2. NEWSLETTER CONTENT (WHITE) -> Rounded top & bottom intersection */}
-      <main className="flex-1 w-full bg-white text-zinc-900 rounded-[2.5rem] -mt-10 relative z-20 pt-16 pb-20 shadow-2xl">
+      <main className="relative z-20 -mt-6 w-full flex-1 rounded-t-[2.5rem] bg-white pb-20 pt-12 text-zinc-900 shadow-2xl md:-mt-8">
         <div className="max-w-5xl mx-auto px-6 text-center">
           
           {/* SEARCH & FILTERS */}

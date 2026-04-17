@@ -2,8 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Search, Star } from "lucide-react";
 import { CategoryBadge } from "../../components/CategoryBadge";
+import {
+  CATEGORY_META,
+  CATEGORY_ORDER,
+  normalizeCategory,
+  type CategoryKey
+} from "../../lib/category-meta";
 import { supabasePublic, type ArticleRecord } from "../../lib/supabase";
 
 type ListArticle = Pick<
@@ -11,16 +17,10 @@ type ListArticle = Pick<
   "id" | "slug" | "title" | "summary" | "category" | "published_at" | "image_url" | "source_name"
 >;
 
-const normalizeCategory = (value: string): string =>
-  value
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, "-");
-
 export default function Page() {
   const [articles, setArticles] = useState<ListArticle[]>([]);
   const [query, setQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState("all");
+  const [activeCategory, setActiveCategory] = useState<"all" | CategoryKey>("all");
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -52,8 +52,9 @@ export default function Page() {
   }, []);
 
   const categories = useMemo(() => {
-    const unique = new Set(articles.map((article) => normalizeCategory(article.category)));
-    return ["all", ...Array.from(unique)];
+    const unique = new Set<CategoryKey>(articles.map((article) => normalizeCategory(article.category)));
+    const ordered = CATEGORY_ORDER.filter((category) => unique.has(category));
+    return ["all" as const, ...(ordered.length ? ordered : CATEGORY_ORDER)];
   }, [articles]);
 
   const filteredArticles = useMemo(() => {
@@ -105,9 +106,9 @@ export default function Page() {
           </div>
         </div>
 
-        <div className="mb-6 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="flex max-w-lg flex-1 items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-2.5">
+        <div className="mb-8">
+          <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex max-w-lg flex-1 items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-2.5 focus-within:border-zinc-600 focus-within:ring-1 focus-within:ring-zinc-600">
               <Search className="h-4 w-4 shrink-0 text-zinc-500" />
               <input
                 type="text"
@@ -123,20 +124,27 @@ export default function Page() {
             </p>
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
-            {categories.map((category) => (
-              <button
-                key={category}
-                onClick={() => setActiveCategory(category)}
-                className={`rounded-full border px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] transition-colors ${
-                  activeCategory === category
-                    ? "border-zinc-900 bg-zinc-900 text-white"
-                    : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300"
-                }`}
-              >
-                {category === "all" ? "All" : category.replace(/-/g, " ")}
-              </button>
-            ))}
+          <div className="flex flex-wrap gap-3">
+            {categories.map((category) => {
+              const isAll = category === "all";
+              const Icon = isAll ? Star : CATEGORY_META[category].icon;
+              const label = isAll ? "All" : CATEGORY_META[category].label;
+
+              return (
+                <button
+                  key={category}
+                  onClick={() => setActiveCategory(category)}
+                  className={`flex h-10 items-center gap-2 whitespace-nowrap rounded-full border px-5 text-sm font-medium transition-colors ${
+                    activeCategory === category
+                      ? "border-zinc-900 bg-zinc-900 text-white"
+                      : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
