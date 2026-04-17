@@ -64,15 +64,27 @@ export const getSubscribers = async (env: WorkerEnv): Promise<Subscriber[]> => {
 };
 
 export const getRecentArticles = async (env: WorkerEnv) => {
-  // Only grab articles inserted in the last 23 hours to prevent yesterday's articles from leaking into today's digest if cron runs at slightly off intervals
-  const since = new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString();
-  const { data } = await getSupabaseAdmin(env)
+  // Prefer recent records first; if empty, fall back to latest stored articles so the digest still sends.
+  const since = new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString();
+  const admin = getSupabaseAdmin(env);
+
+  const { data } = await admin
     .from("articles")
     .select("title,slug,summary,category,published_at,image_url")
     .gte("published_at", since)
     .order("published_at", { ascending: false });
 
-  return data ?? [];
+  if (data && data.length > 0) {
+    return data;
+  }
+
+  const { data: fallback } = await admin
+    .from("articles")
+    .select("title,slug,summary,category,published_at,image_url")
+    .order("published_at", { ascending: false })
+    .limit(12);
+
+  return fallback ?? [];
 };
 
 export const logDigest = async (

@@ -159,24 +159,34 @@ export default async function ArticlePage(
 
         <div className="border-t border-zinc-200 px-6 py-8 sm:px-8 lg:px-12 lg:py-12">
           <h2 className="text-2xl font-semibold tracking-tight text-zinc-950 sm:text-3xl">Related articles</h2>
-          <div className="mt-6 grid gap-5 md:grid-cols-3">
-            {related.map((item) => (
-              <Link key={item.slug} href={`/articles/${item.slug}`} className="group overflow-hidden rounded-[1.2rem] border border-zinc-200 bg-white transition-all hover:-translate-y-0.5 hover:shadow-lg">
-                <div className="aspect-[16/10] overflow-hidden bg-zinc-100">
-                  <img
-                    src={item.image_url || "/cover.avif"}
-                    alt={item.title}
-                    className="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
-                  />
-                </div>
-                <div className="space-y-3 p-5">
-                  <CategoryBadge category={item.category} />
-                  <h3 className="text-lg font-semibold tracking-tight text-zinc-950">{item.title}</h3>
-                  <p className="line-clamp-3 text-sm leading-6 text-zinc-600">{item.summary}</p>
-                </div>
-              </Link>
-            ))}
-          </div>
+          {related.length === 0 ? (
+            <div className="mt-6 rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-6 text-sm text-zinc-500">
+              No related articles yet.
+            </div>
+          ) : (
+            <div className="mt-6 space-y-4">
+              {related.map((item) => (
+                <Link
+                  key={item.slug}
+                  href={`/articles/${item.slug}`}
+                  className="group flex flex-col overflow-hidden rounded-[1rem] border border-zinc-200 bg-white transition-all hover:-translate-y-0.5 hover:shadow-md sm:flex-row"
+                >
+                  <div className="h-40 w-full overflow-hidden bg-zinc-100 sm:h-auto sm:w-56 md:w-64">
+                    <img
+                      src={item.image_url || "/cover.avif"}
+                      alt={item.title}
+                      className="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
+                    />
+                  </div>
+                  <div className="flex flex-1 flex-col gap-2 p-4 sm:p-5">
+                    <CategoryBadge category={item.category} />
+                    <h3 className="text-base font-semibold tracking-tight text-zinc-950 sm:text-lg">{item.title}</h3>
+                    <p className="line-clamp-2 text-sm leading-6 text-zinc-600">{item.summary}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
 
         <section className="border-t border-zinc-200 bg-zinc-50 px-6 py-8 sm:px-8 lg:px-12 lg:py-12">

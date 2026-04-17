@@ -2,8 +2,9 @@
 
 import Image from "next/image";
 import { Button, Checkbox } from "@heroui/react";
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { supabasePublic } from "../lib/supabase";
 import { 
   Star, 
   LayoutGrid, 
@@ -21,10 +22,105 @@ import {
   Send
 } from "lucide-react";
 
+type CategoryKey =
+  | "industry-news"
+  | "threat-intel"
+  | "vulnerabilities"
+  | "ai-security"
+  | "research"
+  | "government";
+
+interface HomeArticle {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string;
+  category: string;
+  published_at: string;
+  image_url?: string | null;
+  source_name?: string | null;
+}
+
+const CATEGORY_ORDER: CategoryKey[] = [
+  "industry-news",
+  "threat-intel",
+  "vulnerabilities",
+  "ai-security",
+  "research",
+  "government"
+];
+
+const CATEGORY_LABELS: Record<CategoryKey, string> = {
+  "industry-news": "Industry News",
+  "threat-intel": "Threat Intel",
+  vulnerabilities: "Vulnerabilities",
+  "ai-security": "AI Security",
+  research: "Research",
+  government: "Government"
+};
+
+const normalizeCategory = (value: string | null | undefined): CategoryKey => {
+  const normalized = String(value || "")
+    .toLowerCase()
+    .replace(/\s+/g, "-") as CategoryKey;
+
+  return CATEGORY_ORDER.includes(normalized) ? normalized : "industry-news";
+};
+
+const getCategoryIcon = (category: CategoryKey) => {
+  switch (category) {
+    case "industry-news":
+      return <LayoutGrid className="h-4 w-4" />;
+    case "threat-intel":
+      return <Shield className="h-4 w-4" />;
+    case "vulnerabilities":
+      return <Search className="h-4 w-4" />;
+    case "ai-security":
+      return <Bot className="h-4 w-4" />;
+    case "research":
+      return <PenTool className="h-4 w-4" />;
+    case "government":
+      return <Briefcase className="h-4 w-4" />;
+    default:
+      return <LayoutGrid className="h-4 w-4" />;
+  }
+};
+
+const getCategoryLabel = (category: string | null | undefined): string =>
+  CATEGORY_LABELS[normalizeCategory(category)];
+
+const getSourceInitials = (sourceName?: string | null): string => {
+  const cleaned = (sourceName || "7secure")
+    .replace(/[^a-zA-Z0-9\s]/g, " ")
+    .trim();
+
+  if (!cleaned) {
+    return "7S";
+  }
+
+  const parts = cleaned.split(/\s+/).slice(0, 2);
+  return parts.map((part) => part[0]?.toUpperCase() || "").join("") || "7S";
+};
+
+const PRACTICE_CATEGORY_SET = new Set<CategoryKey>([
+  "vulnerabilities",
+  "threat-intel",
+  "research",
+  "government"
+]);
+
+const TOOL_CATEGORY_SET = new Set<CategoryKey>([
+  "ai-security",
+  "industry-news",
+  "vulnerabilities",
+  "threat-intel"
+]);
+
 export default function Home() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [activeCategory, setActiveCategory] = useState("All");
+  const [activeCategory, setActiveCategory] = useState<"all" | CategoryKey>("all");
+  const [query, setQuery] = useState("");
 
   // Subscription Modal State
   const [modalStep, setModalStep] = useState(1);
@@ -33,36 +129,125 @@ export default function Home() {
   const [interests, setInterests] = useState<string[]>([]);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  const categories = [
-    { name: "Most Popular", icon: <Star className="w-4 h-4" /> },
-    { name: "All", icon: <LayoutGrid className="w-4 h-4" /> },
-    { name: "Agents", icon: <Bot className="w-4 h-4" /> },
-    { name: "Consumer", icon: <Users className="w-4 h-4" /> },
-    { name: "Code", icon: <Code className="w-4 h-4" /> },
-    { name: "Marketing", icon: <Rocket className="w-4 h-4" /> },
-    { name: "Content", icon: <PenTool className="w-4 h-4" /> },
-    { name: "Security", icon: <Shield className="w-4 h-4" /> },
-    { name: "Operations", icon: <Briefcase className="w-4 h-4" /> }
-  ];
-
-  // Placeholder for Supabase Articles
-  const [articles, setArticles] = useState<any[]>([]);
+  const [articles, setArticles] = useState<HomeArticle[]>([]);
 
   useEffect(() => {
-    import("../lib/supabase").then(({ supabasePublic }) => {
-      supabasePublic.from("articles").select("*").order("published_at", { ascending: false }).limit(6).then(({ data, error }) => {
-        if (data && !error) {
-          setArticles(data);
-        } else {
-          // Fallback dummy data if DB is empty or fails
-          setArticles([
-            { id: "fallback-1", slug: "zero-day-exploit-vpn", title: "Zero-Day Exploit Found in Popular VPN", summary: "Attackers are exploiting a new vulnerability in market-leading VPN software. Here is how to patch it immediately.", category: "Security", published_at: "2026-10-24T00:00:00Z" },
-            { id: "fallback-2", slug: "rise-of-ai-phishing", title: "The Rise of AI-Generated Phishing", summary: "How threat actors are utilizing LLMs to craft hyper-personalized and error-free phishing campaigns at scale.", category: "Agents", published_at: "2026-10-22T00:00:00Z" }
-          ]);
+    let isMounted = true;
+
+    const loadArticles = async () => {
+      const { data, error } = await supabasePublic
+        .from("articles")
+        .select("id,slug,title,summary,category,published_at,image_url,source_name")
+        .order("published_at", { ascending: false })
+        .limit(48);
+
+      if (!isMounted) {
+        return;
+      }
+
+      if (data && !error) {
+        setArticles(data as HomeArticle[]);
+        return;
+      }
+
+      setArticles([
+        {
+          id: "fallback-1",
+          slug: "zero-day-exploit-vpn",
+          title: "Zero-Day Exploit Found in Popular VPN",
+          summary:
+            "Attackers are exploiting a new vulnerability in market-leading VPN software. Here is how to patch it immediately.",
+          category: "vulnerabilities",
+          published_at: new Date().toISOString(),
+          image_url: "/cover.avif",
+          source_name: "7secure"
+        },
+        {
+          id: "fallback-2",
+          slug: "rise-of-ai-phishing",
+          title: "The Rise of AI-Generated Phishing",
+          summary:
+            "How threat actors are utilizing LLMs to craft hyper-personalized and error-free phishing campaigns at scale.",
+          category: "threat-intel",
+          published_at: new Date().toISOString(),
+          image_url: "/cover.avif",
+          source_name: "7secure"
         }
-      });
-    });
+      ]);
+    };
+
+    loadArticles();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
+  const categoryOptions = useMemo(() => {
+    const availableCategories = new Set<CategoryKey>(
+      articles.map((article) => normalizeCategory(article.category))
+    );
+
+    const orderedCategories = (availableCategories.size
+      ? CATEGORY_ORDER.filter((category) => availableCategories.has(category))
+      : CATEGORY_ORDER
+    ).map((category) => ({
+      key: category,
+      label: CATEGORY_LABELS[category],
+      icon: getCategoryIcon(category)
+    }));
+
+    return [
+      { key: "all" as const, label: "All", icon: <Star className="h-4 w-4" /> },
+      ...orderedCategories
+    ];
+  }, [articles]);
+
+  const filteredArticles = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    return articles.filter((article) => {
+      const articleCategory = normalizeCategory(article.category);
+      const categoryMatches = activeCategory === "all" || articleCategory === activeCategory;
+
+      if (!categoryMatches) {
+        return false;
+      }
+
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      const searchableText = [
+        article.title,
+        article.summary,
+        article.source_name || "",
+        getCategoryLabel(article.category)
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return searchableText.includes(normalizedQuery);
+    });
+  }, [activeCategory, articles, query]);
+
+  const latestArticles = useMemo(() => filteredArticles.slice(0, 4), [filteredArticles]);
+
+  const featuredPracticeArticles = useMemo(
+    () =>
+      articles
+        .filter((article) => PRACTICE_CATEGORY_SET.has(normalizeCategory(article.category)))
+        .slice(0, 3),
+    [articles]
+  );
+
+  const featuredToolArticles = useMemo(
+    () =>
+      articles
+        .filter((article) => TOOL_CATEGORY_SET.has(normalizeCategory(article.category)))
+        .slice(0, 3),
+    [articles]
+  );
 
   const toggleInterest = (interest: string) => {
     setInterests(prev => 
@@ -167,32 +352,44 @@ export default function Home() {
           <p className="text-base md:text-lg text-zinc-400 mb-10 max-w-2xl px-4">
             Get the latest cybersecurity news, understand current threats, and learn how to secure your infrastructure against modern attacks.
           </p>
-                      <div className="flex w-full max-w-[720px] mx-auto mt-4 mb-4 rounded-[0.85rem] p-1.5 items-center bg-white border border-zinc-200 shadow-[0_14px_40px_rgba(0,0,0,0.20)] overflow-hidden">
-              <input 
-                type="email" 
-                placeholder="Email Address" 
-                autoComplete="email"
-                className="flex-1 bg-transparent border-none outline-none px-5 text-zinc-900 placeholder:text-zinc-500 text-[15px] h-12"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") setIsOpen(true);
-                }}
-              />
-              <Button 
-                variant="primary" 
-                onPress={() => setIsOpen(true)} 
-                className="bg-[#18181b] text-white font-semibold text-[15px] h-12 px-6 rounded-[0.75rem] hover:bg-zinc-800 transition-colors flex items-center justify-center min-w-max gap-2"
-              >
-                <span>Subscribe</span>
-                <Send className="w-4 h-4 shrink-0 opacity-90 stroke-[2px] translate-y-px" />
-              </Button>
-            </div>
+          <div className="mx-auto mb-4 mt-4 flex w-full max-w-[760px] items-center overflow-hidden rounded-[0.9rem] border border-zinc-200 bg-white p-1.5 shadow-[0_14px_40px_rgba(0,0,0,0.20)]">
+            <input
+              type="email"
+              placeholder="Email Address"
+              autoComplete="email"
+              className="h-11 flex-1 border-none bg-transparent px-4 text-[14px] text-zinc-900 placeholder:text-zinc-500 outline-none sm:h-12 sm:px-5 sm:text-[15px]"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") setIsOpen(true);
+              }}
+            />
+            <Button
+              variant="primary"
+              onPress={() => setIsOpen(true)}
+              className="flex h-11 min-w-max items-center justify-center gap-2 rounded-[0.65rem] bg-[#18181b] px-4 text-sm font-semibold text-white transition-colors hover:bg-zinc-800 sm:h-12 sm:rounded-[0.75rem] sm:px-6 sm:text-[15px]"
+            >
+              <span>Subscribe</span>
+              <Send className="hidden h-4 w-4 shrink-0 translate-y-px stroke-[2px] opacity-90 sm:block" />
+            </Button>
+          </div>
           <div className="mt-8 flex flex-col items-center">
             <p className="text-sm font-medium text-zinc-500 mb-6 uppercase tracking-wider">
               Join readers from leading companies
             </p>
-            <div className="flex justify-center items-center opacity-60 hover:opacity-80 transition-opacity">
-              {/* Replace generic texts with actual company logo SVG line */}
-              <Image src="/icons.svg" alt="Leading Companies" width={400} height={45} className="max-w-full invert brightness-0" />
+            <div className="flex w-full items-center justify-center opacity-70 transition-opacity hover:opacity-90">
+              <Image
+                src="/icons.svg"
+                alt="Leading Companies"
+                width={567}
+                height={107}
+                className="h-auto max-w-full md:hidden"
+              />
+              <Image
+                src="/icons-desktop.svg"
+                alt="Leading Companies"
+                width={1042}
+                height={42}
+                className="hidden h-auto max-w-full md:block"
+              />
             </div>
           </div>
         </div>
@@ -217,6 +414,8 @@ export default function Home() {
                  <input 
                     type="text" 
                     placeholder="Search articles, tools, models..." 
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
                     className="bg-transparent border-none outline-none w-full placeholder-zinc-400 text-zinc-800 text-sm" 
                  />
               </div>
@@ -224,14 +423,14 @@ export default function Home() {
 
             {/* Categories Tags (Centered) */}
             <div className="flex flex-wrap justify-center gap-3 max-w-4xl mx-auto">
-              {categories.map((cat) => (
+              {categoryOptions.map((cat) => (
                 <button 
-                  key={cat.name}
-                  onClick={() => setActiveCategory(cat.name)}
-                  className={`flex items-center gap-2 h-10 px-5 text-sm font-medium border whitespace-nowrap rounded-full transition-colors ${activeCategory === cat.name ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white text-zinc-700 border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50'}`}
+                  key={cat.key}
+                  onClick={() => setActiveCategory(cat.key)}
+                  className={`flex items-center gap-2 h-10 px-5 text-sm font-medium border whitespace-nowrap rounded-full transition-colors ${activeCategory === cat.key ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white text-zinc-700 border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50'}`}
                 >
                   {cat.icon}
-                  {cat.name}
+                  {cat.label}
                 </button>
               ))}
             </div>
@@ -246,7 +445,7 @@ export default function Home() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
-               {articles.map((article) => (
+               {latestArticles.map((article) => (
                   <article key={article.id} onClick={() => window.location.href=`/articles/${article.slug}`} className="group flex flex-col bg-white border border-zinc-200 rounded-xl overflow-hidden hover:border-zinc-300 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer relative bg-clip-padding">
                     <div className="relative aspect-[16/9] w-full overflow-hidden bg-zinc-100">
                       <img
@@ -255,7 +454,7 @@ export default function Home() {
                         className="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
                       />
                       <div className="absolute bottom-3 left-3 bg-white border border-zinc-200 shadow-sm text-xs font-bold text-zinc-800 px-3 py-1.5 rounded-md backdrop-blur">
-                        {article.category}
+                        {getCategoryLabel(article.category)}
                       </div>
                     </div>
                     
@@ -270,11 +469,11 @@ export default function Home() {
                       
                       {/* Author Area */}
                       <div className="flex items-center mt-auto border-t border-zinc-100 pt-5">
-                        <div className="w-9 h-9 rounded-full bg-zinc-200 overflow-hidden relative mr-3 border border-zinc-200 flex items-center justify-center shrink-0 text-zinc-400 text-xs font-bold">
-                            <Image src={article.authorImage || "/Small_Icon.svg"} alt={(article.author || "7secure")} fill className={String(article.authorImage || "/Small_Icon.svg").includes("Small_Icon") ? "object-contain object-center bg-[#09090b] p-[6px]" : "object-cover object-center"} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                        <div className="w-9 h-9 rounded-full bg-zinc-200 overflow-hidden relative mr-3 border border-zinc-200 flex items-center justify-center shrink-0 text-zinc-600 text-xs font-bold">
+                          {getSourceInitials(article.source_name)}
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-zinc-900 leading-none">{(article.author || "7secure")}</p>
+                          <p className="text-sm font-semibold text-zinc-900 leading-none">{(article.source_name || "7secure")}</p>
                           <p className="text-xs text-zinc-500 mt-1">Source Analysis</p>
                         </div>
                       </div>
@@ -282,6 +481,11 @@ export default function Home() {
                   </article>
                ))}
             </div>
+            {latestArticles.length === 0 && (
+              <div className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-10 text-center text-zinc-500">
+                No articles matched this category and search term.
+              </div>
+            )}
             
             <div className="mt-12 text-center">
                <a href="/articles" className="inline-flex items-center justify-center font-medium text-zinc-700 bg-white border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 h-10 px-6 rounded-md transition-colors">
@@ -297,32 +501,67 @@ export default function Home() {
               <p className="text-zinc-500">Deep technical writeups and strategic security frameworks.</p>
             </div>
             
-            <div className="flex flex-col gap-4 max-w-3xl mx-auto text-left">
-               {["Building a modern SOC from scratch", "Automating malware analysis with AI", "Cloud Security Posture Management"].map((exclusive, i) => (
-                 <a href="/practices" key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 rounded border border-zinc-200 bg-zinc-50/50 hover:bg-zinc-100 hover:border-zinc-300 transition-all group gap-4">
-                   <div className="flex items-start gap-4">
-                     <div className="w-10 h-10 rounded border border-zinc-200 bg-white text-blue-600 flex items-center justify-center shrink-0">
-                       <Shield className="w-5 h-5"/>
-                     </div>
-                     <div>
-                       <h3 className="text-lg font-bold text-zinc-900 group-hover:text-blue-600 transition-colors mb-1">{exclusive}</h3>
-                       <p className="text-sm text-zinc-500">Framework Guide • Updated Today</p>
-                     </div>
-                   </div>
-                   </a>
-               ))}
-               <div className="mt-8 text-center pt-4">
-                 <a href="/tools" className="text-blue-600 font-medium hover:text-blue-700 text-sm inline-flex items-center gap-1">
-                     View all tools and practices
-                 </a>
-               </div>
+            <div className="mx-auto grid max-w-5xl gap-6 text-left md:grid-cols-2">
+              <div className="rounded-2xl border border-zinc-200 bg-zinc-50/60 p-6">
+                <div className="mb-4 flex items-center gap-2 text-zinc-900">
+                  <Shield className="h-5 w-5 text-blue-600" />
+                  <h3 className="text-xl font-bold">Security practices</h3>
+                </div>
+                <div className="space-y-3">
+                  {featuredPracticeArticles.map((article) => (
+                    <a
+                      key={article.id}
+                      href={`/articles/${article.slug}`}
+                      className="block rounded-xl border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-300"
+                    >
+                      <p className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">
+                        {getCategoryLabel(article.category)}
+                      </p>
+                      <h4 className="mt-1 text-sm font-semibold text-zinc-900 line-clamp-2">{article.title}</h4>
+                    </a>
+                  ))}
+                </div>
+                <a
+                  href="/practices"
+                  className="mt-5 inline-flex items-center text-sm font-medium text-blue-600 transition-colors hover:text-blue-700"
+                >
+                  View all practices
+                </a>
+              </div>
+
+              <div id="tools" className="rounded-2xl border border-zinc-200 bg-zinc-50/60 p-6">
+                <div className="mb-4 flex items-center gap-2 text-zinc-900">
+                  <Bot className="h-5 w-5 text-blue-600" />
+                  <h3 className="text-xl font-bold">Tool watch</h3>
+                </div>
+                <div className="space-y-3">
+                  {featuredToolArticles.map((article) => (
+                    <a
+                      key={article.id}
+                      href={`/articles/${article.slug}`}
+                      className="block rounded-xl border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-300"
+                    >
+                      <p className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">
+                        {getCategoryLabel(article.category)}
+                      </p>
+                      <h4 className="mt-1 text-sm font-semibold text-zinc-900 line-clamp-2">{article.title}</h4>
+                    </a>
+                  ))}
+                </div>
+                <a
+                  href="/tools"
+                  className="mt-5 inline-flex items-center text-sm font-medium text-blue-600 transition-colors hover:text-blue-700"
+                >
+                  View all tools
+                </a>
+              </div>
             </div>
           </section>
         </div>
       </main>
 
       {/* 3. INTERSECTION QUOTE SECTION (BLACK) */}
-      <section className="w-full bg-[#09090b] text-[#fafafa] pt-24 pb-24 px-6 text-center relative z-10 -mt-10 rounded-b-[2.5rem]">
+      <section className="w-full bg-[#09090b] px-6 py-20 text-center text-[#fafafa]">
         <div className="max-w-3xl mx-auto text-center flex flex-col items-center">
           <h2 className="text-2xl md:text-4xl font-bold mb-8 leading-snug">
             "Information security is not a project, it's an ongoing discipline. Stay updated daily."
@@ -343,8 +582,8 @@ export default function Home() {
                Empowering teams with actionable security intel directly to your inbox.
              </p>
              <div className="flex gap-4 mt-2">
-               <a href="https://twitter.com" className="w-8 h-8 rounded border border-zinc-200 bg-white flex items-center justify-center text-zinc-600 hover:text-blue-500 hover:border-blue-200 transition-colors">
-                 <svg fill="currentColor" viewBox="0 0 24 24" className="w-4 h-4"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 24.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+               <a href="https://x.com" aria-label="X" className="w-8 h-8 rounded border border-zinc-200 bg-white flex items-center justify-center text-zinc-700 hover:text-black hover:border-zinc-400 transition-colors">
+                 <span className="text-[11px] font-bold tracking-wide">X</span>
                </a>
                <a href="https://linkedin.com" className="w-8 h-8 rounded border border-zinc-200 bg-white flex items-center justify-center text-zinc-600 hover:text-blue-700 hover:border-blue-200 transition-colors">
                  <svg fill="currentColor" viewBox="0 0 24 24" className="w-4 h-4"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>

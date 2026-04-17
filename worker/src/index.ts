@@ -19,17 +19,18 @@ export const runDailyPipeline = async (env: WorkerEnv): Promise<void> => {
     const newItems = cleaned.filter(item => !existingUrlSet.has(item.url));
     console.log(`Found ${newItems.length} truly NEW articles`);
 
-    if (newItems.length === 0) {
-      console.log("No new articles to process. Exiting pipeline.");
-      return;
-    }
+    let preparedArticles: Awaited<ReturnType<typeof writeArticles>> = [];
 
-    const preparedArticles = await writeArticles(newItems, env);
-    console.log(`Prepared ${preparedArticles.length} articles for Supabase`);
-    
-    if (preparedArticles.length > 0) {
-      await saveArticles(env, preparedArticles);
-      console.log("Saved articles to Supabase");
+    if (newItems.length === 0) {
+      console.log("No brand-new articles found. Sending digest from recent stored articles.");
+    } else {
+      preparedArticles = await writeArticles(newItems, env);
+      console.log(`Prepared ${preparedArticles.length} articles for Supabase`);
+
+      if (preparedArticles.length > 0) {
+        await saveArticles(env, preparedArticles);
+        console.log("Saved articles to Supabase");
+      }
     }
 
     const digestResult = await sendDigest(env);

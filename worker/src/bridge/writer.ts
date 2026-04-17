@@ -6,14 +6,14 @@ Rewrite the given RSS item as a polished newsletter article.
 Rules:
 - Title: Punchy, specific, under 80 chars. No clickbait.
 - Summary: 2 sentences, under 180 chars. Email preview text quality.
-- Content: 500-700 words, written in clean markdown.
-- Content structure: start with a short lead paragraph, then use headings in this order:
-  ## Overview
-  ## Technical details
-  ## Why it matters
-  ## What to do next
-- Keep paragraphs short and easy to scan. Use bullets for actions when useful.
+- Content: 500-750 words, written in clean markdown.
+- Start with a short lead paragraph, then use 3-5 descriptive H2 headings.
+- Headings must be relevant to this story and should vary between articles.
+- Include at least one short bullet list of concrete actions.
+- Keep paragraphs short and easy to scan.
 - Do not repeat the title as a top-level heading inside the body. The page already renders the title.
+- Use ONLY facts present in the provided item. Do not invent CVEs, actor names, product versions, or impact numbers.
+- If something is missing, say it was not disclosed by the source.
 - Tags: 3-5 lowercase tags.
 - Category: threat-intel | vulnerabilities | industry-news | research | ai-security | government
 - Slug: URL-safe, lowercase, hyphens only.
@@ -27,6 +27,7 @@ Return ONLY valid JSON:
 }`;
 
 const DEFAULT_COVER_IMAGE = "/cover.avif";
+const LLM_TIMEOUT_MS = 40_000;
 
 const slugify = (value: string): string =>
   value
@@ -53,6 +54,62 @@ const splitSentences = (value: string): string[] => {
   return sentences.map((sentence) => normalizeWhitespace(sentence)).filter(Boolean);
 };
 
+const headingPools: Record<string, string[]> = {
+  "threat-intel": [
+    "Attack chain and observed behavior",
+    "What defenders should monitor",
+    "Exposure and likely impact",
+    "Signals worth tracking this week",
+    "How this campaign is evolving"
+  ],
+  vulnerabilities: [
+    "Where the weakness appears",
+    "Technical risk and exploitability",
+    "Patch and mitigation priorities",
+    "Operational impact for security teams",
+    "Validation steps after remediation"
+  ],
+  "industry-news": [
+    "What happened",
+    "Technical context behind the update",
+    "Why this matters for teams",
+    "Immediate next actions",
+    "Questions security leaders should ask"
+  ],
+  research: [
+    "Research focus",
+    "Methodology and key observations",
+    "Practical implications",
+    "How to apply this in production",
+    "Limitations and open questions"
+  ],
+  "ai-security": [
+    "Model and threat context",
+    "Observed failure modes",
+    "Defensive controls to prioritize",
+    "Risk trade-offs for adoption",
+    "What to test next"
+  ],
+  government: [
+    "Advisory summary",
+    "Who should act first",
+    "Recommended mitigations",
+    "Coordination and reporting guidance",
+    "Compliance and response planning"
+  ]
+};
+
+const pickFallbackHeadings = (item: RawFeedItem): [string, string, string] => {
+  const pool = headingPools[item.category] || headingPools["industry-news"];
+  const seed = parseInt(hashString(item.url).slice(0, 6), 36) || 0;
+
+  const first = pool[seed % pool.length];
+  const second = pool[(seed + 2) % pool.length];
+  const third = pool[(seed + 4) % pool.length];
+
+  return [first, second, third];
+};
+
 const stripLeadingHeading = (content: string, title: string): string => {
   const normalizedContent = content.replace(/^\uFEFF/, "").trim();
   const titlePattern = new RegExp(`^#{1,3}\\s+${escapeRegExp(title)}\\s*(?:\\r?\\n)+`, "i");
@@ -64,22 +121,23 @@ const buildStructuredContent = (
   body: string,
   item: RawFeedItem
 ): string => {
-  const lead = splitSentences(summary).slice(0, 2).join(" ") || normalizeWhitespace(summary);
-  const detail = normalizeWhitespace(body) || lead;
+  const cleanedSummary = normalizeWhitespace(summary) || `${item.sourceName} reported a new security update.`;
+  const lead = splitSentences(cleanedSummary).slice(0, 2).join(" ") || cleanedSummary;
+  const detail = normalizeWhitespace(body) || cleanedSummary;
   const topicLabel = item.category.replace(/-/g, " ");
+  const [firstHeading, secondHeading, thirdHeading] = pickFallbackHeadings(item);
 
   return [
     lead,
-    "## Overview",
-    lead,
-    "## Technical details",
+    `## ${firstHeading}`,
     detail,
-    "## Why it matters",
+    `## ${secondHeading}`,
     `This matters because teams tracking ${topicLabel} need enough context to decide whether to patch, monitor, escalate, or brief stakeholders.`,
-    "## What to do next",
+    `## ${thirdHeading}`,
     [
       `- Review the original report from [${item.sourceName}](${item.sourceUrl}).`,
       "- Check whether any of your assets or services are exposed to the same class of issue.",
+      "- Verify detections and logging coverage before and after mitigation.",
       "- Share the update with response, engineering, and communications teams if action is required."
     ].join("\n"),
     "## Source",
@@ -99,8 +157,18 @@ const normalizeGeneratedContent = (
   }
 
   const hasStructuredHeadings = /^##\s+/m.test(cleanedContent);
+  const lead = splitSentences(summary).slice(0, 2).join(" ") || normalizeWhitespace(summary);
+
   if (hasStructuredHeadings) {
-    return [normalizeWhitespace(summary), cleanedContent].join("\n\n");
+    const contentWithLead = cleanedContent.startsWith(lead)
+      ? cleanedContent
+      : [lead, cleanedContent].join("\n\n");
+
+    if (contentWithLead.length < 700) {
+      return buildStructuredContent(summary, contentWithLead, item);
+    }
+
+    return contentWithLead;
   }
 
   return buildStructuredContent(summary, cleanedContent, item);
@@ -109,7 +177,8 @@ const normalizeGeneratedContent = (
 const fallbackArticle = (item: RawFeedItem): NewsletterArticle => {
   const baseSlug = slugify(item.title) || "security-update";
   const uniqueSlug = `${baseSlug}-${hashString(item.url).slice(0, 6)}`;
-  const summary = item.summary.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const cleanedSummary = item.summary.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const summary = cleanedSummary || `${item.sourceName} published a cybersecurity update relevant to ${item.category.replace(/-/g, " ")}.`;
   const content = buildStructuredContent(summary, summary, item);
 
   return {
@@ -176,10 +245,10 @@ const rewriteItem = async (
   env: WorkerEnv
 ): Promise<NewsletterArticle | null> => {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 12000); // 12 seconds max
+  const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
 
   try {
-    console.log(`Sending to LongCat: ${item.title.substring(0, 30)}...`);
+    console.log(`Sending to LLM: ${item.title.substring(0, 30)}...`);
     const response = await fetch(`${env.LLM_BASE_URL.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
       signal: controller.signal,
@@ -204,7 +273,7 @@ const rewriteItem = async (
     });
 
     if (!response.ok) {
-      console.error("LongCat API Error:", response.status, await response.text());
+      console.error("LLM API Error:", response.status, await response.text());
       return fallbackArticle(item);
     }
 
@@ -246,7 +315,7 @@ const rewriteItem = async (
     } as NewsletterArticle;
   } catch (error) {
     if ((error as Error).name === 'AbortError') {
-      console.error(`LLM Rewrite Timeout after 12s for: ${item.title.substring(0, 30)}...`);
+      console.error(`LLM rewrite timeout after ${Math.round(LLM_TIMEOUT_MS / 1000)}s for: ${item.title.substring(0, 30)}...`);
     } else {
       console.error(`LLM Rewrite Error (${item.title}):`, (error as Error).message);
     }
@@ -260,8 +329,8 @@ export const writeArticles = async (
   items: RawFeedItem[],
   env: WorkerEnv
 ): Promise<NewsletterArticle[]> => {
-  // Only process top 5 to keep LLM calls fast and under Cloudflare's subrequest limit
-  const settled = await Promise.allSettled(items.slice(0, 5).map((item) => rewriteItem(item, env)));
+  // Process a larger batch to keep the daily feed fresh while staying within worker limits.
+  const settled = await Promise.allSettled(items.slice(0, 8).map((item) => rewriteItem(item, env)));
 
   return settled
     .filter((result): result is PromiseFulfilledResult<NewsletterArticle | null> => result.status === "fulfilled")

@@ -46,12 +46,22 @@ export const fetchFeeds = async (): Promise<RawFeedItem[]> => {
     "Ars Technica",
     "AWS Security",
     "Cloudflare Security",
-    "Google Cloud Security"
+    "Google Cloud Security",
+    "Rapid7",
+    "Snyk",
+    "Palo Alto Unit42",
+    "OpenAI Blog",
+    "Anthropic",
+    "Google Research",
+    "NIST CSRC",
+    "CISA Alerts"
   ]);
 
   // Keep the worker focused on sources that are actually returning usable items.
   // This avoids wasting subrequests on feeds that routinely 404, rate-limit, or emit invalid XML.
-  const subset = RSS_SOURCES.filter((source) => reliableSourceNames.has(source.name)).slice(0, 15);
+  const subset = RSS_SOURCES
+    .filter((source) => reliableSourceNames.has(source.name))
+    .slice(0, 20);
 
   const settled = await Promise.allSettled(
     subset.map((source) => fetchSingleSource(source))
