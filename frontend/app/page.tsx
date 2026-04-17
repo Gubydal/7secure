@@ -167,12 +167,12 @@ export default function Home() {
           <p className="text-base md:text-lg text-zinc-400 mb-10 max-w-2xl px-4">
             Get the latest cybersecurity news, understand current threats, and learn how to secure your infrastructure against modern attacks.
           </p>
-                      <div className="flex w-full max-w-[760px] mx-auto mt-4 mb-4 rounded-[1.1rem] p-1.5 items-center bg-white border border-zinc-200 shadow-[0_14px_40px_rgba(0,0,0,0.22)] overflow-hidden">
+                      <div className="flex w-full max-w-[720px] mx-auto mt-4 mb-4 rounded-[0.85rem] p-1.5 items-center bg-white border border-zinc-200 shadow-[0_14px_40px_rgba(0,0,0,0.20)] overflow-hidden">
               <input 
                 type="email" 
                 placeholder="Email Address" 
                 autoComplete="email"
-                  className="flex-1 bg-transparent border-none outline-none px-5 text-zinc-900 placeholder:text-zinc-500 text-[15px] h-12"
+                className="flex-1 bg-transparent border-none outline-none px-5 text-zinc-900 placeholder:text-zinc-500 text-[15px] h-12"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") setIsOpen(true);
                 }}
@@ -180,10 +180,10 @@ export default function Home() {
               <Button 
                 variant="primary" 
                 onPress={() => setIsOpen(true)} 
-                className="bg-[#18181b] text-white font-semibold text-[15px] h-12 px-6 rounded-[0.9rem] hover:bg-zinc-800 transition-colors flex items-center justify-center min-w-max"
+                className="bg-[#18181b] text-white font-semibold text-[15px] h-12 px-6 rounded-[0.75rem] hover:bg-zinc-800 transition-colors flex items-center justify-center min-w-max gap-2"
               >
                 <span>Subscribe</span>
-                <Send className="w-4 h-4 ml-1.5 opacity-90 stroke-[2px]" />
+                <Send className="w-4 h-4 shrink-0 opacity-90 stroke-[2px] translate-y-px" />
               </Button>
             </div>
           <div className="mt-8 flex flex-col items-center">
@@ -248,8 +248,12 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
                {articles.map((article) => (
                   <article key={article.id} onClick={() => window.location.href=`/articles/${article.slug}`} className="group flex flex-col bg-white border border-zinc-200 rounded-xl overflow-hidden hover:border-zinc-300 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer relative bg-clip-padding">
-                    <div className="aspect-[16/9] w-full bg-zinc-200 relative overflow-hidden flex items-center justify-center">
-                      <span className="text-zinc-400 font-mono text-xs">Cover Image Placeholder</span>
+                    <div className="relative aspect-[16/9] w-full overflow-hidden bg-zinc-100">
+                      <img
+                        src={article.image_url || "/cover.avif"}
+                        alt={article.title}
+                        className="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
+                      />
                       <div className="absolute bottom-3 left-3 bg-white border border-zinc-200 shadow-sm text-xs font-bold text-zinc-800 px-3 py-1.5 rounded-md backdrop-blur">
                         {article.category}
                       </div>
@@ -267,7 +271,7 @@ export default function Home() {
                       {/* Author Area */}
                       <div className="flex items-center mt-auto border-t border-zinc-100 pt-5">
                         <div className="w-9 h-9 rounded-full bg-zinc-200 overflow-hidden relative mr-3 border border-zinc-200 flex items-center justify-center shrink-0 text-zinc-400 text-xs font-bold">
-                           <Image src={article.authorImage || "/Small_Icon.svg"} alt={(article.author || "7secure")} fill className={article.authorImage || "/Small_Icon.svg".includes("Small_Icon") ? "object-contain bg-[#09090b] p-[6px]" : "object-cover"} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                            <Image src={article.authorImage || "/Small_Icon.svg"} alt={(article.author || "7secure")} fill className={String(article.authorImage || "/Small_Icon.svg").includes("Small_Icon") ? "object-contain object-center bg-[#09090b] p-[6px]" : "object-cover object-center"} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                         </div>
                         <div>
                           <p className="text-sm font-semibold text-zinc-900 leading-none">{(article.author || "7secure")}</p>

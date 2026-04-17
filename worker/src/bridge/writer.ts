@@ -5,13 +5,19 @@ Rewrite the given RSS item as a polished newsletter article.
 
 Rules:
 - Title: Punchy, specific, under 80 chars. No clickbait.
-- Summary: 2 sentences, under 150 chars. Email preview text quality.
-- Content: 3-4 paragraphs. Informative, neutral, professional. Include technical details.
-  End with a 'Why it matters' paragraph.
+- Summary: 2 sentences, under 180 chars. Email preview text quality.
+- Content: 500-700 words, written in clean markdown.
+- Content structure: start with a short lead paragraph, then use headings in this order:
+  ## Overview
+  ## Technical details
+  ## Why it matters
+  ## What to do next
+- Keep paragraphs short and easy to scan. Use bullets for actions when useful.
+- Do not repeat the title as a top-level heading inside the body. The page already renders the title.
 - Tags: 3-5 lowercase tags.
 - Category: threat-intel | vulnerabilities | industry-news | research | ai-security | government
 - Slug: URL-safe, lowercase, hyphens only.
-- image_url: optional canonical thumbnail URL if the source provided one.
+- image_url: use the source image if available, otherwise use /cover.avif.
 
 Return ONLY valid JSON:
 {
@@ -19,6 +25,8 @@ Return ONLY valid JSON:
   'category': '...', 'tags': ['...'], 'source_name': '...', 'source_url': '...',
   'original_url': '...', 'image_url': '...'
 }`;
+
+const DEFAULT_COVER_IMAGE = "/cover.avif";
 
 const slugify = (value: string): string =>
   value
@@ -36,22 +44,85 @@ const hashString = (value: string): string => {
   return Math.abs(hash).toString(36);
 };
 
+const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const normalizeWhitespace = (value: string): string => value.replace(/\s+/g, " ").trim();
+
+const splitSentences = (value: string): string[] => {
+  const sentences = value.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [];
+  return sentences.map((sentence) => normalizeWhitespace(sentence)).filter(Boolean);
+};
+
+const stripLeadingHeading = (content: string, title: string): string => {
+  const normalizedContent = content.replace(/^\uFEFF/, "").trim();
+  const titlePattern = new RegExp(`^#{1,3}\\s+${escapeRegExp(title)}\\s*(?:\\r?\\n)+`, "i");
+  return normalizedContent.replace(titlePattern, "").trim();
+};
+
+const buildStructuredContent = (
+  summary: string,
+  body: string,
+  item: RawFeedItem
+): string => {
+  const lead = splitSentences(summary).slice(0, 2).join(" ") || normalizeWhitespace(summary);
+  const detail = normalizeWhitespace(body) || lead;
+  const topicLabel = item.category.replace(/-/g, " ");
+
+  return [
+    lead,
+    "## Overview",
+    lead,
+    "## Technical details",
+    detail,
+    "## Why it matters",
+    `This matters because teams tracking ${topicLabel} need enough context to decide whether to patch, monitor, escalate, or brief stakeholders.`,
+    "## What to do next",
+    [
+      `- Review the original report from [${item.sourceName}](${item.sourceUrl}).`,
+      "- Check whether any of your assets or services are exposed to the same class of issue.",
+      "- Share the update with response, engineering, and communications teams if action is required."
+    ].join("\n"),
+    "## Source",
+    `Read the original report from [${item.sourceName}](${item.sourceUrl}).`
+  ].join("\n\n");
+};
+
+const normalizeGeneratedContent = (
+  title: string,
+  summary: string,
+  content: string,
+  item: RawFeedItem
+): string => {
+  const cleanedContent = stripLeadingHeading(content, title);
+  if (!cleanedContent) {
+    return buildStructuredContent(summary, summary, item);
+  }
+
+  const hasStructuredHeadings = /^##\s+/m.test(cleanedContent);
+  if (hasStructuredHeadings) {
+    return [normalizeWhitespace(summary), cleanedContent].join("\n\n");
+  }
+
+  return buildStructuredContent(summary, cleanedContent, item);
+};
+
 const fallbackArticle = (item: RawFeedItem): NewsletterArticle => {
   const baseSlug = slugify(item.title) || "security-update";
   const uniqueSlug = `${baseSlug}-${hashString(item.url).slice(0, 6)}`;
   const summary = item.summary.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const content = buildStructuredContent(summary, summary, item);
 
   return {
     title: item.title,
     slug: uniqueSlug,
     summary: summary.length > 220 ? `${summary.slice(0, 217)}...` : summary,
-    content: `# ${item.title}\n\n${summary}\n\n## Why it matters\n\nThis item was automatically captured from ${item.sourceName} while the rewrite service was unavailable. You can still use it as a live update in the daily briefing.\n\nSource: [${item.sourceName}](${item.sourceUrl})`,
+    content,
     category: item.category,
     tags: [item.category, "daily-brief", "rss"],
     source_name: item.sourceName,
     source_url: item.sourceUrl,
     original_url: item.url,
-    image_url: item.imageUrl || null,
+    image_url: item.imageUrl || DEFAULT_COVER_IMAGE,
     is_featured: false
   };
 };
@@ -152,14 +223,26 @@ const rewriteItem = async (
       return fallbackArticle(item);
     }
 
+    const finalTitle = parsed.title || item.title;
+    const finalSummary = normalizeWhitespace(parsed.summary || item.summary);
+    const finalContent = normalizeGeneratedContent(
+      finalTitle,
+      finalSummary,
+      parsed.content,
+      item
+    );
+
     // Default to the original item's metadata if the LLM hallucinated or forgot to include it
     return {
       ...parsed,
-      category: allowedCategories.has(parsed.category) ? parsed.category : "industry-news",
+      title: finalTitle,
+      summary: finalSummary,
+      content: finalContent,
+      category: allowedCategories.has(parsed.category) ? parsed.category : item.category,
       source_name: parsed.source_name || item.sourceName || "Unknown Source",
       source_url: parsed.source_url || item.sourceUrl || "https://example.com",
       original_url: parsed.original_url || item.url || "https://example.com",
-      image_url: parsed.image_url || item.imageUrl || null
+      image_url: parsed.image_url || item.imageUrl || DEFAULT_COVER_IMAGE
     } as NewsletterArticle;
   } catch (error) {
     if ((error as Error).name === 'AbortError') {

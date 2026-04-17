@@ -13,7 +13,7 @@ if (!supabaseUrl || !supabaseKey) {
 }
 const supabase = createClient(supabaseUrl, supabaseKey);
 const resend = new Resend(process.env.RESEND_API_KEY || '');
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || '7secure <onboarding@resend.dev>';
 
 export async function POST(req: Request) {
   try {

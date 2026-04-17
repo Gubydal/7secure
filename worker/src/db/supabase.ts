@@ -44,7 +44,8 @@ export const saveArticles = async (
     original_url: article.original_url,
     image_url: article.image_url ?? null,
     tags: article.tags,
-    is_featured: index === 0
+    is_featured: index === 0,
+    published_at: new Date().toISOString()
   }));
 
   await getSupabaseAdmin(env)

@@ -177,16 +177,19 @@ export const sendDigest = async (env: WorkerEnv): Promise<DigestSendResult> => {
   }
 
   const resend = new Resend(env.RESEND_API_KEY);
+  const fromEmail = env.RESEND_FROM_EMAIL || "7secure <onboarding@resend.dev>";
   const batches: Array<typeof subscribers> = [];
   for (let i = 0; i < subscribers.length; i += 100) {
     batches.push(subscribers.slice(i, i + 100));
   }
 
+  let hadErrors = false;
+
   try {
     for (const batch of batches) {
       const response = await resend.batch.send(
         batch.map((subscriber) => ({
-          from: env.RESEND_FROM_EMAIL,
+          from: fromEmail,
           to: [subscriber.email],
           subject: "7secure Daily Security Briefing",
           html: buildHtmlDigest(digestArticles, subscriber.email, env.NEXT_PUBLIC_SITE_URL),
@@ -195,6 +198,7 @@ export const sendDigest = async (env: WorkerEnv): Promise<DigestSendResult> => {
       );
       
       if (response.error) {
+        hadErrors = true;
         console.error("Resend batch send error:", response.error);
       } else {
         console.log("Resend batch sent successfully:", response.data);
@@ -204,7 +208,7 @@ export const sendDigest = async (env: WorkerEnv): Promise<DigestSendResult> => {
     return {
       articleCount: digestArticles.length,
       subscriberCount: subscribers.length,
-      status: "success"
+      status: hadErrors ? "failed" : "success"
     };
   } catch (error) {
     console.error("Fatal error during batch sending:", error);
