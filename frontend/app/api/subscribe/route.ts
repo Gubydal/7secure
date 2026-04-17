@@ -6,11 +6,19 @@ export const runtime = 'edge';
 
 // Initialize Clients directly (skips the old lib)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  '';
 
 if (!supabaseUrl || !supabaseKey) {
   console.warn('Supabase URL or Key is missing');
 }
+
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.warn('SUPABASE_SERVICE_ROLE_KEY is missing; subscribe API is using anon key fallback.');
+}
+
 const supabase = createClient(supabaseUrl, supabaseKey);
 const resend = new Resend(process.env.RESEND_API_KEY || '');
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || '7secure <onboarding@resend.dev>';
@@ -18,23 +26,35 @@ const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || '7secure <onboarding@resend.
 export async function POST(req: Request) {
   try {
     const { name, email, interests } = await req.json();
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    const normalizedName = typeof name === 'string' ? name.trim() : '';
+    const normalizedInterests = Array.isArray(interests)
+      ? interests.filter((value) => typeof value === 'string').map((value) => value.trim()).filter(Boolean)
+      : [];
 
-    if (!email) {
+    if (!normalizedEmail) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
-    // 1. Save Subscriber to Supabase (mapping 'name' to the 'role' column from schema)
+    // Create or reactivate subscriber so digest query (confirmed=true and unsubscribed_at=null) can include this email.
     const { error: supabaseError } = await supabase
       .from('subscribers')
-      .insert([
-        { 
-          email: email, 
-          role: name || null, 
-          interests: interests || []
+      .upsert(
+        [
+          {
+            email: normalizedEmail,
+            role: normalizedName || null,
+            interests: normalizedInterests,
+            confirmed: true,
+            unsubscribed_at: null
+          }
+        ],
+        {
+          onConflict: 'email'
         }
-      ]);
+      );
 
-    if (supabaseError && supabaseError.code !== '23505') { // 23505 is unique violation
+    if (supabaseError) {
       console.error('Supabase Error:', supabaseError);
       return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
@@ -49,8 +69,8 @@ export async function POST(req: Request) {
             Authorization: `Bearer ${process.env.RESEND_API_KEY}`
           },
           body: JSON.stringify({
-            email,
-            first_name: name,
+            email: normalizedEmail,
+            first_name: normalizedName,
             audience_id: process.env.RESEND_AUDIENCE_ID,
             unsubscribed: false
           })
@@ -59,13 +79,13 @@ export async function POST(req: Request) {
 
       await resend.emails.send({
         from: FROM_EMAIL,
-        to: email,
+        to: [normalizedEmail],
         subject: 'Welcome to 7secure 🛡️',
         html: `
           <div style="background:#09090b;padding:24px;font-family:Inter,Arial,sans-serif;color:#fafafa;">
-            <h2>Hi ${name || 'there'},</h2>
+            <h2>Hi ${normalizedName || 'there'},</h2>
             <p>You're officially on the 7secure list! We're excited to send you the latest in cybersecurity.</p>
-            <p>You indicated interest in: <strong>${interests?.join(', ') || 'General News'}</strong>.</p>
+            <p>You indicated interest in: <strong>${normalizedInterests.join(', ') || 'General News'}</strong>.</p>
             <br/>
             <p>Stay safe,<br/>The 7secure Team</p>
           </div>
