@@ -69,7 +69,7 @@ const rewriteItem = async (
   env: WorkerEnv
 ): Promise<NewsletterArticle | null> => {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 seconds max
+  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 seconds max
 
   try {
     console.log(`Sending to LongCat: ${item.title.substring(0, 30)}...`);
@@ -127,7 +127,7 @@ const rewriteItem = async (
     } as NewsletterArticle;
   } catch (error) {
     if ((error as Error).name === 'AbortError') {
-      console.error(`LLM Rewrite Timeout after 20s for: ${item.title.substring(0, 30)}...`);
+      console.error(`LLM Rewrite Timeout after 60s for: ${item.title.substring(0, 30)}...`);
     } else {
       console.error(`LLM Rewrite Error (${item.title}):`, (error as Error).message);
     }

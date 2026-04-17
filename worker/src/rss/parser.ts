@@ -74,6 +74,7 @@ export const parseFeedXml = (xml: string, source: RSSSource): RawFeedItem[] => {
   try {
     const parser = new XMLParser({
       ignoreAttributes: false,
+      processEntities: false,
       attributeNamePrefix: "@_"
     });
     const parsedXml = parser.parse(xml);

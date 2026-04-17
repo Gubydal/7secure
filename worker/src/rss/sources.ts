@@ -49,7 +49,6 @@ export const RSS_SOURCES: RSSSource[] = [
   { name: "Risky Business", url: "https://risky.biz/feed/", category: "industry-news" },
   { name: "TechCrunch Security", url: "https://techcrunch.com/tag/security/feed/", category: "industry-news" },
   { name: "The Hacker News", url: "https://thehackernews.com/feeds/posts/default?alt=rss", category: "industry-news" },
-  { name: "BankInfoSecurity", url: "https://www.bankinfosecurity.com/rss", category: "industry-news" },
   { name: "BleepingComputer", url: "https://www.bleepingcomputer.com/rss/", category: "industry-news" },
   { name: "CSO Online", url: "https://www.csoonline.com/index.rss", category: "industry-news" },
   { name: "Dark Reading", url: "https://www.darkreading.com/rss.xml", category: "industry-news" },
@@ -87,6 +86,5 @@ export const RSS_SOURCES: RSSSource[] = [
   { name: "CISA Alerts", url: "https://www.cisa.gov/uscert/ncas/alerts.xml", category: "government" },
   { name: "ASD Cyber", url: "https://www.cyber.gov.au/news-and-events/rss-feeds", category: "government" },
   { name: "ENISA", url: "https://www.enisa.europa.eu/feed/", category: "government" },
-  { name: "NCSC UK", url: "https://www.ncsc.gov.uk/rss.xml", category: "government" },
   { name: "ANSSI", url: "https://www.ssi.gouv.fr/feed/", category: "government" }
 ];
