@@ -1,10 +1,4 @@
-export type ArticleCategory =
-  | "threat-intel"
-  | "vulnerabilities"
-  | "industry-news"
-  | "research"
-  | "ai-security"
-  | "government";
+export type ArticleCategory = string;
 
 export interface RSSSource {
   name: string;

@@ -25,6 +25,7 @@ export function GlobalHeader() {
   const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const isHome = pathname === "/";
+  const subscribeHref = isHome ? "/?subscribe=1" : "/subscribe";
 
   const headerClasses = isHome
     ? "border-b border-white/10 bg-[#09090b]/95 backdrop-blur-md"
@@ -99,7 +100,7 @@ export function GlobalHeader() {
             Login
           </Link>
           <Link
-            href="/subscribe"
+            href={subscribeHref}
             className={desktopButtonClasses}
           >
             Subscribe
@@ -142,7 +143,7 @@ export function GlobalHeader() {
               Login
             </Link>
             <Link
-              href="/subscribe"
+              href={subscribeHref}
               onClick={() => setIsMobileOpen(false)}
               className={desktopButtonClasses.replace("h-9", "h-10")}
             >

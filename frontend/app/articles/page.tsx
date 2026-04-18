@@ -5,8 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Search, Star } from "lucide-react";
 import { CategoryBadge } from "../../components/CategoryBadge";
 import {
-  CATEGORY_META,
-  CATEGORY_ORDER,
+  buildCategoryList,
+  getCategoryMeta,
   normalizeCategory,
   type CategoryKey
 } from "../../lib/category-meta";
@@ -52,9 +52,8 @@ export default function Page() {
   }, []);
 
   const categories = useMemo(() => {
-    const unique = new Set<CategoryKey>(articles.map((article) => normalizeCategory(article.category)));
-    const ordered = CATEGORY_ORDER.filter((category) => unique.has(category));
-    return ["all" as const, ...(ordered.length ? ordered : CATEGORY_ORDER)];
+    const dynamic = buildCategoryList(articles.map((article) => article.category), 10);
+    return ["all" as const, ...dynamic];
   }, [articles]);
 
   const filteredArticles = useMemo(() => {
@@ -113,8 +112,9 @@ export default function Page() {
           <div className="flex flex-wrap gap-3">
             {categories.map((category) => {
               const isAll = category === "all";
-              const Icon = isAll ? Star : CATEGORY_META[category].icon;
-              const label = isAll ? "All" : CATEGORY_META[category].label;
+              const meta = isAll ? null : getCategoryMeta(category);
+              const Icon = isAll ? Star : meta!.icon;
+              const label = isAll ? "All" : meta!.label;
 
               return (
                 <button

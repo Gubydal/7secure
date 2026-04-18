@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Check, Search, ShieldCheck, Star } from "lucide-react";
 import {
-  CATEGORY_META,
+  buildCategoryList,
+  getCategoryMeta,
   normalizeCategory,
   type CategoryKey
 } from "../../lib/category-meta";
@@ -15,12 +16,18 @@ type PracticeArticle = Pick<
   "id" | "slug" | "title" | "summary" | "category" | "published_at" | "source_name"
 >;
 
-const PRACTICE_CATEGORIES: CategoryKey[] = [
-  "vulnerabilities",
-  "threat-intel",
-  "research",
-  "government"
-];
+const PRACTICE_KEYWORDS =
+  /(practice|playbook|guide|checklist|hardening|mitigation|response|defense|incident|baseline|detection|remediation|compliance|policy)/i;
+
+const isPracticeFocused = (article: PracticeArticle): boolean => {
+  const signal = `${article.title} ${article.summary} ${article.category}`.toLowerCase();
+  if (PRACTICE_KEYWORDS.test(signal)) {
+    return true;
+  }
+
+  const category = normalizeCategory(article.category);
+  return /(vulnerab|threat|research|government|compliance|security-control)/.test(category);
+};
 
 const summaryToChecklist = (summary: string): string[] => {
   const parts = summary
@@ -44,16 +51,17 @@ export default function Page() {
       const { data, error } = await supabasePublic
         .from("articles")
         .select("id,slug,title,summary,category,published_at,source_name")
-        .in("category", PRACTICE_CATEGORIES)
         .order("published_at", { ascending: false })
-        .limit(120);
+        .limit(180);
 
       if (!isMounted) {
         return;
       }
 
       if (!error && data) {
-        setArticles(data as PracticeArticle[]);
+        const initial = data as PracticeArticle[];
+        const focused = initial.filter((article) => isPracticeFocused(article));
+        setArticles((focused.length > 0 ? focused : initial).slice(0, 120));
       }
 
       setIsLoading(false);
@@ -67,9 +75,8 @@ export default function Page() {
   }, []);
 
   const categoryOptions = useMemo(() => {
-    const available = new Set<CategoryKey>(articles.map((article) => normalizeCategory(article.category)));
-    const ordered = PRACTICE_CATEGORIES.filter((category) => available.has(category));
-    return ["all" as const, ...(ordered.length ? ordered : PRACTICE_CATEGORIES)];
+    const dynamic = buildCategoryList(articles.map((article) => article.category), 10);
+    return ["all" as const, ...dynamic];
   }, [articles]);
 
   const filteredPractices = useMemo(() => {
@@ -121,8 +128,9 @@ export default function Page() {
         <div className="mb-8 flex flex-wrap gap-3">
           {categoryOptions.map((category) => {
             const isAll = category === "all";
-            const Icon = isAll ? Star : CATEGORY_META[category].icon;
-            const label = isAll ? "All" : CATEGORY_META[category].label;
+            const meta = isAll ? null : getCategoryMeta(category);
+            const Icon = isAll ? Star : meta!.icon;
+            const label = isAll ? "All" : meta!.label;
 
             return (
               <button
@@ -159,7 +167,8 @@ export default function Page() {
           <div className="grid grid-cols-1 gap-4">
             {filteredPractices.map((article) => {
               const category = normalizeCategory(article.category);
-              const CategoryIcon = CATEGORY_META[category].icon;
+              const categoryMeta = getCategoryMeta(category);
+              const CategoryIcon = categoryMeta.icon;
               const checklist = summaryToChecklist(article.summary);
 
               return (
@@ -176,7 +185,7 @@ export default function Page() {
                       <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
                         <span className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 font-medium text-zinc-700">
                           <ShieldCheck className="h-3 w-3" />
-                          {CATEGORY_META[category].label}
+                          {categoryMeta.label}
                         </span>
                         <span>{article.source_name || "7secure"}</span>
                         <span>•</span>

@@ -11,6 +11,20 @@ interface SentArticleRow {
   article_slug: string;
 }
 
+interface CategoryRow {
+  category: string | null;
+}
+
+const normalizeCategorySlug = (rawCategory: string): string => {
+  const normalized = rawCategory
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return normalized || "industry-news";
+};
+
 const normalizeArticleUrl = (rawUrl: string): string => {
   const trimmed = rawUrl.trim();
   if (!trimmed) {
@@ -140,6 +154,49 @@ export const getRecentArticles = async (env: WorkerEnv) => {
     .limit(12);
 
   return fallback ?? [];
+};
+
+export const getTrackedCategories = async (
+  env: WorkerEnv,
+  maxCategories = 10
+): Promise<string[]> => {
+  const limit = Math.max(1, Math.min(20, maxCategories));
+
+  try {
+    const { data, error } = await getSupabaseAdmin(env)
+      .from("articles")
+      .select("category")
+      .order("published_at", { ascending: false })
+      .limit(500);
+
+    if (error) {
+      console.error("tracked category query failed:", error.message);
+      return [];
+    }
+
+    const counts = new Map<string, number>();
+    for (const row of (data as CategoryRow[] | null) ?? []) {
+      const raw = row.category || "";
+      if (!raw.trim()) {
+        continue;
+      }
+      const key = normalizeCategorySlug(raw);
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+
+    return [...counts.entries()]
+      .sort((a, b) => {
+        if (b[1] !== a[1]) {
+          return b[1] - a[1];
+        }
+        return a[0].localeCompare(b[0]);
+      })
+      .slice(0, limit)
+      .map(([category]) => category);
+  } catch (error) {
+    console.error("tracked category query error:", (error as Error).message);
+    return [];
+  }
 };
 
 export const logDigest = async (

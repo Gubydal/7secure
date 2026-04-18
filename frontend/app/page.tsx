@@ -7,8 +7,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { supabasePublic } from "../lib/supabase";
 import { Bot, CheckCircle2, Search, Send, Shield, Star, X } from "lucide-react";
 import {
-  CATEGORY_META,
-  CATEGORY_ORDER,
+  buildCategoryList,
+  getCategoryMeta,
   getCategoryLabel,
   normalizeCategory,
   type CategoryKey
@@ -25,24 +25,42 @@ interface HomeArticle {
   source_name?: string | null;
 }
 
-const PRACTICE_CATEGORY_SET = new Set<CategoryKey>([
-  "vulnerabilities",
-  "threat-intel",
-  "research",
-  "government"
-]);
+const PRACTICE_KEYWORDS =
+  /(practice|playbook|guide|checklist|hardening|mitigation|response|defense|incident|baseline|detection|remediation|compliance|policy)/i;
 
-const TOOL_CATEGORY_SET = new Set<CategoryKey>([
-  "ai-security",
-  "industry-news",
-  "vulnerabilities",
-  "threat-intel"
-]);
+const TOOL_KEYWORDS =
+  /(tool|platform|framework|scanner|agent|automation|open[-\s]?source|github|model|cli|integration|vendor|product|release)/i;
+
+const articleSignal = (article: Pick<HomeArticle, "title" | "summary" | "category">): string =>
+  `${article.title} ${article.summary} ${article.category}`.toLowerCase();
+
+const isLikelyPracticeArticle = (article: HomeArticle): boolean => {
+  const signal = articleSignal(article);
+  if (PRACTICE_KEYWORDS.test(signal)) {
+    return true;
+  }
+
+  const category = normalizeCategory(article.category);
+  return /(vulnerab|threat|research|government|compliance|security-control)/.test(category);
+};
+
+const isLikelyToolArticle = (article: HomeArticle): boolean => {
+  const signal = articleSignal(article);
+  if (TOOL_KEYWORDS.test(signal)) {
+    return true;
+  }
+
+  const category = normalizeCategory(article.category);
+  return /(ai|tool|automation|platform|product|framework)/.test(category);
+};
 
 export default function Home() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<"all" | CategoryKey>("all");
   const [query, setQuery] = useState("");
+  const [heroEmail, setHeroEmail] = useState("");
+  const [heroSubscribeState, setHeroSubscribeState] = useState<"idle" | "submitting" | "success" | "error">("idle");
+  const [heroSubscribeMessage, setHeroSubscribeMessage] = useState("");
 
   // Subscription Modal State
   const [modalStep, setModalStep] = useState(1);
@@ -52,6 +70,21 @@ export default function Home() {
   const [isSuccess, setIsSuccess] = useState(false);
 
   const [articles, setArticles] = useState<HomeArticle[]>([]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("subscribe") === "1") {
+      setIsOpen(true);
+      params.delete("subscribe");
+      const nextQuery = params.toString();
+      const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash}`;
+      window.history.replaceState({}, "", nextUrl);
+    }
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -106,31 +139,60 @@ export default function Home() {
   }, []);
 
   const categoryOptions = useMemo(() => {
-    const availableCategories = new Set<CategoryKey>(
-      articles.map((article) => normalizeCategory(article.category))
-    );
-
-    const orderedCategories = (availableCategories.size
-      ? CATEGORY_ORDER.filter((category) => availableCategories.has(category))
-      : CATEGORY_ORDER
-    ).map((category) => ({
-      key: category,
-      label: CATEGORY_META[category].label,
-      Icon: CATEGORY_META[category].icon
-    }));
+    const dynamicCategories = buildCategoryList(articles.map((article) => article.category), 10);
 
     return [
       { key: "all" as const, label: "All", icon: <Star className="h-4 w-4" /> },
-      ...orderedCategories.map((category) => {
-        const Icon = category.Icon;
+      ...dynamicCategories.map((category) => {
+        const meta = getCategoryMeta(category);
+        const Icon = meta.icon;
         return {
-          key: category.key,
-          label: category.label,
+          key: category,
+          label: meta.label,
           icon: <Icon className="h-4 w-4" />
         };
       })
     ];
   }, [articles]);
+
+  const isValidEmail = (value: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+  const handleHeroQuickSubscribe = async () => {
+    const normalizedEmail = heroEmail.trim().toLowerCase();
+
+    if (!isValidEmail(normalizedEmail)) {
+      setHeroSubscribeState("error");
+      setHeroSubscribeMessage("Enter a valid email address.");
+      return;
+    }
+
+    setHeroSubscribeState("submitting");
+    setHeroSubscribeMessage("Sending...");
+
+    try {
+      const response = await fetch("/api/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "",
+          email: normalizedEmail,
+          interests: []
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("Subscription request failed");
+      }
+
+      setHeroSubscribeState("success");
+      setHeroSubscribeMessage("Subscribed. Check your inbox for confirmation.");
+      setHeroEmail("");
+    } catch (error) {
+      console.error("Hero quick subscribe failed:", error);
+      setHeroSubscribeState("error");
+      setHeroSubscribeMessage("Subscription failed. Please try again.");
+    }
+  };
 
   const filteredArticles = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -163,18 +225,34 @@ export default function Home() {
   const latestArticles = useMemo(() => filteredArticles.slice(0, 4), [filteredArticles]);
 
   const featuredPracticeArticles = useMemo(
-    () =>
-      articles
-        .filter((article) => PRACTICE_CATEGORY_SET.has(normalizeCategory(article.category)))
-        .slice(0, 3),
+    () => {
+      const focused = articles.filter((article) => isLikelyPracticeArticle(article));
+      const selected = focused.slice(0, 3);
+
+      if (selected.length >= 3) {
+        return selected;
+      }
+
+      const used = new Set(selected.map((article) => article.id));
+      const fillers = articles.filter((article) => !used.has(article.id)).slice(0, 3 - selected.length);
+      return [...selected, ...fillers];
+    },
     [articles]
   );
 
   const featuredToolArticles = useMemo(
-    () =>
-      articles
-        .filter((article) => TOOL_CATEGORY_SET.has(normalizeCategory(article.category)))
-        .slice(0, 3),
+    () => {
+      const focused = articles.filter((article) => isLikelyToolArticle(article));
+      const selected = focused.slice(0, 3);
+
+      if (selected.length >= 3) {
+        return selected;
+      }
+
+      const used = new Set(selected.map((article) => article.id));
+      const fillers = articles.filter((article) => !used.has(article.id)).slice(0, 3 - selected.length);
+      return [...selected, ...fillers];
+    },
     [articles]
   );
 
@@ -234,22 +312,50 @@ export default function Home() {
           <div className="mx-auto mb-4 mt-4 flex w-full max-w-[760px] items-center overflow-hidden rounded-[0.75rem] border border-zinc-200 bg-white p-1.5 shadow-[0_14px_40px_rgba(0,0,0,0.20)]">
             <input
               type="email"
+              value={heroEmail}
               placeholder="Email Address"
               autoComplete="email"
               className="h-11 flex-1 border-none bg-transparent px-4 text-[14px] text-zinc-900 placeholder:text-zinc-500 outline-none sm:h-12 sm:px-5 sm:text-[15px]"
+              onChange={(event) => {
+                setHeroEmail(event.target.value);
+                if (heroSubscribeState !== "idle") {
+                  setHeroSubscribeState("idle");
+                  setHeroSubscribeMessage("");
+                }
+              }}
               onKeyDown={(e) => {
-                if (e.key === "Enter") setIsOpen(true);
+                if (e.key === "Enter") {
+                  void handleHeroQuickSubscribe();
+                }
               }}
             />
             <Button
               variant="primary"
-              onPress={() => setIsOpen(true)}
+              onPress={() => {
+                void handleHeroQuickSubscribe();
+              }}
+              isDisabled={heroSubscribeState === "submitting"}
               className="flex h-11 min-w-max items-center justify-center gap-2 rounded-[0.55rem] bg-[#18181b] px-4 text-sm font-semibold text-white transition-colors hover:bg-zinc-800 sm:h-12 sm:rounded-[0.65rem] sm:px-6 sm:text-[15px]"
             >
-              <span>Subscribe</span>
-              <Send className="h-4 w-4 shrink-0 translate-y-px stroke-[2px] opacity-90" />
+              <span>{heroSubscribeState === "submitting" ? "Subscribing..." : "Subscribe"}</span>
+              {heroSubscribeState === "submitting" ? null : (
+                <Send className="h-4 w-4 shrink-0 translate-y-px stroke-[2px] opacity-90" />
+              )}
             </Button>
           </div>
+          {heroSubscribeMessage ? (
+            <p
+              className={`text-sm ${
+                heroSubscribeState === "success"
+                  ? "text-emerald-300"
+                  : heroSubscribeState === "error"
+                    ? "text-rose-300"
+                    : "text-zinc-400"
+              }`}
+            >
+              {heroSubscribeMessage}
+            </p>
+          ) : null}
           <div className="mt-8 flex flex-col items-center">
             <p className="text-sm font-medium text-zinc-500 mb-6 uppercase tracking-wider">
               Join readers from leading companies
@@ -275,7 +381,7 @@ export default function Home() {
       </section>
 
       {/* 2. NEWSLETTER CONTENT (WHITE) -> Rounded top & bottom intersection */}
-      <main className="relative z-20 -mt-4 w-full flex-1 rounded-t-[1.05rem] bg-white pb-20 pt-14 text-zinc-900 shadow-2xl md:-mt-4 md:rounded-t-[1.4rem] md:pt-10">
+      <main className="relative z-20 -mt-8 w-full flex-1 rounded-t-[1.05rem] bg-white pb-20 pt-16 text-zinc-900 shadow-2xl md:-mt-10 md:rounded-t-[1.4rem] md:pt-12">
         <div className="max-w-5xl mx-auto px-6 text-center">
           
           {/* SEARCH & FILTERS */}

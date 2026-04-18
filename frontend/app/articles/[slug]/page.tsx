@@ -238,7 +238,9 @@ export default async function ArticlePage(
         </div>
 
         <div className="mx-auto max-w-4xl px-4 pb-8 sm:px-6 lg:px-8 lg:pb-12">
-          <MarkdownRenderer content={renderedContent} />
+          <div className="rounded-lg border-2 border-zinc-900 bg-white p-5 sm:p-6 lg:p-7">
+            <MarkdownRenderer content={renderedContent} />
+          </div>
         </div>
 
         <div className="mx-auto max-w-4xl border-t border-zinc-200 px-4 py-8 sm:px-6 lg:px-8 lg:py-12">

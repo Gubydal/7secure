@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, Search, Star, Wrench } from "lucide-react";
 import {
-  CATEGORY_META,
+  buildCategoryList,
+  getCategoryMeta,
   normalizeCategory,
   type CategoryKey
 } from "../../lib/category-meta";
@@ -15,14 +16,18 @@ type ToolArticle = Pick<
   "id" | "slug" | "title" | "summary" | "category" | "published_at" | "source_name"
 >;
 
-const TOOL_CATEGORIES: CategoryKey[] = [
-  "ai-security",
-  "industry-news",
-  "vulnerabilities",
-  "threat-intel"
-];
+const TOOL_KEYWORDS =
+  /(tool|platform|framework|scanner|agent|automation|open[-\s]?source|github|model|cli|integration|vendor|product|release)/i;
 
-const TOOL_KEYWORDS = /(tool|platform|framework|scanner|agent|automation|open[-\s]?source|github|model|cli|integration)/i;
+const isToolFocused = (article: ToolArticle): boolean => {
+  const signal = `${article.title} ${article.summary} ${article.category}`.toLowerCase();
+  if (TOOL_KEYWORDS.test(signal)) {
+    return true;
+  }
+
+  const category = normalizeCategory(article.category);
+  return /(ai|tool|automation|platform|product|framework)/.test(category);
+};
 
 export default function Page() {
   const [articles, setArticles] = useState<ToolArticle[]>([]);
@@ -37,9 +42,8 @@ export default function Page() {
       const { data, error } = await supabasePublic
         .from("articles")
         .select("id,slug,title,summary,category,published_at,source_name")
-        .in("category", TOOL_CATEGORIES)
         .order("published_at", { ascending: false })
-        .limit(120);
+        .limit(180);
 
       if (!isMounted) {
         return;
@@ -47,10 +51,8 @@ export default function Page() {
 
       if (!error && data) {
         const initial = data as ToolArticle[];
-        const focused = initial.filter((article) =>
-          TOOL_KEYWORDS.test(`${article.title} ${article.summary}`)
-        );
-        setArticles(focused.length > 0 ? focused : initial);
+        const focused = initial.filter((article) => isToolFocused(article));
+        setArticles((focused.length > 0 ? focused : initial).slice(0, 120));
       }
 
       setIsLoading(false);
@@ -64,10 +66,8 @@ export default function Page() {
   }, []);
 
   const categoryOptions = useMemo(() => {
-    const available = new Set<CategoryKey>(articles.map((article) => normalizeCategory(article.category)));
-    const ordered = TOOL_CATEGORIES.filter((category) => available.has(category));
-
-    return ["all" as const, ...(ordered.length ? ordered : TOOL_CATEGORIES)];
+    const dynamic = buildCategoryList(articles.map((article) => article.category), 10);
+    return ["all" as const, ...dynamic];
   }, [articles]);
 
   const filteredTools = useMemo(() => {
@@ -119,8 +119,9 @@ export default function Page() {
         <div className="mb-8 flex flex-wrap gap-3">
           {categoryOptions.map((category) => {
             const isAll = category === "all";
-            const Icon = isAll ? Star : CATEGORY_META[category].icon;
-            const label = isAll ? "All" : CATEGORY_META[category].label;
+            const meta = isAll ? null : getCategoryMeta(category);
+            const Icon = isAll ? Star : meta!.icon;
+            const label = isAll ? "All" : meta!.label;
 
             return (
               <button
@@ -157,7 +158,8 @@ export default function Page() {
           <div className="grid grid-cols-1 gap-4">
             {filteredTools.map((article) => {
               const category = normalizeCategory(article.category);
-              const CategoryIcon = CATEGORY_META[category].icon;
+              const categoryMeta = getCategoryMeta(category);
+              const CategoryIcon = categoryMeta.icon;
 
               return (
                 <Link
@@ -178,7 +180,7 @@ export default function Page() {
                       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
                         <span className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-2.5 py-1 font-medium text-zinc-700">
                           <Wrench className="h-3 w-3" />
-                          {CATEGORY_META[category].label}
+                          {categoryMeta.label}
                         </span>
                         <span>{article.source_name || "7secure"}</span>
                         <span>•</span>

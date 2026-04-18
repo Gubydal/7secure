@@ -4,7 +4,7 @@ const SYSTEM_PROMPT = `You are a cybersecurity journalist for 7secure.
 Rewrite the provided feed item into a publication-ready analysis article.
 
 Hard requirements:
-- Title: specific, under 80 chars, no clickbait.
+- Title: specific, catchy, and concrete. Keep it 45-72 chars. No clickbait or vague wording.
 - Summary: 2 concise sentences explaining why readers should care (this is rendered as "Why this matters").
 - Content: 620-900 words in clean markdown.
 - Content must NOT repeat the summary verbatim.
@@ -19,13 +19,15 @@ Hard requirements:
 - Use only facts present in the input. If unknown, write that it was not disclosed.
 - Do not include website/source name in author voice.
 - Tags: 3-5 lowercase tags.
-- Category: threat-intel | vulnerabilities | industry-news | research | ai-security | government.
+- Category: short kebab-case slug. Prefer categories from preferred_categories when possible.
+- If a new category is truly needed, keep it concise (1-3 words, kebab-case).
 - Slug: lowercase URL-safe with hyphens.
 - image_url: use source image if available, otherwise /cover.avif.
 
 Input fields:
 - summary: short feed summary text.
 - source_snippet: richer extracted text from the feed/article body.
+- preferred_categories: existing categories in the system (max 10).
 
 Return ONLY valid JSON:
 {
@@ -36,6 +38,14 @@ Return ONLY valid JSON:
 
 const DEFAULT_COVER_IMAGE = "/cover.avif";
 const LLM_TIMEOUT_MS = 105_000;
+const DEFAULT_CATEGORY_POOL = [
+  "industry-news",
+  "threat-intel",
+  "vulnerabilities",
+  "ai-security",
+  "research",
+  "government"
+];
 
 const slugify = (value: string): string =>
   value
@@ -56,6 +66,15 @@ const hashString = (value: string): string => {
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const normalizeWhitespace = (value: string): string => value.replace(/\s+/g, " ").trim();
+
+const normalizeCategorySlug = (value: string): string =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .replace(/\s+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+|-+$/g, "");
 
 const splitSentences = (value: string): string[] => {
   const sentences = value.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [];
@@ -165,6 +184,43 @@ const enforceHeadingQuality = (
   };
 };
 
+const ensureSectionBodies = (content: string, item: RawFeedItem): string => {
+  const lines = content.split("\n");
+  const fallbackSentence =
+    pickSentenceRange(
+      splitSentences(item.sourceSnippet || item.summary),
+      0,
+      2,
+      "Source details are limited, so teams should verify exposure using internal telemetry and validate mitigation progress with system owners.",
+      260
+    ) ||
+    "Source details are limited, so teams should verify exposure using internal telemetry and validate mitigation progress with system owners.";
+
+  const output: string[] = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    output.push(line);
+
+    if (!/^##\s+/.test(line.trim())) {
+      continue;
+    }
+
+    let probe = index + 1;
+    while (probe < lines.length && !lines[probe].trim()) {
+      probe += 1;
+    }
+
+    if (probe >= lines.length || /^##\s+/.test(lines[probe].trim())) {
+      output.push("");
+      output.push(fallbackSentence);
+      output.push("");
+    }
+  }
+
+  return output.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+};
+
 const pickFallbackHeadings = (item: RawFeedItem): [string, string, string, string] => {
   const pool = headingPools[item.category] || headingPools["industry-news"];
   const seed = parseInt(hashString(item.url).slice(0, 6), 36) || 0;
@@ -206,6 +262,64 @@ const tokenSimilarity = (a: string, b: string): number => {
 
 const truncateSummary = (value: string): string =>
   value.length > 220 ? `${value.slice(0, 217)}...` : value;
+
+const trimTitleByWords = (value: string, maxLength: number): string => {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  const words = value.split(" ").filter(Boolean);
+  let built = "";
+  for (const word of words) {
+    const candidate = built ? `${built} ${word}` : word;
+    if (candidate.length > maxLength) {
+      break;
+    }
+    built = candidate;
+  }
+
+  return (built || value.slice(0, maxLength)).replace(/[\s:;,.!?-]+$/g, "");
+};
+
+const normalizeGeneratedTitle = (value: string, item: RawFeedItem): string => {
+  const initial = normalizeWhitespace((value || item.title).replace(/^['"“”]+|['"“”]+$/g, ""));
+  const noTrailing = initial.replace(/[\s:;,.!?-]+$/g, "");
+  const deBlanded = /^(security|cybersecurity)\s+(update|news)$/i.test(noTrailing)
+    ? item.title
+    : noTrailing;
+
+  const tightened = trimTitleByWords(deBlanded, 72);
+  if (tightened.length >= 38) {
+    return tightened;
+  }
+
+  const categoryHint = item.category.replace(/-/g, " ");
+  return trimTitleByWords(`${tightened}: key ${categoryHint} impact`, 72);
+};
+
+const pickCategory = (
+  requestedCategory: string,
+  item: RawFeedItem,
+  categoryPool: string[]
+): string => {
+  const normalizedRequested = normalizeCategorySlug(requestedCategory);
+  const normalizedItem = normalizeCategorySlug(item.category);
+  const normalizedPool = [...new Set(categoryPool.map((category) => normalizeCategorySlug(category)).filter(Boolean))];
+
+  if (normalizedRequested && normalizedPool.includes(normalizedRequested)) {
+    return normalizedRequested;
+  }
+
+  if (normalizedRequested && normalizedPool.length < 10) {
+    return normalizedRequested;
+  }
+
+  if (normalizedItem && normalizedPool.includes(normalizedItem)) {
+    return normalizedItem;
+  }
+
+  return normalizedPool[0] || normalizedItem || "industry-news";
+};
 
 const dedupeOpeningSummary = (summary: string, content: string): string => {
   const blocks = content.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
@@ -353,35 +467,38 @@ const normalizeGeneratedContent = (
   }
 
   const qualityAdjusted = enforceHeadingQuality(cleanedContent, item);
-  const words = countWords(qualityAdjusted.content);
+  const sectionAligned = ensureSectionBodies(qualityAdjusted.content, item);
+  const words = countWords(sectionAligned);
 
   if (qualityAdjusted.headingCount >= 5 && words >= 620) {
-    return qualityAdjusted.content;
+    return sectionAligned;
   }
 
   return buildStructuredContent(
     summary,
-    [item.sourceSnippet || "", qualityAdjusted.content].join("\n\n"),
+    [item.sourceSnippet || "", sectionAligned].join("\n\n"),
     item
   );
 };
 
-const fallbackArticle = (item: RawFeedItem): NewsletterArticle => {
-  const baseSlug = slugify(item.title) || "security-update";
+const fallbackArticle = (item: RawFeedItem, categoryPool: string[]): NewsletterArticle => {
+  const fallbackTitle = normalizeGeneratedTitle(item.title, item);
+  const baseSlug = slugify(fallbackTitle) || "security-update";
   const uniqueSlug = `${baseSlug}-${hashString(item.url).slice(0, 6)}`;
   const cleanedSummary = item.summary.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   const summary =
     cleanedSummary ||
     `Security teams should review this update relevant to ${item.category.replace(/-/g, " ")}.`;
   const content = buildStructuredContent(summary, item.sourceSnippet || summary, item);
+  const category = pickCategory(item.category, item, categoryPool);
 
   return {
-    title: item.title,
+    title: fallbackTitle,
     slug: uniqueSlug,
     summary: truncateSummary(summary),
     content,
-    category: item.category,
-    tags: [item.category, "daily-brief", "rss"],
+    category,
+    tags: [category, "daily-brief", "rss"],
     source_name: "7secure",
     source_url: item.sourceUrl,
     original_url: item.url,
@@ -389,15 +506,6 @@ const fallbackArticle = (item: RawFeedItem): NewsletterArticle => {
     is_featured: false
   };
 };
-
-const allowedCategories = new Set([
-  "threat-intel",
-  "vulnerabilities",
-  "industry-news",
-  "research",
-  "ai-security",
-  "government"
-]);
 
 const extractJson = (raw: string): unknown => {
   try {
@@ -436,7 +544,8 @@ const isValidArticle = (article: any): article is NewsletterArticle => {
 
 const rewriteItem = async (
   item: RawFeedItem,
-  env: WorkerEnv
+  env: WorkerEnv,
+  categoryPool: string[]
 ): Promise<NewsletterArticle | null> => {
   const maxAttempts = 2;
 
@@ -472,6 +581,7 @@ const rewriteItem = async (
                 source_name: item.sourceName,
                 source_url: item.sourceUrl,
                 category: item.category,
+                preferred_categories: categoryPool,
                 image_url: item.imageUrl || DEFAULT_COVER_IMAGE
               })
             }
@@ -482,7 +592,7 @@ const rewriteItem = async (
       if (!response.ok) {
         console.error("LLM API Error:", response.status, await response.text());
         if (attempt === maxAttempts) {
-          return fallbackArticle(item);
+          return fallbackArticle(item, categoryPool);
         }
         continue;
       }
@@ -495,7 +605,7 @@ const rewriteItem = async (
       if (!content) {
         console.error("No content from LLM");
         if (attempt === maxAttempts) {
-          return fallbackArticle(item);
+          return fallbackArticle(item, categoryPool);
         }
         continue;
       }
@@ -503,12 +613,12 @@ const rewriteItem = async (
       const parsed = extractJson(content) as any;
       if (!isValidArticle(parsed)) {
         if (attempt === maxAttempts) {
-          return fallbackArticle(item);
+          return fallbackArticle(item, categoryPool);
         }
         continue;
       }
 
-      const finalTitle = parsed.title || item.title;
+      const finalTitle = normalizeGeneratedTitle(parsed.title || item.title, item);
       const finalSummary = truncateSummary(normalizeWhitespace(parsed.summary || item.summary));
       const finalContent = normalizeGeneratedContent(
         finalTitle,
@@ -516,6 +626,7 @@ const rewriteItem = async (
         parsed.content,
         item
       );
+      const finalCategory = pickCategory(parsed.category || item.category, item, categoryPool);
 
       // Default to the original item's metadata if the LLM hallucinated or forgot to include it
       return {
@@ -523,7 +634,7 @@ const rewriteItem = async (
         title: finalTitle,
         summary: finalSummary,
         content: finalContent,
-        category: allowedCategories.has(parsed.category) ? parsed.category : item.category,
+        category: finalCategory,
         source_name: "7secure",
         source_url: parsed.source_url || item.sourceUrl || "https://example.com",
         original_url: parsed.original_url || item.url || "https://example.com",
@@ -542,27 +653,31 @@ const rewriteItem = async (
       }
 
       if (attempt === maxAttempts) {
-        return fallbackArticle(item);
+        return fallbackArticle(item, categoryPool);
       }
     } finally {
       clearTimeout(timeoutId);
     }
   }
 
-  return fallbackArticle(item);
+  return fallbackArticle(item, categoryPool);
 };
 
 export const writeArticles = async (
   items: RawFeedItem[],
-  env: WorkerEnv
+  env: WorkerEnv,
+  trackedCategories: string[] = DEFAULT_CATEGORY_POOL
 ): Promise<NewsletterArticle[]> => {
   const candidates = items.slice(0, 8);
   const results: NewsletterArticle[] = [];
   const concurrency = 3;
+  const categoryPool = [...new Set([...trackedCategories, ...DEFAULT_CATEGORY_POOL])].slice(0, 10);
 
   for (let index = 0; index < candidates.length; index += concurrency) {
     const chunk = candidates.slice(index, index + concurrency);
-    const settled = await Promise.allSettled(chunk.map((item) => rewriteItem(item, env)));
+    const settled = await Promise.allSettled(
+      chunk.map((item) => rewriteItem(item, env, categoryPool))
+    );
 
     for (const result of settled) {
       if (result.status === "fulfilled" && result.value) {

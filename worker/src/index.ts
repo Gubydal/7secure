@@ -1,6 +1,6 @@
 import { cleanItems } from "./bridge/cleaner";
 import { writeArticles } from "./bridge/writer";
-import { logDigest, saveArticles, getExistingUrls } from "./db/supabase";
+import { logDigest, saveArticles, getExistingUrls, getTrackedCategories } from "./db/supabase";
 import { sendDigest } from "./email/digest";
 import { fetchFeeds } from "./rss/fetcher";
 import type { WorkerEnv } from "./types";
@@ -24,7 +24,8 @@ export const runDailyPipeline = async (env: WorkerEnv): Promise<void> => {
     if (newItems.length === 0) {
       console.log("No brand-new articles found. Sending digest from recent stored articles.");
     } else {
-      preparedArticles = await writeArticles(newItems, env);
+      const trackedCategories = await getTrackedCategories(env, 10);
+      preparedArticles = await writeArticles(newItems, env, trackedCategories);
       console.log(`Prepared ${preparedArticles.length} articles for Supabase`);
 
       if (preparedArticles.length > 0) {
