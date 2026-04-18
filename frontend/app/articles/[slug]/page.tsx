@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { MarkdownRenderer } from "../../../components/MarkdownRenderer";
-import { SiteFooter } from "../../../components/SiteFooter";
 import { formatDate } from "../../../lib/utils";
 import { supabasePublic, type ArticleRecord } from "../../../lib/supabase";
 
@@ -178,7 +177,7 @@ export default async function ArticlePage(
   };
 
   return (
-    <div className="min-h-screen bg-[#09090b]">
+    <div className="min-h-screen bg-white">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -189,17 +188,17 @@ export default async function ArticlePage(
             {article.title}
           </h1>
 
-          <div className="mt-8 flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-950 p-3">
+          <div className="mt-7 flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-950 p-2">
               <img src="/brand/Small_Icon.svg" alt="7secure" className="h-full w-full object-contain" />
             </div>
             <div>
-              <p className="text-4xl font-semibold leading-none tracking-tight text-zinc-900 sm:text-5xl">7secure</p>
-              <p className="mt-2 text-base text-zinc-500 sm:text-lg">{formatDate(article.published_at)} · {readMinutes} min</p>
+              <p className="text-xl font-semibold leading-none tracking-tight text-zinc-900 sm:text-2xl">7secure</p>
+              <p className="mt-1 text-xs text-zinc-500 sm:text-sm">{formatDate(article.published_at)} · {readMinutes} min</p>
             </div>
           </div>
 
-          <div className="mt-8 overflow-hidden rounded-[1.5rem] border border-zinc-200 bg-zinc-100">
+          <div className="mt-7 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100">
             <img
               src="/cover.avif"
               alt="7secure article cover"
@@ -212,7 +211,7 @@ export default async function ArticlePage(
               href={article.original_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-5 block overflow-hidden rounded-[1.25rem] border border-zinc-200 bg-zinc-50 transition-colors hover:border-zinc-300"
+              className="mt-5 block overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50 transition-colors hover:border-zinc-300"
             >
               <div className="grid gap-4 p-4 sm:grid-cols-[180px_1fr] sm:items-center">
                 <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
@@ -254,7 +253,7 @@ export default async function ArticlePage(
                 <Link
                   key={item.slug}
                   href={`/articles/${item.slug}`}
-                  className="group flex flex-col overflow-hidden rounded-4xl border border-zinc-200 bg-white transition-all hover:-translate-y-0.5 hover:shadow-md sm:flex-row"
+                  className="group flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white transition-all hover:-translate-y-0.5 hover:shadow-md sm:flex-row"
                 >
                   <div className="h-40 w-full overflow-hidden bg-zinc-100 sm:h-auto sm:w-56 md:w-64">
                     <img
@@ -274,8 +273,6 @@ export default async function ArticlePage(
           )}
         </div>
       </article>
-
-      <SiteFooter />
     </div>
   );
 }

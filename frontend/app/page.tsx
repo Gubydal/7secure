@@ -13,7 +13,6 @@ import {
   normalizeCategory,
   type CategoryKey
 } from "../lib/category-meta";
-import { SiteFooter } from "../components/SiteFooter";
 
 interface HomeArticle {
   id: string;
@@ -461,8 +460,6 @@ export default function Home() {
           </Button>
         </div>
       </section>
-
-      <SiteFooter />
 
       {/* FIXED SUBSCRIPTION MODAL W/ WORKFLOW & ANIMATION */}
       <AnimatePresence>

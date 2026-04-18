@@ -168,7 +168,7 @@ export default function Page() {
               <Link
                 key={article.id}
                 href={`/articles/${article.slug}`}
-                className="group overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition-all hover:border-zinc-300 hover:shadow-md"
+                className="group overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-all hover:border-zinc-300 hover:shadow-md"
               >
                 <div className="aspect-[16/9] overflow-hidden bg-zinc-100">
                   <img

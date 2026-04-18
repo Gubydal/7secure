@@ -4,6 +4,7 @@ import type { NewsletterArticle, WorkerEnv } from "../types";
 interface Subscriber {
   id: string;
   email: string;
+  role?: string | null;
 }
 
 export const getExistingUrls = async (env: WorkerEnv, urls: string[]): Promise<Set<string>> => {
@@ -56,7 +57,7 @@ export const saveArticles = async (
 export const getSubscribers = async (env: WorkerEnv): Promise<Subscriber[]> => {
   const { data } = await getSupabaseAdmin(env)
     .from("subscribers")
-    .select("id,email")
+    .select("id,email,role")
     .eq("confirmed", true)
     .is("unsubscribed_at", null);
 

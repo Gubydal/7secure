@@ -6,7 +6,7 @@ Rewrite the provided feed item into a publication-ready analysis article.
 Hard requirements:
 - Title: specific, under 80 chars, no clickbait.
 - Summary: 2 concise sentences explaining why readers should care (this is rendered as "Why this matters").
-- Content: 650-950 words in clean markdown.
+- Content: 420-620 words in clean markdown.
 - Content must NOT repeat the summary verbatim.
 - Content must NOT repeat the title as an H1/H2.
 - Use 4-6 descriptive H2 sections with unique headings.
@@ -172,6 +172,17 @@ const dedupeOpeningSummary = (summary: string, content: string): string => {
   return cleaned.join("\n\n").trim();
 };
 
+const pickSentenceRange = (
+  sentences: string[],
+  start: number,
+  end: number,
+  fallback: string,
+  maxLength = 700
+): string => {
+  const value = (sentences.slice(start, end).join(" ") || fallback).trim();
+  return value.length > maxLength ? `${value.slice(0, maxLength - 3).trimEnd()}...` : value;
+};
+
 const buildStructuredContent = (
   summary: string,
   body: string,
@@ -181,18 +192,29 @@ const buildStructuredContent = (
   const sourceBase = normalizeWhitespace(body || item.sourceSnippet || cleanedSummary);
   const sourceSentences = splitSentences(sourceBase);
 
-  const overview =
-    sourceSentences.slice(0, 6).join(" ") ||
-    sourceBase ||
-    "The source described a security update, but complete technical details were not disclosed.";
+  const overview = pickSentenceRange(
+    sourceSentences,
+    0,
+    4,
+    sourceBase || "The source described a security update, but complete technical details were not disclosed.",
+    640
+  );
 
-  const technicalDetails =
-    sourceSentences.slice(6, 14).join(" ") ||
-    "Technical specifics remain limited in the available source text, so teams should validate exposure against their own environment and controls.";
+  const technicalDetails = pickSentenceRange(
+    sourceSentences,
+    4,
+    8,
+    "Technical specifics remain limited in the available source text, so teams should validate exposure against their own environment and controls.",
+    700
+  );
 
-  const operationalImpact =
-    sourceSentences.slice(14, 22).join(" ") ||
-    "Operationally, this requires a rapid assessment of affected systems, communications to owners, and verification that existing detections still cover the described behavior.";
+  const operationalImpact = pickSentenceRange(
+    sourceSentences,
+    8,
+    12,
+    "Operationally, this requires a rapid assessment of affected systems, communications to owners, and verification that existing detections still cover the described behavior.",
+    700
+  );
 
   const topicLabel = item.category.replace(/-/g, " ");
   const [firstHeading, secondHeading, thirdHeading] = pickFallbackHeadings(item);
@@ -229,7 +251,7 @@ const normalizeGeneratedContent = (
   }
 
   const headingCount = (cleanedContent.match(/^##\s+/gm) || []).length;
-  if (headingCount >= 3 && cleanedContent.length >= 1200) {
+  if (headingCount >= 3 && cleanedContent.length >= 900) {
     return cleanedContent;
   }
 
