@@ -6,6 +6,17 @@ import { supabasePublic, type ArticleRecord } from "../../../lib/supabase";
 
 export const runtime = "edge";
 
+const EMOJI_REGEX = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u200D]/gu;
+
+const stripEmojiInline = (value: string): string => value.replace(EMOJI_REGEX, "").replace(/\s+/g, " ").trim();
+
+const stripEmojiMarkdown = (value: string): string =>
+  value
+    .replace(EMOJI_REGEX, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
 const stripLeadingHeading = (content: string): string =>
   content
     .replace(/^\uFEFF/, "")
@@ -118,20 +129,22 @@ export async function generateMetadata(
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://7secure.pages.dev";
   const url = `${siteUrl}/articles/${article.slug}`;
+  const cleanTitle = stripEmojiInline(article.title);
+  const cleanSummary = stripEmojiInline(article.summary);
 
   return {
-    title: `${article.title} | 7secure`,
-    description: article.summary,
+    title: `${cleanTitle} | 7secure`,
+    description: cleanSummary,
     openGraph: {
-      title: article.title,
-      description: article.summary,
+      title: cleanTitle,
+      description: cleanSummary,
       url,
       type: "article"
     },
     twitter: {
       card: "summary_large_image",
-      title: article.title,
-      description: article.summary
+      title: cleanTitle,
+      description: cleanSummary
     }
   };
 }
@@ -149,7 +162,11 @@ export default async function ArticlePage(
   const related = await getRelated(article.category, article.slug);
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://7secure.pages.dev";
   const articleUrl = `${siteUrl}/articles/${article.slug}`;
-  const renderedContent = removeRepeatedSummaryInBody(article.content, article.summary) || stripLeadingHeading(article.content);
+  const cleanTitle = stripEmojiInline(article.title);
+  const cleanSummary = stripEmojiInline(article.summary);
+  const renderedContent = stripEmojiMarkdown(
+    removeRepeatedSummaryInBody(article.content, article.summary) || stripLeadingHeading(article.content)
+  );
   const readMinutes = estimateReadMinutes(renderedContent);
   const sourceDomain = getDomain(article.original_url).toUpperCase();
   const sourceThumbnail =
@@ -160,8 +177,8 @@ export default async function ArticlePage(
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "NewsArticle",
-    headline: article.title,
-    description: article.summary,
+    headline: cleanTitle,
+    description: cleanSummary,
     datePublished: article.published_at,
     dateModified: article.published_at,
     mainEntityOfPage: articleUrl,
@@ -185,7 +202,7 @@ export default async function ArticlePage(
       <article className="bg-white text-zinc-950">
         <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
           <h1 className="text-balance text-4xl font-semibold tracking-tight text-zinc-950 sm:text-5xl lg:text-6xl">
-            {article.title}
+            {cleanTitle}
           </h1>
 
           <div className="mt-7 flex items-center gap-3">
@@ -224,7 +241,7 @@ export default async function ArticlePage(
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">Source thumbnail</p>
                   <p className="mt-2 text-sm font-semibold uppercase tracking-[0.12em] text-zinc-700">{sourceDomain}</p>
-                  <p className="mt-1 line-clamp-2 text-lg font-semibold tracking-tight text-zinc-900">{article.title}</p>
+                  <p className="mt-1 line-clamp-2 text-lg font-semibold tracking-tight text-zinc-900">{cleanTitle}</p>
                   <p className="mt-2 text-sm text-blue-600">Open original reporting</p>
                 </div>
               </div>
@@ -233,7 +250,7 @@ export default async function ArticlePage(
 
           <section className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-5 sm:px-6 sm:py-6">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">Why this matters</p>
-            <p className="mt-2 text-base leading-8 text-zinc-700 sm:text-lg">{article.summary}</p>
+            <p className="mt-2 text-base leading-8 text-zinc-700 sm:text-lg">{cleanSummary}</p>
           </section>
         </div>
 
@@ -266,8 +283,8 @@ export default async function ArticlePage(
                   </div>
                   <div className="flex flex-1 flex-col gap-2 p-4 sm:p-5">
                     <p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">{item.category.replace(/-/g, " ")}</p>
-                    <h3 className="text-base font-semibold tracking-tight text-zinc-950 sm:text-lg">{item.title}</h3>
-                    <p className="line-clamp-2 text-sm leading-6 text-zinc-600">{item.summary}</p>
+                    <h3 className="text-base font-semibold tracking-tight text-zinc-950 sm:text-lg">{stripEmojiInline(item.title)}</h3>
+                    <p className="line-clamp-2 text-sm leading-6 text-zinc-600">{stripEmojiInline(item.summary)}</p>
                   </div>
                 </Link>
               ))}

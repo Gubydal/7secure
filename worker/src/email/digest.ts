@@ -160,6 +160,17 @@ const serializeError = (error: unknown): string => {
   return String(error);
 };
 
+const EMAIL_THEME = {
+  pageBg: "#05070d",
+  shellBg: "#070b15",
+  panelBg: "#090f1b",
+  frameBorder: "#394465",
+  headingText: "#f0f4ff",
+  bodyText: "#d4daee",
+  mutedText: "#98a2bd",
+  linkText: "#9ec8ff"
+};
+
 const pickDigestArticles = (articles: DigestArticle[]): DigestArticle[] => {
   const picks: DigestArticle[] = [];
   const byCategory = (category: string) =>
@@ -215,7 +226,7 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
       return `
       <tr>
         <td style="padding:${index === 0 ? "0" : "14px 0 0 0"};">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #394465;border-radius:12px;overflow:hidden;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:${EMAIL_THEME.panelBg};border:1px solid ${EMAIL_THEME.frameBorder};border-radius:12px;overflow:hidden;">
             ${imageBlock}
             <tr>
               <td style="padding:14px 14px 14px 14px;font-family:Inter,Arial,sans-serif;color:#e8ecf8;">
@@ -233,20 +244,20 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
     .join("");
 
 const buildQuickHitsSection = (): string => `
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #394465;border-radius:12px;overflow:hidden;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:${EMAIL_THEME.panelBg};border:1px solid ${EMAIL_THEME.frameBorder};border-radius:12px;overflow:hidden;">
     <tr>
       <td style="padding:14px 14px 12px 14px;font-family:Inter,Arial,sans-serif;">
-        <a href="#" style="font-size:16px;line-height:1.35;font-weight:700;color:#8ea2ff;text-decoration:underline;display:block;">🛠️ Trending Tools</a>
+        <a href="#" style="font-size:16px;line-height:1.35;font-weight:700;color:#8ea2ff;text-decoration:underline;display:block;">Trending Tools</a>
         <ul style="margin:10px 0 0 18px;padding:0;color:#d2d8ec;font-size:13px;line-height:1.6;">
           <li>Tool highlights will appear here in the next digest.</li>
         </ul>
       </td>
     </tr>
   </table>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #394465;border-radius:12px;overflow:hidden;margin-top:12px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:${EMAIL_THEME.panelBg};border:1px solid ${EMAIL_THEME.frameBorder};border-radius:12px;overflow:hidden;margin-top:12px;">
     <tr>
       <td style="padding:14px 14px 12px 14px;font-family:Inter,Arial,sans-serif;">
-        <a href="#" style="font-size:16px;line-height:1.35;font-weight:700;color:#8ea2ff;text-decoration:underline;display:block;">🛡️ Security Practices</a>
+        <a href="#" style="font-size:16px;line-height:1.35;font-weight:700;color:#8ea2ff;text-decoration:underline;display:block;">Security Practices</a>
         <ul style="margin:10px 0 0 18px;padding:0;color:#d2d8ec;font-size:13px;line-height:1.6;">
           <li>Practice snapshots are being prepared for this section.</li>
         </ul>
@@ -260,7 +271,7 @@ const buildRatingSection = (subscriberEmail: string, siteBase: string): string =
     `${siteBase}/api/digest-feedback?email=${encodedEmail}&rating=${rating}&context=daily_digest_email`;
 
   return `
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #394465;border-radius:12px;overflow:hidden;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:${EMAIL_THEME.panelBg};border:1px solid ${EMAIL_THEME.frameBorder};border-radius:12px;overflow:hidden;">
     <tr>
       <td style="padding:18px 16px 18px 16px;font-family:Inter,Arial,sans-serif;">
         <div style="font-size:40px;line-height:1.2;font-weight:700;color:#f1f4ff;">That's it for today!</div>
@@ -324,7 +335,7 @@ const buildHtmlDigest = (
   ]
     .map(
       (item) =>
-        `<a href="${item.href}" style="display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;border:1px solid #394465;background:#101420;margin-right:8px;text-decoration:none;line-height:0;">${item.svg}</a>`
+        `<a href="${item.href}" style="display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;border:1px solid ${EMAIL_THEME.frameBorder};background:${EMAIL_THEME.panelBg};margin-right:8px;text-decoration:none;line-height:0;">${item.svg}</a>`
     )
     .join("");
 
@@ -341,11 +352,11 @@ const buildHtmlDigest = (
       }
     </style>
   </head>
-  <body class="digest-bg" style="margin:0;padding:0;background:#0a0c12;color:#e8e8f0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0a0c12;padding:16px 6px;">
+  <body class="digest-bg" style="margin:0;padding:0;background:${EMAIL_THEME.pageBg};color:#e8e8f0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${EMAIL_THEME.pageBg};padding:16px 6px;">
       <tr>
         <td align="center">
-          <table class="digest-shell" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;border-collapse:collapse;background:#0f121b;border:1px solid #2c3144;border-radius:14px;overflow:hidden;">
+          <table class="digest-shell" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;border-collapse:collapse;background:${EMAIL_THEME.shellBg};border:1px solid ${EMAIL_THEME.frameBorder};border-radius:14px;overflow:hidden;">
             <tr>
               <td style="padding:14px 16px 6px 16px;font-family:Inter,Arial,sans-serif;">
                 <div style="text-align:right;font-size:14px;line-height:1.5;">
@@ -358,73 +369,53 @@ const buildHtmlDigest = (
               </td>
             </tr>
             <tr>
-              <td style="padding:8px 16px 0 16px;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #394465;border-radius:12px;overflow:hidden;">
+              <td style="padding:10px 16px 18px 16px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:${EMAIL_THEME.shellBg};border:1px solid ${EMAIL_THEME.frameBorder};border-radius:12px;overflow:hidden;">
                   <tr>
-                    <td style="padding:10px;">
+                    <td style="padding:12px;border-bottom:1px solid ${EMAIL_THEME.frameBorder};">
                       <img src="${coverImage}" alt="7secure cover" width="100%" style="display:block;width:100%;height:auto;max-height:230px;object-fit:cover;border-radius:10px;" />
                     </td>
                   </tr>
-                </table>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:14px 16px 0 16px;font-family:Inter,Arial,sans-serif;">
-                <table class="digest-shell" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #394465;border-radius:12px;overflow:hidden;">
                   <tr>
-                    <td class="digest-copy" style="padding:16px;color:#e8ecf8;">
+                    <td class="digest-copy" style="padding:18px 16px;border-bottom:1px solid ${EMAIL_THEME.frameBorder};font-family:Inter,Arial,sans-serif;color:${EMAIL_THEME.headingText};">
                       <p style="margin:0;font-size:30px;line-height:1.3;font-weight:700;">Good morning, ${subscriberName}.</p>
-                      <p style="margin:12px 0 0 0;font-size:16px;line-height:1.68;color:#cdd5ec;">${date} briefing: clear threat context, key developments, and quick actions worth prioritizing today.</p>
+                      <p style="margin:12px 0 0 0;font-size:16px;line-height:1.68;color:${EMAIL_THEME.bodyText};">${date} briefing: clear threat context, key developments, and quick actions worth prioritizing today.</p>
                       <p style="margin:16px 0 0 0;font-size:22px;line-height:1.34;font-weight:700;">In today's security rundown:</p>
                       <ul style="margin:10px 0 0 18px;padding:0;color:#d6ddf4;font-size:14px;line-height:1.55;">
                         ${dailyRundownList}
                       </ul>
                     </td>
                   </tr>
-                </table>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:14px 16px 0 16px;font-family:Inter,Arial,sans-serif;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#000000;border:1px solid #394465;border-radius:10px;overflow:hidden;">
-                  <tr><td style="padding:10px 14px;text-align:center;font-size:30px;line-height:1.2;font-weight:700;color:#f0f4ff;letter-spacing:0.03em;">LATEST DEVELOPMENTS</td></tr>
-                </table>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:14px 16px 0 16px;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
-                  ${latestDevelopmentCards}
-                </table>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:14px 16px 0 16px;font-family:Inter,Arial,sans-serif;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#000000;border:1px solid #394465;border-radius:10px;overflow:hidden;">
-                  <tr><td style="padding:10px 14px;text-align:center;font-size:30px;line-height:1.2;font-weight:700;color:#f0f4ff;letter-spacing:0.03em;">QUICK HITS</td></tr>
-                </table>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:14px 16px 0 16px;">
-                ${quickHits}
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:14px 16px 0 16px;">
-                ${ratingSection}
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:14px 16px 20px 16px;font-family:Inter,Arial,sans-serif;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#0f1118;border:1px solid #394465;border-radius:12px;overflow:hidden;">
                   <tr>
-                    <td style="padding:16px;">
-                      <p style="margin:0;font-size:15px;line-height:1.7;color:#d4dbf2;">See you soon,</p>
-                      <p style="margin:8px 0 0 0;font-size:15px;line-height:1.7;color:#d4dbf2;"><em>The humans behind 7secure</em></p>
+                    <td style="padding:14px 16px;border-bottom:1px solid ${EMAIL_THEME.frameBorder};font-family:Inter,Arial,sans-serif;">
+                      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#000000;border:1px solid ${EMAIL_THEME.frameBorder};border-radius:10px;overflow:hidden;">
+                        <tr><td style="padding:10px 14px;text-align:center;font-size:30px;line-height:1.2;font-weight:700;color:${EMAIL_THEME.headingText};letter-spacing:0.03em;">LATEST DEVELOPMENTS</td></tr>
+                      </table>
+                      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:14px;">
+                        ${latestDevelopmentCards}
+                      </table>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:14px 16px;border-bottom:1px solid ${EMAIL_THEME.frameBorder};font-family:Inter,Arial,sans-serif;">
+                      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#000000;border:1px solid ${EMAIL_THEME.frameBorder};border-radius:10px;overflow:hidden;">
+                        <tr><td style="padding:10px 14px;text-align:center;font-size:30px;line-height:1.2;font-weight:700;color:${EMAIL_THEME.headingText};letter-spacing:0.03em;">QUICK HITS</td></tr>
+                      </table>
+                      <div style="margin-top:14px;">${quickHits}</div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:14px 16px;border-bottom:1px solid ${EMAIL_THEME.frameBorder};">
+                      ${ratingSection}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:16px;font-family:Inter,Arial,sans-serif;">
+                      <p style="margin:0;font-size:15px;line-height:1.7;color:${EMAIL_THEME.bodyText};">See you soon,</p>
+                      <p style="margin:8px 0 0 0;font-size:15px;line-height:1.7;color:${EMAIL_THEME.bodyText};"><em>The humans behind 7secure</em></p>
                       <div style="margin:14px 0 0 0;">${socialIconLinks}</div>
-                      <p style="margin:12px 0 0 0;font-size:13px;line-height:1.6;color:#9ba8c8;">
-                        <a href="${unsubscribeUrl}" style="color:#9ec8ff;text-decoration:underline;">Unsubscribe</a>
+                      <p style="margin:12px 0 0 0;font-size:13px;line-height:1.6;color:${EMAIL_THEME.mutedText};">
+                        <a href="${unsubscribeUrl}" style="color:${EMAIL_THEME.linkText};text-decoration:underline;">Unsubscribe</a>
                       </p>
                     </td>
                   </tr>

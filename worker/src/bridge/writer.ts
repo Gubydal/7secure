@@ -10,7 +10,7 @@ Hard requirements:
 - Content must NOT repeat the summary verbatim.
 - Content must NOT repeat the title as an H1/H2.
 - Use 5-7 descriptive H2 sections with unique headings.
-- Prefix at least 3 H2 headings with relevant emojis.
+- Do not use emojis anywhere in title, summary, headings, or body.
 - Include 1-2 practical bullet lists with concrete, actionable points.
 - Keep paragraphs short and scannable.
 - Avoid generic repeated headings such as "What happened" or "What teams should do now".
@@ -47,6 +47,8 @@ const DEFAULT_CATEGORY_POOL = [
   "government"
 ];
 
+const EMOJI_REGEX = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu;
+
 const slugify = (value: string): string =>
   value
     .toLowerCase()
@@ -66,6 +68,16 @@ const hashString = (value: string): string => {
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const normalizeWhitespace = (value: string): string => value.replace(/\s+/g, " ").trim();
+
+const stripEmojiInline = (value: string): string =>
+  normalizeWhitespace(value.replace(EMOJI_REGEX, " "));
+
+const stripEmojiMarkdown = (value: string): string =>
+  value
+    .replace(EMOJI_REGEX, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 
 const normalizeCategorySlug = (value: string): string =>
   value
@@ -89,46 +101,46 @@ const countWords = (value: string): number =>
 
 const headingPools: Record<string, string[]> = {
   "threat-intel": [
-    "🧭 Campaign flow and observed behavior",
-    "🛰️ Detection signals defenders should track",
-    "🎯 Exposure and likely blast radius",
-    "🛡️ Defensive moves to prioritize now",
-    "🔍 How this threat may evolve next"
+    "Campaign flow and observed behavior",
+    "Detection signals defenders should track",
+    "Exposure and likely blast radius",
+    "Defensive moves to prioritize now",
+    "How this threat may evolve next"
   ],
   vulnerabilities: [
-    "🧪 Where the weakness appears",
-    "⚠️ Exploitability and technical risk",
-    "🩹 Patch and mitigation priorities",
-    "🏢 Operational impact for security teams",
-    "✅ Validation steps after remediation"
+    "Where the weakness appears",
+    "Exploitability and technical risk",
+    "Patch and mitigation priorities",
+    "Operational impact for security teams",
+    "Validation steps after remediation"
   ],
   "industry-news": [
-    "🗞️ Core development and timeline",
-    "🧠 Technical context behind the update",
-    "🏢 Why this matters for security teams",
-    "✅ Immediate response priorities",
-    "❓ Questions leaders should resolve next"
+    "Core development and timeline",
+    "Technical context behind the update",
+    "Why this matters for security teams",
+    "Immediate response priorities",
+    "Questions leaders should resolve next"
   ],
   research: [
-    "🔬 Research focus and scope",
-    "🧪 Methodology and key observations",
-    "📈 Practical implications for defenders",
-    "🛠️ Applying findings in production",
-    "❓ Limitations and unanswered questions"
+    "Research focus and scope",
+    "Methodology and key observations",
+    "Practical implications for defenders",
+    "Applying findings in production",
+    "Limitations and unanswered questions"
   ],
   "ai-security": [
-    "🤖 Model and threat context",
-    "🧨 Observed failure modes",
-    "🛡️ Defensive controls to prioritize",
-    "⚖️ Risk trade-offs for adoption",
-    "🧭 High-value tests to run next"
+    "Model and threat context",
+    "Observed failure modes",
+    "Defensive controls to prioritize",
+    "Risk trade-offs for adoption",
+    "High-value tests to run next"
   ],
   government: [
-    "🏛️ Advisory summary and scope",
-    "🚨 Who should act first",
-    "🛠️ Recommended mitigations",
-    "🤝 Coordination and reporting guidance",
-    "📋 Compliance and response planning"
+    "Advisory summary and scope",
+    "Who should act first",
+    "Recommended mitigations",
+    "Coordination and reporting guidance",
+    "Compliance and response planning"
   ]
 };
 
@@ -142,11 +154,7 @@ const BANNED_HEADING_PATTERNS = [
   /^why this matters for teams$/i
 ];
 
-const EMOJI_PREFIXES = ["🧭", "🔍", "🛡️", "⚠️", "✅", "🧠", "📊", "🧪"];
-
 const extractHeadingText = (line: string): string => line.replace(/^##\s+/, "").trim();
-
-const containsEmoji = (value: string): boolean => /[\u{1F300}-\u{1FAFF}]/u.test(value);
 
 const enforceHeadingQuality = (
   content: string,
@@ -155,7 +163,6 @@ const enforceHeadingQuality = (
   const lines = content.split("\n");
   const replacementPool = pickFallbackHeadings(item);
   let replacementIndex = 0;
-  let emojiIndex = 0;
   let headingCount = 0;
 
   const normalizedLines = lines.map((line) => {
@@ -170,12 +177,7 @@ const enforceHeadingQuality = (
       replacementIndex += 1;
     }
 
-    if (!containsEmoji(heading) && emojiIndex < EMOJI_PREFIXES.length) {
-      heading = `${EMOJI_PREFIXES[emojiIndex]} ${heading}`;
-      emojiIndex += 1;
-    }
-
-    return `## ${heading}`;
+    return `## ${stripEmojiInline(heading)}`;
   });
 
   return {
@@ -282,10 +284,10 @@ const trimTitleByWords = (value: string, maxLength: number): string => {
 };
 
 const normalizeGeneratedTitle = (value: string, item: RawFeedItem): string => {
-  const initial = normalizeWhitespace((value || item.title).replace(/^['"“”]+|['"“”]+$/g, ""));
+  const initial = stripEmojiInline((value || item.title).replace(/^['"“”]+|['"“”]+$/g, ""));
   const noTrailing = initial.replace(/[\s:;,.!?-]+$/g, "");
   const deBlanded = /^(security|cybersecurity)\s+(update|news)$/i.test(noTrailing)
-    ? item.title
+    ? stripEmojiInline(item.title)
     : noTrailing;
 
   const tightened = trimTitleByWords(deBlanded, 72);
@@ -365,7 +367,7 @@ const buildStructuredContent = (
   body: string,
   item: RawFeedItem
 ): string => {
-  const cleanedSummary = normalizeWhitespace(summary) || "Security teams should review this update for potential operational impact.";
+  const cleanedSummary = stripEmojiInline(summary) || "Security teams should review this update for potential operational impact.";
   const sourceBase = normalizeWhitespace(body || item.sourceSnippet || cleanedSummary);
   const sourceSentences = splitSentences(sourceBase);
 
@@ -419,11 +421,11 @@ const buildStructuredContent = (
 
   const topicLabel = item.category.replace(/-/g, " ");
   const [firstHeading, secondHeading, thirdHeading, fourthHeading] = pickFallbackHeadings(item);
-  const actionHeading = `✅ Priority actions for ${topicLabel} teams`;
-  const monitoringHeading = "📊 Monitoring and escalation checkpoints";
-  const sourceHeading = "🔗 Source trail and verification notes";
+  const actionHeading = `Priority actions for ${topicLabel} teams`;
+  const monitoringHeading = "Monitoring and escalation checkpoints";
+  const sourceHeading = "Source trail and verification notes";
 
-  return [
+  return stripEmojiMarkdown([
     `## ${firstHeading}`,
     overview,
     `## ${secondHeading}`,
@@ -447,12 +449,12 @@ const buildStructuredContent = (
       "- Re-validate controls after each change window to ensure no regression was introduced.",
       "- Keep an incident timeline so detection and response gaps are measurable and actionable."
     ].join("\n"),
-    "## ❓ Critical unknowns to resolve",
+    "## Critical unknowns to resolve",
     openQuestions,
     `## ${sourceHeading}`,
     `Original reporting: [Open source article](${item.url}).`,
     "Some implementation-specific details were not disclosed in the source material."
-  ].join("\n\n");
+  ].join("\n\n"));
 };
 
 const normalizeGeneratedContent = (
@@ -461,7 +463,9 @@ const normalizeGeneratedContent = (
   content: string,
   item: RawFeedItem
 ): string => {
-  const cleanedContent = dedupeOpeningSummary(summary, stripLeadingHeading(content, title));
+  const cleanedContent = stripEmojiMarkdown(
+    dedupeOpeningSummary(summary, stripLeadingHeading(content, title))
+  );
   if (!cleanedContent) {
     return buildStructuredContent(summary, item.sourceSnippet || summary, item);
   }
@@ -471,21 +475,23 @@ const normalizeGeneratedContent = (
   const words = countWords(sectionAligned);
 
   if (qualityAdjusted.headingCount >= 5 && words >= 620) {
-    return sectionAligned;
+    return stripEmojiMarkdown(sectionAligned);
   }
 
-  return buildStructuredContent(
+  return stripEmojiMarkdown(buildStructuredContent(
     summary,
     [item.sourceSnippet || "", sectionAligned].join("\n\n"),
     item
-  );
+  ));
 };
 
 const fallbackArticle = (item: RawFeedItem, categoryPool: string[]): NewsletterArticle => {
   const fallbackTitle = normalizeGeneratedTitle(item.title, item);
   const baseSlug = slugify(fallbackTitle) || "security-update";
   const uniqueSlug = `${baseSlug}-${hashString(item.url).slice(0, 6)}`;
-  const cleanedSummary = item.summary.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const cleanedSummary = stripEmojiInline(
+    item.summary.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
+  );
   const summary =
     cleanedSummary ||
     `Security teams should review this update relevant to ${item.category.replace(/-/g, " ")}.`;
@@ -619,7 +625,7 @@ const rewriteItem = async (
       }
 
       const finalTitle = normalizeGeneratedTitle(parsed.title || item.title, item);
-      const finalSummary = truncateSummary(normalizeWhitespace(parsed.summary || item.summary));
+      const finalSummary = truncateSummary(stripEmojiInline(parsed.summary || item.summary));
       const finalContent = normalizeGeneratedContent(
         finalTitle,
         finalSummary,
