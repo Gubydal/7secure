@@ -7,10 +7,5 @@ export function GlobalFooter() {
   const pathname = usePathname();
   const isHome = pathname === "/";
 
-  return (
-    <SiteFooter
-      roundedTop={isHome}
-      className={isHome ? "" : "mt-0 md:mt-0"}
-    />
-  );
+  return <SiteFooter roundedTop={isHome} />;
 }

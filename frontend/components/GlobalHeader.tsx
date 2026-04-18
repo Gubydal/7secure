@@ -27,8 +27,8 @@ export function GlobalHeader() {
   const isHome = pathname === "/";
 
   const headerClasses = isHome
-    ? "border-b border-white/10 bg-[#09090b]/95"
-    : "border-b border-zinc-200 bg-white/95";
+    ? "border-b border-white/10 bg-[#09090b]/95 backdrop-blur-md"
+    : "border-b border-zinc-200 bg-white";
 
   const navLinkClasses = (active: boolean): string => {
     if (isHome) {
@@ -63,7 +63,7 @@ export function GlobalHeader() {
     : "inline-flex items-center justify-center rounded-md p-2 text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-zinc-950 md:hidden";
 
   return (
-    <header className={`fixed left-0 right-0 top-0 z-50 backdrop-blur-md ${headerClasses}`}>
+    <header className={`fixed left-0 right-0 top-0 z-50 ${headerClasses}`}>
       <div className="mx-auto flex h-18 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center" onClick={() => setIsMobileOpen(false)}>
           <Image

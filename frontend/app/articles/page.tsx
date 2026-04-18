@@ -90,20 +90,6 @@ export default function Page() {
               Browse all published updates, filter by category, and search by topic.
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="inline-flex h-10 items-center justify-center rounded-md border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-700 transition-colors hover:border-zinc-300 hover:bg-zinc-50"
-            >
-              Home
-            </Link>
-            <Link
-              href="/tools"
-              className="inline-flex h-10 items-center justify-center rounded-md border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-700 transition-colors hover:border-zinc-300 hover:bg-zinc-50"
-            >
-              Tools
-            </Link>
-          </div>
         </div>
 
         <div className="mb-8">

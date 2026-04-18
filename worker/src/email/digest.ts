@@ -61,9 +61,17 @@ const safeUrl = (value: string | null | undefined, fallback: string): string => 
   }
 };
 
-const resolveImageUrl = (imageUrl: string | null | undefined, siteBase: string): string | null => {
+const resolveImageUrl = (
+  imageUrl: string | null | undefined,
+  siteBase: string,
+  options?: { allowCover?: boolean }
+): string | null => {
   const raw = (imageUrl || "").trim();
   if (!raw) {
+    return null;
+  }
+
+  if (!options?.allowCover && /(^|\/)cover\.avif(?:$|\?)/i.test(raw)) {
     return null;
   }
 
@@ -178,12 +186,10 @@ const pickDigestArticles = (articles: DigestArticle[]): DigestArticle[] => {
   return [...unique.values()].slice(0, 8);
 };
 
-const buildDailyRundownList = (articles: DigestArticle[], siteBase: string): string =>
+const buildDailyRundownList = (articles: DigestArticle[]): string =>
   articles
     .map((article) => {
-      const fallback = `${siteBase}/articles/${article.slug}`;
-      const href = safeUrl(article.original_url, fallback);
-      return `<li style="margin:0 0 10px 0;"><a href="${href}" style="color:#8ea2ff;text-decoration:underline;font-weight:600;">${escapeHtml(article.title)}</a></li>`;
+      return `<li style="margin:0 0 8px 0;">${escapeHtml(article.title)}</li>`;
     })
     .join("");
 
@@ -198,20 +204,20 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
       const whyItMatters = escapeHtml(clamp(article.summary, 220));
       const preview = escapeHtml(buildInsightPreview(article));
       const imageBlock = imageSrc
-        ? `<tr><td style="padding:12px 14px 0 14px;"><img src="${imageSrc}" alt="${title}" width="100%" style="display:block;width:100%;height:auto;max-height:210px;object-fit:cover;border-radius:8px;" /></td></tr>`
+        ? `<tr><td style="padding:12px 14px 0 14px;"><img src="${imageSrc}" alt="${title}" width="100%" style="display:block;width:100%;height:auto;max-height:210px;object-fit:cover;border-radius:10px;" /></td></tr>`
         : "";
 
       return `
       <tr>
         <td style="padding:${index === 0 ? "0" : "14px 0 0 0"};">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #2a2e3f;border-radius:10px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #2a2e3f;border-radius:12px;overflow:hidden;">
             ${imageBlock}
             <tr>
               <td style="padding:14px 14px 14px 14px;font-family:Inter,Arial,sans-serif;color:#e8ecf8;">
-                <div style="font-size:11px;letter-spacing:0.11em;text-transform:uppercase;color:#97a1c4;margin-bottom:8px;">${category}</div>
-                <a href="${originalHref}" style="font-size:30px;line-height:1.24;font-weight:700;color:#8ea2ff;text-decoration:underline;display:block;">${title}</a>
-                <p style="margin:10px 0 0 0;font-size:15px;line-height:1.6;color:#d4daee;"><strong style="color:#eef2ff;">Why this matters:</strong> ${whyItMatters}</p>
-                <p style="margin:12px 0 0 0;font-size:15px;line-height:1.64;color:#c8d0ea;">${preview}</p>
+                <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#97a1c4;margin-bottom:8px;">${category}</div>
+                <a href="${originalHref}" style="font-size:24px;line-height:1.3;font-weight:700;color:#8ea2ff;text-decoration:underline;display:block;">${title}</a>
+                <p style="margin:10px 0 0 0;font-size:14px;line-height:1.56;color:#d4daee;"><strong style="color:#eef2ff;">Why this matters:</strong> ${whyItMatters}</p>
+                <p style="margin:12px 0 0 0;font-size:14px;line-height:1.58;color:#c8d0ea;">${preview}</p>
                 <p style="margin:12px 0 0 0;font-size:12px;line-height:1.4;color:#98a2bd;">${formatPublishDate(article.published_at)} · <a href="${newsletterHref}" style="color:#9ec8ff;text-decoration:underline;">Read 7secure version</a></p>
               </td>
             </tr>
@@ -222,21 +228,21 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
     .join("");
 
 const buildQuickHitsSection = (): string => `
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #2a2e3f;border-radius:10px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #2a2e3f;border-radius:12px;overflow:hidden;">
     <tr>
       <td style="padding:14px 14px 12px 14px;font-family:Inter,Arial,sans-serif;">
-        <a href="#" style="font-size:18px;line-height:1.35;font-weight:700;color:#8ea2ff;text-decoration:underline;display:block;">🛠️ Trending Tools</a>
-        <ul style="margin:10px 0 0 18px;padding:0;color:#d2d8ec;font-size:15px;line-height:1.7;">
+        <a href="#" style="font-size:16px;line-height:1.35;font-weight:700;color:#8ea2ff;text-decoration:underline;display:block;">🛠️ Trending Tools</a>
+        <ul style="margin:10px 0 0 18px;padding:0;color:#d2d8ec;font-size:13px;line-height:1.6;">
           <li>Tool highlights will appear here in the next digest.</li>
         </ul>
       </td>
     </tr>
   </table>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #2a2e3f;border-radius:10px;margin-top:12px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #2a2e3f;border-radius:12px;overflow:hidden;margin-top:12px;">
     <tr>
       <td style="padding:14px 14px 12px 14px;font-family:Inter,Arial,sans-serif;">
-        <a href="#" style="font-size:18px;line-height:1.35;font-weight:700;color:#8ea2ff;text-decoration:underline;display:block;">🛡️ Security Practices</a>
-        <ul style="margin:10px 0 0 18px;padding:0;color:#d2d8ec;font-size:15px;line-height:1.7;">
+        <a href="#" style="font-size:16px;line-height:1.35;font-weight:700;color:#8ea2ff;text-decoration:underline;display:block;">🛡️ Security Practices</a>
+        <ul style="margin:10px 0 0 18px;padding:0;color:#d2d8ec;font-size:13px;line-height:1.6;">
           <li>Practice snapshots are being prepared for this section.</li>
         </ul>
       </td>
@@ -279,11 +285,23 @@ const buildHtmlDigest = (
   const date = new Date().toUTCString().slice(5, 16);
   const subscriberName = escapeHtml(displayNameFromSubscriber(subscriber));
   const unsubscribeUrl = `${siteBase}/unsubscribe?email=${encodeURIComponent(subscriber.email)}`;
-  const coverImage = resolveImageUrl(articles[0]?.image_url || "/cover.avif", siteBase) || `${siteBase}/cover.avif`;
-  const dailyRundownList = buildDailyRundownList(articles, siteBase);
+  const coverImage = `${siteBase}/cover.avif`;
+  const dailyRundownList = buildDailyRundownList(articles);
   const latestDevelopmentCards = buildLatestDevelopmentCards(articles, siteBase);
   const ratingSection = buildRatingSection(subscriber.email, siteBase);
   const quickHits = buildQuickHitsSection();
+  const socialIconLinks = [
+    { href: siteBase, icon: `${siteBase}/social/website.svg`, label: "Website" },
+    { href: "https://x.com", icon: `${siteBase}/social/x.svg`, label: "X" },
+    { href: "https://linkedin.com", icon: `${siteBase}/social/linkedin.svg`, label: "LinkedIn" },
+    { href: "https://instagram.com", icon: `${siteBase}/social/instagram.svg`, label: "Instagram" },
+    { href: "https://reddit.com", icon: `${siteBase}/social/reddit.svg`, label: "Reddit" }
+  ]
+    .map(
+      (item) =>
+        `<a href="${item.href}" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;border:1px solid #2a2e3f;background:#101420;margin-right:8px;text-decoration:none;"><img src="${item.icon}" alt="${item.label}" width="16" height="16" style="display:block;width:16px;height:16px;" /></a>`
+    )
+    .join("");
 
   return `<!doctype html>
 <html>
@@ -302,7 +320,7 @@ const buildHtmlDigest = (
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0a0c12;padding:16px 6px;">
       <tr>
         <td align="center">
-          <table class="digest-shell" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;border-collapse:collapse;background:#0f121b;border:1px solid #2c3144;border-radius:12px;overflow:hidden;">
+          <table class="digest-shell" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;border-collapse:collapse;background:#0f121b;border:1px solid #2c3144;border-radius:14px;overflow:hidden;">
             <tr>
               <td style="padding:14px 16px 6px 16px;font-family:Inter,Arial,sans-serif;">
                 <div style="text-align:right;font-size:14px;line-height:1.5;">
@@ -316,18 +334,18 @@ const buildHtmlDigest = (
             </tr>
             <tr>
               <td style="padding:8px 16px 0 16px;">
-                <img src="${coverImage}" alt="7secure cover" width="100%" style="display:block;width:100%;height:auto;max-height:230px;object-fit:cover;border-radius:8px;" />
+                <img src="${coverImage}" alt="7secure cover" width="100%" style="display:block;width:100%;height:auto;max-height:230px;object-fit:cover;border-radius:10px;" />
               </td>
             </tr>
             <tr>
               <td style="padding:14px 16px 0 16px;font-family:Inter,Arial,sans-serif;">
-                <table class="digest-shell" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #2a2e3f;border-radius:10px;">
+                <table class="digest-shell" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #2a2e3f;border-radius:12px;overflow:hidden;">
                   <tr>
                     <td class="digest-copy" style="padding:16px;color:#e8ecf8;">
-                      <p style="margin:0;font-size:32px;line-height:1.3;font-weight:700;">Good morning, ${subscriberName}.</p>
+                      <p style="margin:0;font-size:30px;line-height:1.3;font-weight:700;">Good morning, ${subscriberName}.</p>
                       <p style="margin:12px 0 0 0;font-size:16px;line-height:1.68;color:#cdd5ec;">${date} briefing: clear threat context, key developments, and quick actions worth prioritizing today.</p>
-                      <p style="margin:16px 0 0 0;font-size:28px;line-height:1.28;font-weight:700;">In today's security rundown:</p>
-                      <ul style="margin:12px 0 0 20px;padding:0;color:#d6ddf4;font-size:22px;line-height:1.65;">
+                      <p style="margin:16px 0 0 0;font-size:22px;line-height:1.34;font-weight:700;">In today's security rundown:</p>
+                      <ul style="margin:10px 0 0 18px;padding:0;color:#d6ddf4;font-size:14px;line-height:1.55;">
                         ${dailyRundownList}
                       </ul>
                     </td>
@@ -337,8 +355,8 @@ const buildHtmlDigest = (
             </tr>
             <tr>
               <td style="padding:14px 16px 0 16px;font-family:Inter,Arial,sans-serif;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#000000;border:1px solid #2a2e3f;">
-                  <tr><td style="padding:10px 14px;text-align:center;font-size:42px;line-height:1.2;font-weight:700;color:#f0f4ff;letter-spacing:0.03em;">LATEST DEVELOPMENTS</td></tr>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#000000;border:1px solid #2a2e3f;border-radius:10px;overflow:hidden;">
+                  <tr><td style="padding:10px 14px;text-align:center;font-size:30px;line-height:1.2;font-weight:700;color:#f0f4ff;letter-spacing:0.03em;">LATEST DEVELOPMENTS</td></tr>
                 </table>
               </td>
             </tr>
@@ -351,8 +369,8 @@ const buildHtmlDigest = (
             </tr>
             <tr>
               <td style="padding:14px 16px 0 16px;font-family:Inter,Arial,sans-serif;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#000000;border:1px solid #2a2e3f;">
-                  <tr><td style="padding:10px 14px;text-align:center;font-size:42px;line-height:1.2;font-weight:700;color:#f0f4ff;letter-spacing:0.03em;">QUICK HITS</td></tr>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#000000;border:1px solid #2a2e3f;border-radius:10px;overflow:hidden;">
+                  <tr><td style="padding:10px 14px;text-align:center;font-size:30px;line-height:1.2;font-weight:700;color:#f0f4ff;letter-spacing:0.03em;">QUICK HITS</td></tr>
                 </table>
               </td>
             </tr>
@@ -373,13 +391,8 @@ const buildHtmlDigest = (
                     <td style="padding:16px;">
                       <p style="margin:0;font-size:15px;line-height:1.7;color:#d4dbf2;">See you soon,</p>
                       <p style="margin:8px 0 0 0;font-size:15px;line-height:1.7;color:#d4dbf2;"><em>The humans behind 7secure</em></p>
-                      <p style="margin:14px 0 0 0;font-size:13px;line-height:1.6;color:#9ba8c8;">
-                        <a href="${siteBase}" style="color:#9ec8ff;text-decoration:underline;">Website</a>
-                        <span style="color:#596281;"> · </span>
-                        <a href="https://x.com" style="color:#9ec8ff;text-decoration:underline;">X</a>
-                        <span style="color:#596281;"> · </span>
-                        <a href="https://linkedin.com" style="color:#9ec8ff;text-decoration:underline;">LinkedIn</a>
-                        <span style="color:#596281;"> · </span>
+                      <div style="margin:14px 0 0 0;">${socialIconLinks}</div>
+                      <p style="margin:12px 0 0 0;font-size:13px;line-height:1.6;color:#9ba8c8;">
                         <a href="${unsubscribeUrl}" style="color:#9ec8ff;text-decoration:underline;">Unsubscribe</a>
                       </p>
                     </td>
