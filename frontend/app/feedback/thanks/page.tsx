@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+export const runtime = "edge";
+
 const starsForRating = (rating: number): string => {
   const safe = Math.min(5, Math.max(1, rating));
   return "★".repeat(safe) + "☆".repeat(5 - safe);
