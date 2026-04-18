@@ -25,19 +25,6 @@ interface HomeArticle {
   source_name?: string | null;
 }
 
-const getSourceInitials = (sourceName?: string | null): string => {
-  const cleaned = (sourceName || "7secure")
-    .replace(/[^a-zA-Z0-9\s]/g, " ")
-    .trim();
-
-  if (!cleaned) {
-    return "7S";
-  }
-
-  const parts = cleaned.split(/\s+/).slice(0, 2);
-  return parts.map((part) => part[0]?.toUpperCase() || "").join("") || "7S";
-};
-
 const PRACTICE_CATEGORY_SET = new Set<CategoryKey>([
   "vulnerabilities",
   "threat-intel",
@@ -232,16 +219,19 @@ export default function Home() {
     <div className="flex flex-col min-h-screen font-sans bg-[#09090b]">
       
       {/* 1. HERO SECTION (BLACK) */}
-      <section className="relative flex w-full flex-col justify-start bg-[#09090b] pb-16 text-[#fafafa] md:pb-20">
-        <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center px-6 pb-6 pt-8 text-center md:pt-10">
-          <h1 className="mb-5 text-3xl font-bold tracking-tight text-white md:text-5xl lg:text-6xl">
-            Master InfoSec with <br className="hidden md:block"/>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600">Daily Updates</span>
+      <section className="relative flex min-h-[100svh] w-full flex-col justify-center bg-[#09090b] pb-20 text-[#fafafa] md:min-h-[92svh] md:pb-24">
+        <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center justify-center px-6 pb-10 pt-10 text-center md:pt-14">
+          <h1 className="mb-5 text-[2.35rem] font-bold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl">
+            Master InfoSec with{" "}
+            <span className="inline-flex items-center whitespace-nowrap bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 bg-clip-text text-transparent">
+              <span>Daily</span>
+              <span className="ml-2">Updates</span>
+            </span>
           </h1>
           <p className="mb-8 max-w-2xl px-4 text-sm text-zinc-400 md:text-base">
             Get the latest cybersecurity news, understand current threats, and learn how to secure your infrastructure against modern attacks.
           </p>
-          <div className="mx-auto mb-4 mt-4 flex w-full max-w-[760px] items-center overflow-hidden rounded-[0.9rem] border border-zinc-200 bg-white p-1.5 shadow-[0_14px_40px_rgba(0,0,0,0.20)]">
+          <div className="mx-auto mb-4 mt-4 flex w-full max-w-[760px] items-center overflow-hidden rounded-[0.75rem] border border-zinc-200 bg-white p-1.5 shadow-[0_14px_40px_rgba(0,0,0,0.20)]">
             <input
               type="email"
               placeholder="Email Address"
@@ -254,7 +244,7 @@ export default function Home() {
             <Button
               variant="primary"
               onPress={() => setIsOpen(true)}
-              className="flex h-11 min-w-max items-center justify-center gap-2 rounded-[0.65rem] bg-[#18181b] px-4 text-sm font-semibold text-white transition-colors hover:bg-zinc-800 sm:h-12 sm:rounded-[0.75rem] sm:px-6 sm:text-[15px]"
+              className="flex h-11 min-w-max items-center justify-center gap-2 rounded-[0.55rem] bg-[#18181b] px-4 text-sm font-semibold text-white transition-colors hover:bg-zinc-800 sm:h-12 sm:rounded-[0.65rem] sm:px-6 sm:text-[15px]"
             >
               <span>Subscribe</span>
               <Send className="h-4 w-4 shrink-0 translate-y-px stroke-[2px] opacity-90" />
@@ -285,7 +275,7 @@ export default function Home() {
       </section>
 
       {/* 2. NEWSLETTER CONTENT (WHITE) -> Rounded top & bottom intersection */}
-      <main className="relative z-20 -mt-6 w-full flex-1 rounded-t-[2.5rem] bg-white pb-20 pt-12 text-zinc-900 shadow-2xl md:-mt-8">
+      <main className="relative z-20 -mt-4 w-full flex-1 rounded-t-[1.05rem] bg-white pb-20 pt-14 text-zinc-900 shadow-2xl md:-mt-4 md:rounded-t-[1.4rem] md:pt-10">
         <div className="max-w-5xl mx-auto px-6 text-center">
           
           {/* SEARCH & FILTERS */}
@@ -335,14 +325,14 @@ export default function Home() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
                {latestArticles.map((article) => (
-                  <article key={article.id} onClick={() => window.location.href=`/articles/${article.slug}`} className="group flex flex-col bg-white border border-zinc-200 rounded-xl overflow-hidden hover:border-zinc-300 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer relative bg-clip-padding">
+                  <article key={article.id} onClick={() => window.location.href=`/articles/${article.slug}`} className="group flex flex-col bg-white border border-zinc-200 rounded-lg overflow-hidden hover:border-zinc-300 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer relative bg-clip-padding">
                     <div className="relative aspect-[16/9] w-full overflow-hidden bg-zinc-100">
                       <img
                         src={article.image_url || "/cover.avif"}
                         alt={article.title}
                         className="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
                       />
-                      <div className="absolute bottom-3 left-3 bg-white border border-zinc-200 shadow-sm text-xs font-bold text-zinc-800 px-3 py-1.5 rounded-md backdrop-blur">
+                      <div className="absolute bottom-3 left-3 bg-white border border-zinc-200 shadow-sm text-xs font-bold text-zinc-800 px-3 py-1.5 rounded-sm backdrop-blur">
                         {getCategoryLabel(article.category)}
                       </div>
                     </div>
@@ -358,11 +348,15 @@ export default function Home() {
                       
                       {/* Author Area */}
                       <div className="flex items-center mt-auto border-t border-zinc-100 pt-5">
-                        <div className="w-9 h-9 rounded-full bg-zinc-200 overflow-hidden relative mr-3 border border-zinc-200 flex items-center justify-center shrink-0 text-zinc-600 text-xs font-bold">
-                          {getSourceInitials(article.source_name)}
+                        <div className="mr-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-zinc-800 bg-zinc-950 p-2">
+                          <img
+                            src="/brand/Small_Icon.svg"
+                            alt="7secure icon"
+                            className="h-full w-full object-contain"
+                          />
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-zinc-900 leading-none">{(article.source_name || "7secure")}</p>
+                          <p className="text-sm font-semibold text-zinc-900 leading-none">7secure</p>
                           <p className="text-xs text-zinc-500 mt-1">Source Analysis</p>
                         </div>
                       </div>
@@ -391,7 +385,7 @@ export default function Home() {
             </div>
             
             <div className="mx-auto grid max-w-5xl gap-6 text-left md:grid-cols-2">
-              <div className="rounded-2xl border border-zinc-200 bg-zinc-50/60 p-6">
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50/60 p-6">
                 <div className="mb-4 flex items-center gap-2 text-zinc-900">
                   <Shield className="h-5 w-5 text-blue-600" />
                   <h3 className="text-xl font-bold">Security practices</h3>
@@ -401,7 +395,7 @@ export default function Home() {
                     <a
                       key={article.id}
                       href={`/articles/${article.slug}`}
-                      className="block rounded-xl border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-300"
+                      className="block rounded-lg border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-300"
                     >
                       <p className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">
                         {getCategoryLabel(article.category)}
@@ -418,7 +412,7 @@ export default function Home() {
                 </a>
               </div>
 
-              <div id="tools" className="rounded-2xl border border-zinc-200 bg-zinc-50/60 p-6">
+              <div id="tools" className="rounded-lg border border-zinc-200 bg-zinc-50/60 p-6">
                 <div className="mb-4 flex items-center gap-2 text-zinc-900">
                   <Bot className="h-5 w-5 text-blue-600" />
                   <h3 className="text-xl font-bold">Tool watch</h3>
@@ -428,7 +422,7 @@ export default function Home() {
                     <a
                       key={article.id}
                       href={`/articles/${article.slug}`}
-                      className="block rounded-xl border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-300"
+                      className="block rounded-lg border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-300"
                     >
                       <p className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">
                         {getCategoryLabel(article.category)}
@@ -469,7 +463,7 @@ export default function Home() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -20, transition: { duration: 0.2 } }}
-              className="bg-white rounded-xl shadow-2xl w-full max-w-md relative overflow-hidden"
+              className="bg-white rounded-lg shadow-2xl w-full max-w-md relative overflow-hidden"
             >
               
               {/* Close Button */}

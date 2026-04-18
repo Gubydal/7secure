@@ -7,7 +7,7 @@ interface SiteFooterProps {
 
 function XBrandIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor" aria-hidden="true">
       <path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.64 7.584H.47l8.6-9.83L0 1.154h7.594l5.243 6.932 6.064-6.933zm-1.291 19.493h2.039L6.486 3.248H4.298z" />
     </svg>
   );
@@ -15,7 +15,7 @@ function XBrandIcon() {
 
 function LinkedInBrandIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor" aria-hidden="true">
       <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
     </svg>
   );
@@ -23,7 +23,7 @@ function LinkedInBrandIcon() {
 
 function InstagramBrandIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor" aria-hidden="true">
       <path d="M7.75 2C4.574 2 2 4.574 2 7.75v8.5C2 19.426 4.574 22 7.75 22h8.5c3.176 0 5.75-2.574 5.75-5.75v-8.5C22 4.574 19.426 2 16.25 2h-8.5zm0 2h8.5A3.75 3.75 0 0 1 20 7.75v8.5A3.75 3.75 0 0 1 16.25 20h-8.5A3.75 3.75 0 0 1 4 16.25v-8.5A3.75 3.75 0 0 1 7.75 4zm8.9 1.45a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2zM12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6z" />
     </svg>
   );
@@ -31,8 +31,8 @@ function InstagramBrandIcon() {
 
 function RedditBrandIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
-      <path d="M21.5 11.2a2.4 2.4 0 0 0-3.95-1.83 8.9 8.9 0 0 0-5.2-1.67l1.03-3.27 2.77.65a1.8 1.8 0 1 0 .35-1.37l-3.47-.81a.8.8 0 0 0-.95.53l-1.3 4.12a9.02 9.02 0 0 0-4.34 1.67A2.4 2.4 0 1 0 3 13.24a4.83 4.83 0 0 0-.05.66c0 3.3 4.06 5.98 9.05 5.98s9.05-2.68 9.05-5.98a4.86 4.86 0 0 0-.06-.75 2.4 2.4 0 0 0 .51-1.95zm-14.7 3.34a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm6.81 3.02c-1.56 0-2.96-.77-3.46-1.92a.74.74 0 0 1 1.36-.58c.24.57 1.05 1 2.1 1s1.86-.43 2.1-1a.74.74 0 1 1 1.36.58c-.5 1.15-1.9 1.92-3.46 1.92zm3.58-3.02a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6z" />
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor" aria-hidden="true">
+      <path d="M24 11.695c0-1.34-1.104-2.43-2.463-2.43-.665 0-1.268.261-1.713.683-1.697-1.16-3.973-1.91-6.5-2.008l1.097-3.452 2.991.699c.003 1.27 1.049 2.298 2.335 2.298 1.288 0 2.335-1.032 2.335-2.304s-1.047-2.304-2.335-2.304c-.92 0-1.714.526-2.094 1.292l-3.376-.79c-.18-.04-.365.06-.421.234l-1.224 3.846c-2.795.074-5.305.828-7.149 2.004-.444-.407-1.036-.659-1.688-.659C1.104 9.265 0 10.355 0 11.695c0 .89.489 1.664 1.209 2.09-.047.214-.074.435-.074.659 0 3.383 4.016 6.126 8.97 6.126s8.97-2.743 8.97-6.126c0-.215-.024-.426-.068-.631.749-.422 1.26-1.208 1.26-2.118zm-17.55 1.534c0-.965.8-1.748 1.786-1.748.987 0 1.787.783 1.787 1.748 0 .965-.8 1.748-1.787 1.748-.986 0-1.786-.783-1.786-1.748zm9.938 4.037c-.784.784-2.302 1.133-3.791 1.133-1.488 0-3.006-.35-3.79-1.133-.3-.3-.3-.786 0-1.085.3-.3.787-.3 1.086 0 .402.402 1.313.686 2.704.686 1.39 0 2.302-.284 2.703-.686.3-.3.786-.3 1.086 0 .3.299.3.786 0 1.085zm-.25-2.245c-.987 0-1.787-.783-1.787-1.748 0-.965.8-1.748 1.787-1.748.986 0 1.786.783 1.786 1.748 0 .965-.8 1.748-1.786 1.748z" />
     </svg>
   );
 }
@@ -40,14 +40,14 @@ function RedditBrandIcon() {
 export function SiteFooter({ className = "", roundedTop = true }: SiteFooterProps) {
   const shellClassName = [
     "w-full bg-white border-t border-zinc-200 py-16 px-6 relative z-10",
-    roundedTop ? "mt-12 rounded-t-[2.5rem] md:mt-24" : "mt-0",
+    roundedTop ? "mt-12 rounded-t-[1.5rem] md:mt-20 md:rounded-t-[1.8rem]" : "mt-0",
     className
   ]
     .filter(Boolean)
     .join(" ");
 
   const socialButtonClassName =
-    "flex h-9 w-9 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-700 transition-colors hover:border-zinc-400 hover:text-zinc-900";
+    "flex h-10 w-10 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-700 transition-colors hover:border-zinc-400 hover:text-zinc-900";
 
   return (
     <footer className={shellClassName}>

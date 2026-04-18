@@ -3,6 +3,7 @@ DROP TABLE IF EXISTS articles;
 DROP TABLE IF EXISTS subscribers;
 DROP TABLE IF EXISTS digest_logs;
 DROP TABLE IF EXISTS digest_feedback;
+DROP TABLE IF EXISTS digest_sent_articles;
 
 -- Required for gen_random_uuid() on a clean database
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
@@ -79,5 +80,14 @@ CREATE TABLE digest_feedback (
   email text not null,
   rating smallint not null check (rating between 1 and 5),
   context text default 'daily_digest_email',
+  feedback_source text default 'email_star_click',
+  user_agent text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+CREATE TABLE digest_sent_articles (
+  article_slug text primary key,
+  sent_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+CREATE INDEX digest_sent_articles_sent_at_idx ON digest_sent_articles(sent_at DESC);

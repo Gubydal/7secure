@@ -87,6 +87,44 @@ const parseDate = (value: any): string | null => {
   return new Date(parsed).toISOString();
 };
 
+const normalizeArticleUrl = (rawUrl: string): string => {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  try {
+    const url = new URL(trimmed);
+    url.hash = "";
+
+    const trackingKeys = [
+      "gclid",
+      "fbclid",
+      "mc_cid",
+      "mc_eid",
+      "mkt_tok",
+      "igshid",
+      "ref",
+      "ref_src"
+    ];
+
+    for (const key of [...url.searchParams.keys()]) {
+      const lowerKey = key.toLowerCase();
+      if (lowerKey.startsWith("utm_") || trackingKeys.includes(lowerKey)) {
+        url.searchParams.delete(key);
+      }
+    }
+
+    if (url.pathname.length > 1) {
+      url.pathname = url.pathname.replace(/\/+$/, "");
+    }
+
+    return url.toString();
+  } catch {
+    return trimmed;
+  }
+};
+
 export const parseFeedXml = (xml: string, source: RSSSource): RawFeedItem[] => {
   try {
     const parser = new XMLParser({
@@ -106,7 +144,7 @@ export const parseFeedXml = (xml: string, source: RSSSource): RawFeedItem[] => {
 
       for (const item of items.slice(0, 20)) {
         const title = safeText(item.title);
-        const url = safeText(item.link);
+        const url = normalizeArticleUrl(safeText(item.link));
         const rawDescription = safeText(item.description);
         const rawEncoded = safeText(item["content:encoded"]) || safeText(item.content);
         const plainDescription = stripMarkup(rawDescription);
@@ -160,7 +198,9 @@ export const parseFeedXml = (xml: string, source: RSSSource): RawFeedItem[] => {
         
         let entryLinks = Array.isArray(entry.link) ? entry.link : [entry.link];
         const entryAlt = entryLinks.find((l: any) => l && l["@_rel"] === "alternate");
-        const url = entryAlt ? entryAlt["@_href"] : (entryLinks[0] ? entryLinks[0]["@_href"] : "");
+        const url = normalizeArticleUrl(
+          entryAlt ? entryAlt["@_href"] : (entryLinks[0] ? entryLinks[0]["@_href"] : "")
+        );
         
         const rawSummary = safeText(entry.summary);
         const rawContent = safeText(entry.content);

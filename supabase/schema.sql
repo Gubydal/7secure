@@ -37,7 +37,14 @@ CREATE TABLE digest_feedback (
   email TEXT NOT NULL,
   rating SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
   context TEXT NOT NULL DEFAULT 'daily_digest_email',
+  feedback_source TEXT NOT NULL DEFAULT 'email_star_click',
+  user_agent TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE digest_sent_articles (
+  article_slug TEXT PRIMARY KEY,
+  sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_articles_published_at ON articles(published_at DESC);
@@ -45,13 +52,17 @@ CREATE INDEX idx_articles_category ON articles(category);
 CREATE INDEX idx_articles_slug ON articles(slug);
 CREATE INDEX idx_subscribers_email ON subscribers(email);
 CREATE INDEX idx_digest_feedback_email ON digest_feedback(email);
+CREATE INDEX idx_digest_feedback_source ON digest_feedback(feedback_source);
+CREATE INDEX idx_digest_sent_articles_sent_at ON digest_sent_articles(sent_at DESC);
 
 ALTER TABLE articles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subscribers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE digest_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE digest_feedback ENABLE ROW LEVEL SECURITY;
+ALTER TABLE digest_sent_articles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public read articles" ON articles FOR SELECT USING (true);
 CREATE POLICY "Service role full access articles" ON articles USING (auth.role() = 'service_role');
 CREATE POLICY "Service role full access subscribers" ON subscribers USING (auth.role() = 'service_role');
 CREATE POLICY "Service role full access digest_logs" ON digest_logs USING (auth.role() = 'service_role');
 CREATE POLICY "Service role full access digest_feedback" ON digest_feedback USING (auth.role() = 'service_role');
+CREATE POLICY "Service role full access digest_sent_articles" ON digest_sent_articles USING (auth.role() = 'service_role');

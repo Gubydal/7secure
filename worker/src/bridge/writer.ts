@@ -6,12 +6,16 @@ Rewrite the provided feed item into a publication-ready analysis article.
 Hard requirements:
 - Title: specific, under 80 chars, no clickbait.
 - Summary: 2 concise sentences explaining why readers should care (this is rendered as "Why this matters").
-- Content: 420-620 words in clean markdown.
+- Content: 620-900 words in clean markdown.
 - Content must NOT repeat the summary verbatim.
 - Content must NOT repeat the title as an H1/H2.
-- Use 4-6 descriptive H2 sections with unique headings.
-- Include one short, practical bullet list.
+- Use 5-7 descriptive H2 sections with unique headings.
+- Prefix at least 3 H2 headings with relevant emojis.
+- Include 1-2 practical bullet lists with concrete, actionable points.
 - Keep paragraphs short and scannable.
+- Avoid generic repeated headings such as "What happened" or "What teams should do now".
+- Every heading must be specific to this article. No canned section titles reused across stories.
+- Use a natural narrative flow: context, technical detail, team impact, response priorities, and open questions.
 - Use only facts present in the input. If unknown, write that it was not disclosed.
 - Do not include website/source name in author voice.
 - Tags: 3-5 lowercase tags.
@@ -31,7 +35,7 @@ Return ONLY valid JSON:
 }`;
 
 const DEFAULT_COVER_IMAGE = "/cover.avif";
-const LLM_TIMEOUT_MS = 75_000;
+const LLM_TIMEOUT_MS = 105_000;
 
 const slugify = (value: string): string =>
   value
@@ -58,60 +62,119 @@ const splitSentences = (value: string): string[] => {
   return sentences.map((sentence) => normalizeWhitespace(sentence)).filter(Boolean);
 };
 
+const countWords = (value: string): number =>
+  value
+    .split(/\s+/)
+    .map((word) => word.trim())
+    .filter(Boolean).length;
+
 const headingPools: Record<string, string[]> = {
   "threat-intel": [
-    "Attack chain and observed behavior",
-    "What defenders should monitor",
-    "Exposure and likely impact",
-    "Signals worth tracking this week",
-    "How this campaign is evolving"
+    "🧭 Campaign flow and observed behavior",
+    "🛰️ Detection signals defenders should track",
+    "🎯 Exposure and likely blast radius",
+    "🛡️ Defensive moves to prioritize now",
+    "🔍 How this threat may evolve next"
   ],
   vulnerabilities: [
-    "Where the weakness appears",
-    "Technical risk and exploitability",
-    "Patch and mitigation priorities",
-    "Operational impact for security teams",
-    "Validation steps after remediation"
+    "🧪 Where the weakness appears",
+    "⚠️ Exploitability and technical risk",
+    "🩹 Patch and mitigation priorities",
+    "🏢 Operational impact for security teams",
+    "✅ Validation steps after remediation"
   ],
   "industry-news": [
-    "What happened",
-    "Technical context behind the update",
-    "Why this matters for teams",
-    "Immediate next actions",
-    "Questions security leaders should ask"
+    "🗞️ Core development and timeline",
+    "🧠 Technical context behind the update",
+    "🏢 Why this matters for security teams",
+    "✅ Immediate response priorities",
+    "❓ Questions leaders should resolve next"
   ],
   research: [
-    "Research focus",
-    "Methodology and key observations",
-    "Practical implications",
-    "How to apply this in production",
-    "Limitations and open questions"
+    "🔬 Research focus and scope",
+    "🧪 Methodology and key observations",
+    "📈 Practical implications for defenders",
+    "🛠️ Applying findings in production",
+    "❓ Limitations and unanswered questions"
   ],
   "ai-security": [
-    "Model and threat context",
-    "Observed failure modes",
-    "Defensive controls to prioritize",
-    "Risk trade-offs for adoption",
-    "What to test next"
+    "🤖 Model and threat context",
+    "🧨 Observed failure modes",
+    "🛡️ Defensive controls to prioritize",
+    "⚖️ Risk trade-offs for adoption",
+    "🧭 High-value tests to run next"
   ],
   government: [
-    "Advisory summary",
-    "Who should act first",
-    "Recommended mitigations",
-    "Coordination and reporting guidance",
-    "Compliance and response planning"
+    "🏛️ Advisory summary and scope",
+    "🚨 Who should act first",
+    "🛠️ Recommended mitigations",
+    "🤝 Coordination and reporting guidance",
+    "📋 Compliance and response planning"
   ]
 };
 
-const pickFallbackHeadings = (item: RawFeedItem): [string, string, string] => {
+const BANNED_HEADING_PATTERNS = [
+  /^what happened$/i,
+  /^what this means$/i,
+  /^what teams should do now$/i,
+  /^what to do now$/i,
+  /^key takeaways$/i,
+  /^bottom line$/i,
+  /^why this matters for teams$/i
+];
+
+const EMOJI_PREFIXES = ["🧭", "🔍", "🛡️", "⚠️", "✅", "🧠", "📊", "🧪"];
+
+const extractHeadingText = (line: string): string => line.replace(/^##\s+/, "").trim();
+
+const containsEmoji = (value: string): boolean => /[\u{1F300}-\u{1FAFF}]/u.test(value);
+
+const enforceHeadingQuality = (
+  content: string,
+  item: RawFeedItem
+): { content: string; headingCount: number } => {
+  const lines = content.split("\n");
+  const replacementPool = pickFallbackHeadings(item);
+  let replacementIndex = 0;
+  let emojiIndex = 0;
+  let headingCount = 0;
+
+  const normalizedLines = lines.map((line) => {
+    if (!/^##\s+/.test(line.trim())) {
+      return line;
+    }
+
+    headingCount += 1;
+    let heading = extractHeadingText(line);
+    if (BANNED_HEADING_PATTERNS.some((pattern) => pattern.test(heading))) {
+      heading = replacementPool[replacementIndex % replacementPool.length];
+      replacementIndex += 1;
+    }
+
+    if (!containsEmoji(heading) && emojiIndex < EMOJI_PREFIXES.length) {
+      heading = `${EMOJI_PREFIXES[emojiIndex]} ${heading}`;
+      emojiIndex += 1;
+    }
+
+    return `## ${heading}`;
+  });
+
+  return {
+    content: normalizedLines.join("\n"),
+    headingCount
+  };
+};
+
+const pickFallbackHeadings = (item: RawFeedItem): [string, string, string, string] => {
   const pool = headingPools[item.category] || headingPools["industry-news"];
   const seed = parseInt(hashString(item.url).slice(0, 6), 36) || 0;
 
   const first = pool[seed % pool.length];
   const second = pool[(seed + 2) % pool.length];
   const third = pool[(seed + 4) % pool.length];
+  const fourth = pool[(seed + 1) % pool.length];
 
-  return [first, second, third];
+  return [first, second, third, fourth];
 };
 
 const stripLeadingHeading = (content: string, title: string): string => {
@@ -211,13 +274,40 @@ const buildStructuredContent = (
   const operationalImpact = pickSentenceRange(
     sourceSentences,
     8,
-    12,
+    13,
     "Operationally, this requires a rapid assessment of affected systems, communications to owners, and verification that existing detections still cover the described behavior.",
     700
   );
 
+  const responsePriorities = pickSentenceRange(
+    sourceSentences,
+    13,
+    18,
+    "Response planning should align technical owners, incident response, and leadership on what to validate first, what to patch first, and what telemetry to monitor during the next 24-72 hours.",
+    720
+  );
+
+  const openQuestions = pickSentenceRange(
+    sourceSentences,
+    18,
+    24,
+    "Some implementation-specific details are still not disclosed, so teams should confirm assumptions with internal telemetry, vendor guidance, and environment-specific testing.",
+    720
+  );
+
+  const monitoringSignals = pickSentenceRange(
+    sourceSentences,
+    24,
+    30,
+    "Teams should continuously monitor authentication anomalies, process execution chains, suspicious outbound traffic, and endpoint telemetry changes while this story evolves.",
+    720
+  );
+
   const topicLabel = item.category.replace(/-/g, " ");
-  const [firstHeading, secondHeading, thirdHeading] = pickFallbackHeadings(item);
+  const [firstHeading, secondHeading, thirdHeading, fourthHeading] = pickFallbackHeadings(item);
+  const actionHeading = `✅ Priority actions for ${topicLabel} teams`;
+  const monitoringHeading = "📊 Monitoring and escalation checkpoints";
+  const sourceHeading = "🔗 Source trail and verification notes";
 
   return [
     `## ${firstHeading}`,
@@ -226,14 +316,26 @@ const buildStructuredContent = (
     technicalDetails,
     `## ${thirdHeading}`,
     operationalImpact,
-    "## What teams should do now",
+    `## ${fourthHeading}`,
+    responsePriorities,
+    `## ${actionHeading}`,
     [
       "- Confirm whether any production systems match the affected technology or behavior.",
       "- Validate logging, alerting, and detection coverage tied to this class of threat.",
       "- Coordinate with incident response and infrastructure owners on prioritization.",
       `- Brief leadership on potential impact to ${topicLabel} posture and immediate mitigations.`
     ].join("\n"),
-    "## Source",
+    `## ${monitoringHeading}`,
+    monitoringSignals,
+    [
+      "- Define explicit escalation criteria (severity thresholds, blast-radius growth, exploitation evidence).",
+      "- Track mitigation completeness by system owner, not only by ticket status.",
+      "- Re-validate controls after each change window to ensure no regression was introduced.",
+      "- Keep an incident timeline so detection and response gaps are measurable and actionable."
+    ].join("\n"),
+    "## ❓ Critical unknowns to resolve",
+    openQuestions,
+    `## ${sourceHeading}`,
     `Original reporting: [Open source article](${item.url}).`,
     "Some implementation-specific details were not disclosed in the source material."
   ].join("\n\n");
@@ -250,12 +352,18 @@ const normalizeGeneratedContent = (
     return buildStructuredContent(summary, item.sourceSnippet || summary, item);
   }
 
-  const headingCount = (cleanedContent.match(/^##\s+/gm) || []).length;
-  if (headingCount >= 3 && cleanedContent.length >= 900) {
-    return cleanedContent;
+  const qualityAdjusted = enforceHeadingQuality(cleanedContent, item);
+  const words = countWords(qualityAdjusted.content);
+
+  if (qualityAdjusted.headingCount >= 5 && words >= 620) {
+    return qualityAdjusted.content;
   }
 
-  return buildStructuredContent(summary, [item.sourceSnippet || "", cleanedContent].join("\n\n"), item);
+  return buildStructuredContent(
+    summary,
+    [item.sourceSnippet || "", qualityAdjusted.content].join("\n\n"),
+    item
+  );
 };
 
 const fallbackArticle = (item: RawFeedItem): NewsletterArticle => {
@@ -330,95 +438,118 @@ const rewriteItem = async (
   item: RawFeedItem,
   env: WorkerEnv
 ): Promise<NewsletterArticle | null> => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
+  const maxAttempts = 2;
 
-  try {
-    console.log(`Sending to LLM: ${item.title.substring(0, 30)}...`);
-    const response = await fetch(`${env.LLM_BASE_URL.replace(/\/$/, "")}/chat/completions`, {
-      method: "POST",
-      signal: controller.signal,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${env.LLM_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: env.LLM_MODEL,
-        temperature: 0.2,
-        messages: [
-          {
-            role: "system",
-            content: SYSTEM_PROMPT
-          },
-          {
-            role: "user",
-            content: JSON.stringify({
-              title: item.title,
-              url: item.url,
-              summary: item.summary,
-              source_snippet: item.sourceSnippet || "",
-              published_at: item.publishedAt,
-              source_name: item.sourceName,
-              source_url: item.sourceUrl,
-              category: item.category,
-              image_url: item.imageUrl || DEFAULT_COVER_IMAGE
-            })
-          }
-        ]
-      })
-    });
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
 
-    if (!response.ok) {
-      console.error("LLM API Error:", response.status, await response.text());
-      return fallbackArticle(item);
+    try {
+      console.log(`Sending to LLM (attempt ${attempt}/${maxAttempts}): ${item.title.substring(0, 30)}...`);
+      const response = await fetch(`${env.LLM_BASE_URL.replace(/\/$/, "")}/chat/completions`, {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${env.LLM_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: env.LLM_MODEL,
+          temperature: 0.2,
+          messages: [
+            {
+              role: "system",
+              content: SYSTEM_PROMPT
+            },
+            {
+              role: "user",
+              content: JSON.stringify({
+                title: item.title,
+                url: item.url,
+                summary: item.summary,
+                source_snippet: item.sourceSnippet || "",
+                published_at: item.publishedAt,
+                source_name: item.sourceName,
+                source_url: item.sourceUrl,
+                category: item.category,
+                image_url: item.imageUrl || DEFAULT_COVER_IMAGE
+              })
+            }
+          ]
+        })
+      });
+
+      if (!response.ok) {
+        console.error("LLM API Error:", response.status, await response.text());
+        if (attempt === maxAttempts) {
+          return fallbackArticle(item);
+        }
+        continue;
+      }
+
+      const payload = (await response.json()) as {
+        choices?: Array<{ message?: { content?: string } }>;
+      };
+
+      const content = payload.choices?.[0]?.message?.content;
+      if (!content) {
+        console.error("No content from LLM");
+        if (attempt === maxAttempts) {
+          return fallbackArticle(item);
+        }
+        continue;
+      }
+
+      const parsed = extractJson(content) as any;
+      if (!isValidArticle(parsed)) {
+        if (attempt === maxAttempts) {
+          return fallbackArticle(item);
+        }
+        continue;
+      }
+
+      const finalTitle = parsed.title || item.title;
+      const finalSummary = truncateSummary(normalizeWhitespace(parsed.summary || item.summary));
+      const finalContent = normalizeGeneratedContent(
+        finalTitle,
+        finalSummary,
+        parsed.content,
+        item
+      );
+
+      // Default to the original item's metadata if the LLM hallucinated or forgot to include it
+      return {
+        ...parsed,
+        title: finalTitle,
+        summary: finalSummary,
+        content: finalContent,
+        category: allowedCategories.has(parsed.category) ? parsed.category : item.category,
+        source_name: "7secure",
+        source_url: parsed.source_url || item.sourceUrl || "https://example.com",
+        original_url: parsed.original_url || item.url || "https://example.com",
+        image_url: parsed.image_url || item.imageUrl || DEFAULT_COVER_IMAGE
+      } as NewsletterArticle;
+    } catch (error) {
+      if ((error as Error).name === "AbortError") {
+        console.error(
+          `LLM rewrite timeout after ${Math.round(LLM_TIMEOUT_MS / 1000)}s (attempt ${attempt}/${maxAttempts}) for: ${item.title.substring(0, 30)}...`
+        );
+      } else {
+        console.error(
+          `LLM Rewrite Error (${item.title}) [attempt ${attempt}/${maxAttempts}]:`,
+          (error as Error).message
+        );
+      }
+
+      if (attempt === maxAttempts) {
+        return fallbackArticle(item);
+      }
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    const payload = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-
-    const content = payload.choices?.[0]?.message?.content;
-    if (!content) {
-      console.error("No content from LLM");
-      return fallbackArticle(item);
-    }
-
-    const parsed = extractJson(content) as any;
-    if (!isValidArticle(parsed)) {
-      return fallbackArticle(item);
-    }
-
-    const finalTitle = parsed.title || item.title;
-    const finalSummary = truncateSummary(normalizeWhitespace(parsed.summary || item.summary));
-    const finalContent = normalizeGeneratedContent(
-      finalTitle,
-      finalSummary,
-      parsed.content,
-      item
-    );
-
-    // Default to the original item's metadata if the LLM hallucinated or forgot to include it
-    return {
-      ...parsed,
-      title: finalTitle,
-      summary: finalSummary,
-      content: finalContent,
-      category: allowedCategories.has(parsed.category) ? parsed.category : item.category,
-      source_name: "7secure",
-      source_url: parsed.source_url || item.sourceUrl || "https://example.com",
-      original_url: parsed.original_url || item.url || "https://example.com",
-      image_url: parsed.image_url || item.imageUrl || DEFAULT_COVER_IMAGE
-    } as NewsletterArticle;
-  } catch (error) {
-    if ((error as Error).name === 'AbortError') {
-      console.error(`LLM rewrite timeout after ${Math.round(LLM_TIMEOUT_MS / 1000)}s for: ${item.title.substring(0, 30)}...`);
-    } else {
-      console.error(`LLM Rewrite Error (${item.title}):`, (error as Error).message);
-    }
-    return fallbackArticle(item);
-  } finally {
-    clearTimeout(timeoutId);
   }
+
+  return fallbackArticle(item);
 };
 
 export const writeArticles = async (

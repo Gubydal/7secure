@@ -1,5 +1,10 @@
 import { Resend } from "resend";
-import { getRecentArticles, getSubscribers } from "../db/supabase";
+import {
+  getRecentArticles,
+  getSentArticleSlugs,
+  getSubscribers,
+  markDigestArticlesSent
+} from "../db/supabase";
 import type { WorkerEnv } from "../types";
 
 export interface DigestSendResult {
@@ -210,7 +215,7 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
       return `
       <tr>
         <td style="padding:${index === 0 ? "0" : "14px 0 0 0"};">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #2a2e3f;border-radius:12px;overflow:hidden;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #394465;border-radius:12px;overflow:hidden;">
             ${imageBlock}
             <tr>
               <td style="padding:14px 14px 14px 14px;font-family:Inter,Arial,sans-serif;color:#e8ecf8;">
@@ -228,7 +233,7 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
     .join("");
 
 const buildQuickHitsSection = (): string => `
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #2a2e3f;border-radius:12px;overflow:hidden;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #394465;border-radius:12px;overflow:hidden;">
     <tr>
       <td style="padding:14px 14px 12px 14px;font-family:Inter,Arial,sans-serif;">
         <a href="#" style="font-size:16px;line-height:1.35;font-weight:700;color:#8ea2ff;text-decoration:underline;display:block;">🛠️ Trending Tools</a>
@@ -238,7 +243,7 @@ const buildQuickHitsSection = (): string => `
       </td>
     </tr>
   </table>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #2a2e3f;border-radius:12px;overflow:hidden;margin-top:12px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #394465;border-radius:12px;overflow:hidden;margin-top:12px;">
     <tr>
       <td style="padding:14px 14px 12px 14px;font-family:Inter,Arial,sans-serif;">
         <a href="#" style="font-size:16px;line-height:1.35;font-weight:700;color:#8ea2ff;text-decoration:underline;display:block;">🛡️ Security Practices</a>
@@ -252,10 +257,10 @@ const buildQuickHitsSection = (): string => `
 const buildRatingSection = (subscriberEmail: string, siteBase: string): string => {
   const encodedEmail = encodeURIComponent(subscriberEmail);
   const feedbackLink = (rating: number): string =>
-    `${siteBase}/api/digest-feedback?email=${encodedEmail}&rating=${rating}`;
+    `${siteBase}/api/digest-feedback?email=${encodedEmail}&rating=${rating}&context=daily_digest_email`;
 
   return `
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #2a2e3f;border-radius:10px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #394465;border-radius:12px;overflow:hidden;">
     <tr>
       <td style="padding:18px 16px 18px 16px;font-family:Inter,Arial,sans-serif;">
         <div style="font-size:40px;line-height:1.2;font-weight:700;color:#f1f4ff;">That's it for today!</div>
@@ -291,15 +296,35 @@ const buildHtmlDigest = (
   const ratingSection = buildRatingSection(subscriber.email, siteBase);
   const quickHits = buildQuickHitsSection();
   const socialIconLinks = [
-    { href: siteBase, icon: `${siteBase}/social/website.svg`, label: "Website" },
-    { href: "https://x.com", icon: `${siteBase}/social/x.svg`, label: "X" },
-    { href: "https://linkedin.com", icon: `${siteBase}/social/linkedin.svg`, label: "LinkedIn" },
-    { href: "https://instagram.com", icon: `${siteBase}/social/instagram.svg`, label: "Instagram" },
-    { href: "https://reddit.com", icon: `${siteBase}/social/reddit.svg`, label: "Reddit" }
+    {
+      href: siteBase,
+      label: "Website",
+      svg: '<svg viewBox="0 0 24 24" width="22" height="22" fill="#dbe3ff" xmlns="http://www.w3.org/2000/svg"><path d="M12 2a10 10 0 1 0 10 10A10.01 10.01 0 0 0 12 2zm7.92 9h-3.05a15.9 15.9 0 0 0-1.02-4.58A8.03 8.03 0 0 1 19.92 11zM12 4.04c.73.96 1.65 3.12 1.87 6.96h-3.74C10.35 7.16 11.27 5 12 4.04zM8.15 6.42A15.9 15.9 0 0 0 7.13 11H4.08a8.03 8.03 0 0 1 4.07-4.58zM4.08 13h3.05a15.9 15.9 0 0 0 1.02 4.58A8.03 8.03 0 0 1 4.08 13zM12 19.96c-.73-.96-1.65-3.12-1.87-6.96h3.74c-.22 3.84-1.14 6-1.87 6.96zm3.85-2.38A15.9 15.9 0 0 0 16.87 13h3.05a8.03 8.03 0 0 1-4.07 4.58z"/></svg>'
+    },
+    {
+      href: "https://x.com",
+      label: "X",
+      svg: '<svg viewBox="0 0 24 24" width="22" height="22" fill="#dbe3ff" xmlns="http://www.w3.org/2000/svg"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.64 7.584H.47l8.6-9.83L0 1.154h7.594l5.243 6.932 6.064-6.933zm-1.291 19.493h2.039L6.486 3.248H4.298z"/></svg>'
+    },
+    {
+      href: "https://linkedin.com",
+      label: "LinkedIn",
+      svg: '<svg viewBox="0 0 24 24" width="22" height="22" fill="#dbe3ff" xmlns="http://www.w3.org/2000/svg"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>'
+    },
+    {
+      href: "https://instagram.com",
+      label: "Instagram",
+      svg: '<svg viewBox="0 0 24 24" width="22" height="22" fill="#dbe3ff" xmlns="http://www.w3.org/2000/svg"><path d="M7.75 2C4.574 2 2 4.574 2 7.75v8.5C2 19.426 4.574 22 7.75 22h8.5c3.176 0 5.75-2.574 5.75-5.75v-8.5C22 4.574 19.426 2 16.25 2h-8.5zm0 2h8.5A3.75 3.75 0 0 1 20 7.75v8.5A3.75 3.75 0 0 1 16.25 20h-8.5A3.75 3.75 0 0 1 4 16.25v-8.5A3.75 3.75 0 0 1 7.75 4zm8.9 1.45a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2zM12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/></svg>'
+    },
+    {
+      href: "https://reddit.com",
+      label: "Reddit",
+      svg: '<svg viewBox="0 0 24 24" width="22" height="22" fill="#dbe3ff" xmlns="http://www.w3.org/2000/svg"><path d="M24 11.695c0-1.34-1.104-2.43-2.463-2.43-.665 0-1.268.261-1.713.683-1.697-1.16-3.973-1.91-6.5-2.008l1.097-3.452 2.991.699c.003 1.27 1.049 2.298 2.335 2.298 1.288 0 2.335-1.032 2.335-2.304s-1.047-2.304-2.335-2.304c-.92 0-1.714.526-2.094 1.292l-3.376-.79c-.18-.04-.365.06-.421.234l-1.224 3.846c-2.795.074-5.305.828-7.149 2.004-.444-.407-1.036-.659-1.688-.659C1.104 9.265 0 10.355 0 11.695c0 .89.489 1.664 1.209 2.09-.047.214-.074.435-.074.659 0 3.383 4.016 6.126 8.97 6.126s8.97-2.743 8.97-6.126c0-.215-.024-.426-.068-.631.749-.422 1.26-1.208 1.26-2.118zm-17.55 1.534c0-.965.8-1.748 1.786-1.748.987 0 1.787.783 1.787 1.748 0 .965-.8 1.748-1.787 1.748-.986 0-1.786-.783-1.786-1.748zm9.938 4.037c-.784.784-2.302 1.133-3.791 1.133-1.488 0-3.006-.35-3.79-1.133-.3-.3-.3-.786 0-1.085.3-.3.787-.3 1.086 0 .402.402 1.313.686 2.704.686 1.39 0 2.302-.284 2.703-.686.3-.3.786-.3 1.086 0 .3.299.3.786 0 1.085zm-.25-2.245c-.987 0-1.787-.783-1.787-1.748 0-.965.8-1.748 1.787-1.748.986 0 1.786.783 1.786 1.748 0 .965-.8 1.748-1.786 1.748z"/></svg>'
+    }
   ]
     .map(
       (item) =>
-        `<a href="${item.href}" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;border:1px solid #2a2e3f;background:#101420;margin-right:8px;text-decoration:none;"><img src="${item.icon}" alt="${item.label}" width="16" height="16" style="display:block;width:16px;height:16px;" /></a>`
+        `<a href="${item.href}" style="display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;border:1px solid #394465;background:#101420;margin-right:8px;text-decoration:none;line-height:0;">${item.svg}</a>`
     )
     .join("");
 
@@ -334,12 +359,18 @@ const buildHtmlDigest = (
             </tr>
             <tr>
               <td style="padding:8px 16px 0 16px;">
-                <img src="${coverImage}" alt="7secure cover" width="100%" style="display:block;width:100%;height:auto;max-height:230px;object-fit:cover;border-radius:10px;" />
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #394465;border-radius:12px;overflow:hidden;">
+                  <tr>
+                    <td style="padding:10px;">
+                      <img src="${coverImage}" alt="7secure cover" width="100%" style="display:block;width:100%;height:auto;max-height:230px;object-fit:cover;border-radius:10px;" />
+                    </td>
+                  </tr>
+                </table>
               </td>
             </tr>
             <tr>
               <td style="padding:14px 16px 0 16px;font-family:Inter,Arial,sans-serif;">
-                <table class="digest-shell" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #2a2e3f;border-radius:12px;overflow:hidden;">
+                <table class="digest-shell" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#11131b;border:1px solid #394465;border-radius:12px;overflow:hidden;">
                   <tr>
                     <td class="digest-copy" style="padding:16px;color:#e8ecf8;">
                       <p style="margin:0;font-size:30px;line-height:1.3;font-weight:700;">Good morning, ${subscriberName}.</p>
@@ -355,7 +386,7 @@ const buildHtmlDigest = (
             </tr>
             <tr>
               <td style="padding:14px 16px 0 16px;font-family:Inter,Arial,sans-serif;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#000000;border:1px solid #2a2e3f;border-radius:10px;overflow:hidden;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#000000;border:1px solid #394465;border-radius:10px;overflow:hidden;">
                   <tr><td style="padding:10px 14px;text-align:center;font-size:30px;line-height:1.2;font-weight:700;color:#f0f4ff;letter-spacing:0.03em;">LATEST DEVELOPMENTS</td></tr>
                 </table>
               </td>
@@ -369,7 +400,7 @@ const buildHtmlDigest = (
             </tr>
             <tr>
               <td style="padding:14px 16px 0 16px;font-family:Inter,Arial,sans-serif;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#000000;border:1px solid #2a2e3f;border-radius:10px;overflow:hidden;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#000000;border:1px solid #394465;border-radius:10px;overflow:hidden;">
                   <tr><td style="padding:10px 14px;text-align:center;font-size:30px;line-height:1.2;font-weight:700;color:#f0f4ff;letter-spacing:0.03em;">QUICK HITS</td></tr>
                 </table>
               </td>
@@ -386,7 +417,7 @@ const buildHtmlDigest = (
             </tr>
             <tr>
               <td style="padding:14px 16px 20px 16px;font-family:Inter,Arial,sans-serif;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#0f1118;border:1px solid #2a2e3f;border-radius:10px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#0f1118;border:1px solid #394465;border-radius:12px;overflow:hidden;">
                   <tr>
                     <td style="padding:16px;">
                       <p style="margin:0;font-size:15px;line-height:1.7;color:#d4dbf2;">See you soon,</p>
@@ -472,14 +503,21 @@ export const sendDigest = async (env: WorkerEnv): Promise<DigestSendResult> => {
     getSubscribers(env)
   ]);
 
-  const digestArticles = pickDigestArticles(allArticles as DigestArticle[]);
+  const candidateArticles = allArticles as DigestArticle[];
+  const sentSlugs = await getSentArticleSlugs(
+    env,
+    candidateArticles.map((article) => article.slug)
+  );
+  const unsentArticles = candidateArticles.filter((article) => !sentSlugs.has(article.slug));
+  const digestArticles = pickDigestArticles(unsentArticles);
+
   console.log(
-    `Digest prep: ${digestArticles.length} articles selected for ${subscribers.length} confirmed subscribers`
+    `Digest prep: ${digestArticles.length} unsent articles selected from ${candidateArticles.length} candidates for ${subscribers.length} confirmed subscribers`
   );
 
   if (!digestArticles.length || !subscribers.length) {
     if (!digestArticles.length) {
-      console.warn("Digest skipped: no recent articles available to send.");
+      console.warn("Digest skipped: no unsent articles available to send.");
     }
     if (!subscribers.length) {
       console.warn("Digest skipped: no confirmed subscribers found.");
@@ -514,6 +552,7 @@ export const sendDigest = async (env: WorkerEnv): Promise<DigestSendResult> => {
   }
 
   let hadErrors = false;
+  let deliveredCount = 0;
 
   try {
     for (let index = 0; index < batches.length; index += 1) {
@@ -554,11 +593,14 @@ export const sendDigest = async (env: WorkerEnv): Promise<DigestSendResult> => {
           }
         }
 
+        deliveredCount += fallbackDelivered;
+
         console.log(
           `Resend fallback delivered ${fallbackDelivered}/${batch.length} recipients for batch ${batchLabel}`
         );
       } else {
         const accepted = response.data?.data?.length ?? 0;
+        deliveredCount += accepted;
         console.log(`Resend batch ${batchLabel} accepted ${accepted}/${batch.length} messages`);
         if (accepted < batch.length) {
           hadErrors = true;
@@ -567,6 +609,18 @@ export const sendDigest = async (env: WorkerEnv): Promise<DigestSendResult> => {
           );
         }
       }
+    }
+
+    if (deliveredCount > 0) {
+      await markDigestArticlesSent(
+        env,
+        digestArticles.map((article) => article.slug)
+      );
+      console.log(
+        `Marked ${digestArticles.length} digest articles as sent to prevent duplicate delivery.`
+      );
+    } else {
+      console.warn("No digest messages were accepted; sent-article history was not updated.");
     }
 
     return {

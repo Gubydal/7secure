@@ -33,6 +33,44 @@ const titleSimilarity = (a: string, b: string): number => {
   return intersection / union;
 };
 
+const normalizeArticleUrl = (rawUrl: string): string => {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  try {
+    const url = new URL(trimmed);
+    url.hash = "";
+
+    const trackingKeys = [
+      "gclid",
+      "fbclid",
+      "mc_cid",
+      "mc_eid",
+      "mkt_tok",
+      "igshid",
+      "ref",
+      "ref_src"
+    ];
+
+    for (const key of [...url.searchParams.keys()]) {
+      const lowerKey = key.toLowerCase();
+      if (lowerKey.startsWith("utm_") || trackingKeys.includes(lowerKey)) {
+        url.searchParams.delete(key);
+      }
+    }
+
+    if (url.pathname.length > 1) {
+      url.pathname = url.pathname.replace(/\/+$/, "");
+    }
+
+    return url.toString();
+  } catch {
+    return trimmed;
+  }
+};
+
 export const cleanItems = (items: RawFeedItem[]): RawFeedItem[] => {
   const minSummary = items.filter((item) => {
     const summaryLength = item.summary.trim().length;
@@ -42,8 +80,16 @@ export const cleanItems = (items: RawFeedItem[]): RawFeedItem[] => {
 
   const dedupedByUrl = new Map<string, RawFeedItem>();
   for (const item of minSummary) {
-    if (!dedupedByUrl.has(item.url)) {
-      dedupedByUrl.set(item.url, item);
+    const normalizedUrl = normalizeArticleUrl(item.url);
+    if (!normalizedUrl) {
+      continue;
+    }
+
+    if (!dedupedByUrl.has(normalizedUrl)) {
+      dedupedByUrl.set(normalizedUrl, {
+        ...item,
+        url: normalizedUrl
+      });
     }
   }
 
