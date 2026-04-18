@@ -34,7 +34,11 @@ const titleSimilarity = (a: string, b: string): number => {
 };
 
 export const cleanItems = (items: RawFeedItem[]): RawFeedItem[] => {
-  const minSummary = items.filter((item) => item.summary.trim().length >= 30);
+  const minSummary = items.filter((item) => {
+    const summaryLength = item.summary.trim().length;
+    const snippetLength = (item.sourceSnippet || "").trim().length;
+    return Math.max(summaryLength, snippetLength) >= 30;
+  });
 
   const dedupedByUrl = new Map<string, RawFeedItem>();
   for (const item of minSummary) {

@@ -12,10 +12,50 @@ interface DigestArticle {
   title: string;
   slug: string;
   summary: string;
+  content?: string;
   category: string;
   published_at: string;
+  original_url?: string;
   image_url?: string | null;
 }
+
+const stripMarkdown = (value: string): string =>
+  value
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`[^`]*`/g, " ")
+    .replace(/!\[[^\]]*\]\([^\)]*\)/g, " ")
+    .replace(/\[[^\]]*\]\([^\)]*\)/g, " ")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/[*_>~]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const clamp = (value: string, limit: number): string =>
+  value.length > limit ? `${value.slice(0, limit - 3).trimEnd()}...` : value;
+
+const escapeHtml = (value: string): string =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const buildInsightPreview = (article: DigestArticle): string => {
+  const base = stripMarkdown(article.content || "");
+  if (!base) {
+    return "The source highlights operational implications that require validation against your current controls and response playbooks.";
+  }
+
+  const sentences = (base.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [])
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+
+  const preview = sentences.slice(0, 3).join(" ") || base;
+  return clamp(preview, 420);
+};
+
+const humanizeCategory = (category: string): string => category.replace(/-/g, " ");
 
 const serializeError = (error: unknown): string => {
   if (!error) {
@@ -101,25 +141,42 @@ const articleRows = (articles: DigestArticle[], siteUrl: string): string =>
   articles
     .map((article) => {
       const href = `${siteUrl.replace(/\/$/, "")}/articles/${article.slug}`;
+      const safeTitle = escapeHtml(article.title);
+      const whyItMatters = escapeHtml(clamp(article.summary, 220));
+      const insightPreview = escapeHtml(buildInsightPreview(article));
+      const categoryLabel = escapeHtml(humanizeCategory(article.category));
+      const sourceHref = article.original_url || href;
       const imageBlock = article.image_url
         ? `
       <tr>
-        <td style="padding:14px 14px 0 14px;">
-          <img src="${article.image_url}" alt="${article.title}" width="100%" style="display:block;width:100%;max-height:200px;object-fit:cover;border-radius:12px;" />
+        <td style="padding:12px 12px 0 12px;">
+          <img src="${article.image_url}" alt="${safeTitle}" width="100%" style="display:block;width:100%;height:auto;max-height:220px;object-fit:cover;border-radius:12px;" />
         </td>
       </tr>`
         : "";
       return `
       <tr>
-        <td style="padding:0 20px 14px 20px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#10101a;border:1px solid rgba(255,255,255,0.08);border-left:4px solid ${categoryColor(article.category)};border-radius:10px;">
+        <td style="padding:0 18px 16px 18px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#10101a;border:1px solid rgba(255,255,255,0.08);border-left:4px solid ${categoryColor(article.category)};border-radius:14px;">
             ${imageBlock}
             <tr>
-              <td style="padding:14px 14px 10px 14px;font-family:Inter,Arial,sans-serif;">
-                <div style="font-size:12px;color:#7a7a99;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">${article.category.replace(/-/g, " ")}</div>
-                <a href="${href}" style="font-size:18px;line-height:1.3;color:#e8e8f0;text-decoration:none;font-weight:600;">${article.title}</a>
-                <p style="margin:10px 0 0 0;font-size:14px;line-height:1.5;color:#c9c9db;">${article.summary}</p>
-                <a href="${href}" style="display:inline-block;margin-top:10px;font-size:13px;color:#00d4ff;text-decoration:none;">Read more →</a>
+              <td style="padding:14px 14px 12px 14px;font-family:Inter,Arial,sans-serif;">
+                <div style="font-size:11px;color:#8a8aa8;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:8px;">${categoryLabel}</div>
+                <a href="${href}" style="font-size:20px;line-height:1.28;color:#eef0f8;text-decoration:none;font-weight:700;display:block;">${safeTitle}</a>
+                <p style="margin:12px 0 0 0;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#9ab2ff;">Why this matters</p>
+                <p style="margin:6px 0 0 0;font-size:14px;line-height:1.55;color:#d8def0;">${whyItMatters}</p>
+                <p style="margin:12px 0 0 0;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#9ab2ff;">Brief analysis</p>
+                <p style="margin:6px 0 0 0;font-size:14px;line-height:1.6;color:#c7cfdf;">${insightPreview}</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:14px;">
+                  <tr>
+                    <td style="padding:0 12px 0 0;">
+                      <a href="${href}" style="display:inline-block;font-size:13px;font-weight:600;color:#00d4ff;text-decoration:none;">Open full article →</a>
+                    </td>
+                    <td style="border-left:1px solid rgba(255,255,255,0.16);padding-left:12px;">
+                      <a href="${sourceHref}" style="display:inline-block;font-size:13px;color:#a8b2c9;text-decoration:none;">Original source</a>
+                    </td>
+                  </tr>
+                </table>
               </td>
             </tr>
           </table>
@@ -182,8 +239,12 @@ const buildTextDigest = (
 
   for (const article of articles) {
     lines.push(`${article.title}`);
-    lines.push(`${article.summary}`);
+    lines.push(`Why this matters: ${clamp(article.summary, 240)}`);
+    lines.push(`Brief analysis: ${clamp(buildInsightPreview(article), 320)}`);
     lines.push(`${siteUrl.replace(/\/$/, "")}/articles/${article.slug}`);
+    if (article.original_url) {
+      lines.push(`Source: ${article.original_url}`);
+    }
     lines.push("");
   }
 

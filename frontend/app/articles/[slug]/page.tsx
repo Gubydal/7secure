@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CategoryBadge } from "../../../components/CategoryBadge";
-import { SubscribeForm } from "../../../components/SubscribeForm";
 import { MarkdownRenderer } from "../../../components/MarkdownRenderer";
+import { SiteFooter } from "../../../components/SiteFooter";
 import { formatDate } from "../../../lib/utils";
 import { supabasePublic, type ArticleRecord } from "../../../lib/supabase";
 
@@ -13,6 +12,77 @@ const stripLeadingHeading = (content: string): string =>
     .replace(/^\uFEFF/, "")
     .replace(/^#{1,3}\s+.*?(?:\r?\n)+/, "")
     .trim();
+
+const normalizeForCompare = (value: string): string =>
+  value
+    .toLowerCase()
+    .replace(/<[^>]+>/g, " ")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const tokenSimilarity = (a: string, b: string): number => {
+  const aTokens = new Set(normalizeForCompare(a).split(" ").filter(Boolean));
+  const bTokens = new Set(normalizeForCompare(b).split(" ").filter(Boolean));
+
+  if (!aTokens.size || !bTokens.size) {
+    return 0;
+  }
+
+  const intersection = [...aTokens].filter((token) => bTokens.has(token)).length;
+  const union = new Set([...aTokens, ...bTokens]).size;
+  return intersection / union;
+};
+
+const removeRepeatedSummaryInBody = (content: string, summary: string): string => {
+  const blocks = stripLeadingHeading(content)
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean);
+
+  if (!blocks.length) {
+    return "";
+  }
+
+  const cleaned: string[] = [];
+  for (let index = 0; index < blocks.length; index += 1) {
+    const block = blocks[index];
+    const plainBlock = block.replace(/^#{1,6}\s+/, "").trim();
+
+    if (index === 0 && tokenSimilarity(summary, plainBlock) >= 0.7) {
+      continue;
+    }
+
+    if (cleaned.length > 0) {
+      const previous = cleaned[cleaned.length - 1].replace(/^#{1,6}\s+/, "").trim();
+      if (tokenSimilarity(previous, plainBlock) >= 0.95) {
+        continue;
+      }
+    }
+
+    cleaned.push(block);
+  }
+
+  return cleaned.join("\n\n").trim();
+};
+
+const estimateReadMinutes = (content: string): number => {
+  const words = content
+    .replace(/<[^>]+>/g, " ")
+    .replace(/[#*_`>\[\]\(\)!-]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean).length;
+
+  return Math.max(2, Math.round(words / 190));
+};
+
+const getDomain = (value: string): string => {
+  try {
+    return new URL(value).hostname.replace(/^www\./, "");
+  } catch {
+    return "source";
+  }
+};
 
 const getArticleBySlug = async (slug: string): Promise<ArticleRecord | null> => {
   const { data } = await supabasePublic
@@ -80,8 +150,13 @@ export default async function ArticlePage(
   const related = await getRelated(article.category, article.slug);
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://7secure.pages.dev";
   const articleUrl = `${siteUrl}/articles/${article.slug}`;
-  const heroImage = article.image_url || "/cover.avif";
-  const renderedContent = stripLeadingHeading(article.content);
+  const renderedContent = removeRepeatedSummaryInBody(article.content, article.summary) || stripLeadingHeading(article.content);
+  const readMinutes = estimateReadMinutes(renderedContent);
+  const sourceDomain = getDomain(article.original_url).toUpperCase();
+  const sourceThumbnail =
+    article.image_url && !/cover\.avif(?:$|\?)/i.test(article.image_url)
+      ? article.image_url
+      : null;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -103,102 +178,104 @@ export default async function ArticlePage(
   };
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-950">
+    <div className="min-h-screen bg-[#09090b]">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6 lg:px-8 lg:py-8">
-        <div className="mb-3 flex items-center justify-between text-sm text-zinc-300">
-          <Link href="/" className="transition-colors hover:text-white">Back to newsletter</Link>
-          <Link href="/articles" className="transition-colors hover:text-white">Browse articles</Link>
-        </div>
-      </div>
+      <article className="bg-white text-zinc-950">
+        <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
+          <h1 className="text-balance text-4xl font-semibold tracking-tight text-zinc-950 sm:text-5xl lg:text-6xl">
+            {article.title}
+          </h1>
 
-      <article className="w-full bg-white">
-        <div className="mx-auto max-w-6xl">
-          <div className="grid border-y border-zinc-200 lg:grid-cols-[1.08fr_0.92fr]">
-            <div className="p-6 sm:p-8 lg:p-12">
-              <CategoryBadge category={article.category} />
-              <h1 className="mt-5 max-w-3xl text-4xl font-semibold tracking-tight text-zinc-950 sm:text-5xl lg:text-6xl">
-                {article.title}
-              </h1>
-              <p className="mt-5 max-w-3xl text-base leading-8 text-zinc-600 sm:text-lg">
-                {article.summary}
-              </p>
-              <p className="mt-6 text-sm font-medium text-zinc-500">
-                {formatDate(article.published_at)} · Source: <a href={article.original_url} className="text-zinc-700 underline-offset-4 hover:text-zinc-950 hover:underline">{article.source_name}</a>
-              </p>
-              <div className="mt-8 flex flex-wrap gap-2">
-                {(article.tags || []).slice(0, 5).map((tag) => (
-                  <span key={tag} className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-medium uppercase tracking-[0.12em] text-zinc-600">
-                    {tag.replace(/-/g, " ")}
-                  </span>
-                ))}
+          <div className="mt-8 flex items-center gap-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-950 p-3">
+              <img src="/brand/Small_Icon.svg" alt="7secure" className="h-full w-full object-contain" />
+            </div>
+            <div>
+              <p className="text-4xl font-semibold leading-none tracking-tight text-zinc-900 sm:text-5xl">7secure</p>
+              <p className="mt-2 text-base text-zinc-500 sm:text-lg">{formatDate(article.published_at)} · {readMinutes} min</p>
+            </div>
+          </div>
+
+          <div className="mt-8 overflow-hidden rounded-[1.5rem] border border-zinc-200 bg-zinc-100">
+            <img
+              src="/cover.avif"
+              alt="7secure article cover"
+              className="h-auto w-full max-h-75 object-cover sm:max-h-95 lg:max-h-105"
+            />
+          </div>
+
+          {sourceThumbnail ? (
+            <a
+              href={article.original_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-5 block overflow-hidden rounded-[1.25rem] border border-zinc-200 bg-zinc-50 transition-colors hover:border-zinc-300"
+            >
+              <div className="grid gap-4 p-4 sm:grid-cols-[180px_1fr] sm:items-center">
+                <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
+                  <img
+                    src={sourceThumbnail}
+                    alt={`Source thumbnail from ${sourceDomain}`}
+                    className="h-32 w-full object-cover sm:h-full"
+                  />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">Source thumbnail</p>
+                  <p className="mt-2 text-sm font-semibold uppercase tracking-[0.12em] text-zinc-700">{sourceDomain}</p>
+                  <p className="mt-1 line-clamp-2 text-lg font-semibold tracking-tight text-zinc-900">{article.title}</p>
+                  <p className="mt-2 text-sm text-blue-600">Open original reporting</p>
+                </div>
               </div>
-            </div>
+            </a>
+          ) : null}
 
-            <div className="relative min-h-[300px] bg-zinc-100 lg:min-h-full">
-              <img src={heroImage} alt={article.title} className="h-full w-full object-cover object-center" />
-            </div>
-          </div>
-
-          <div className="px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
-            <MarkdownRenderer content={renderedContent} />
-          </div>
-
-          <div className="border-t border-zinc-200 px-4 py-8 sm:px-6 lg:px-8">
-            <div className="flex flex-wrap gap-3">
-              <Link href="/" className="inline-flex h-11 items-center justify-center rounded-full border border-zinc-200 bg-white px-5 text-sm font-medium text-zinc-700 transition-colors hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-950">
-                Back to newsletter
-              </Link>
-              <Link href="/articles" className="inline-flex h-11 items-center justify-center rounded-full border border-zinc-200 bg-white px-5 text-sm font-medium text-zinc-700 transition-colors hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-950">
-                Browse articles
-              </Link>
-            </div>
-          </div>
-
-          <div className="border-t border-zinc-200 px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
-            <h2 className="text-2xl font-semibold tracking-tight text-zinc-950 sm:text-3xl">Related articles</h2>
-            {related.length === 0 ? (
-              <div className="mt-6 rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-6 text-sm text-zinc-500">
-                No related articles yet.
-              </div>
-            ) : (
-              <div className="mt-6 space-y-4">
-                {related.map((item) => (
-                  <Link
-                    key={item.slug}
-                    href={`/articles/${item.slug}`}
-                    className="group flex flex-col overflow-hidden rounded-[1rem] border border-zinc-200 bg-white transition-all hover:-translate-y-0.5 hover:shadow-md sm:flex-row"
-                  >
-                    <div className="h-40 w-full overflow-hidden bg-zinc-100 sm:h-auto sm:w-56 md:w-64">
-                      <img
-                        src={item.image_url || "/cover.avif"}
-                        alt={item.title}
-                        className="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
-                      />
-                    </div>
-                    <div className="flex flex-1 flex-col gap-2 p-4 sm:p-5">
-                      <CategoryBadge category={item.category} />
-                      <h3 className="text-base font-semibold tracking-tight text-zinc-950 sm:text-lg">{item.title}</h3>
-                      <p className="line-clamp-2 text-sm leading-6 text-zinc-600">{item.summary}</p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <section className="border-t border-zinc-200 bg-zinc-50 px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
-            <div className="max-w-2xl">
-              <h2 className="text-2xl font-semibold tracking-tight text-zinc-950 sm:text-3xl">Get the daily briefing in your inbox</h2>
-              <p className="mt-3 text-base leading-7 text-zinc-600">One clean email. No filler. Just the stories and tools worth your time.</p>
-              <SubscribeForm mode="subscribe" variant="light" className="mt-6 w-full subscribe-form-cta" />
-            </div>
+          <section className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-5 sm:px-6 sm:py-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">Why this matters</p>
+            <p className="mt-2 text-base leading-8 text-zinc-700 sm:text-lg">{article.summary}</p>
           </section>
         </div>
+
+        <div className="mx-auto max-w-4xl px-4 pb-8 sm:px-6 lg:px-8 lg:pb-12">
+          <MarkdownRenderer content={renderedContent} />
+        </div>
+
+        <div className="mx-auto max-w-4xl border-t border-zinc-200 px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
+          <h2 className="text-2xl font-semibold tracking-tight text-zinc-950 sm:text-3xl">Related articles</h2>
+          {related.length === 0 ? (
+            <div className="mt-6 rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-6 text-sm text-zinc-500">
+              No related articles yet.
+            </div>
+          ) : (
+            <div className="mt-6 space-y-4">
+              {related.map((item) => (
+                <Link
+                  key={item.slug}
+                  href={`/articles/${item.slug}`}
+                  className="group flex flex-col overflow-hidden rounded-4xl border border-zinc-200 bg-white transition-all hover:-translate-y-0.5 hover:shadow-md sm:flex-row"
+                >
+                  <div className="h-40 w-full overflow-hidden bg-zinc-100 sm:h-auto sm:w-56 md:w-64">
+                    <img
+                      src={item.image_url || "/cover.avif"}
+                      alt={item.title}
+                      className="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
+                    />
+                  </div>
+                  <div className="flex flex-1 flex-col gap-2 p-4 sm:p-5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">{item.category.replace(/-/g, " ")}</p>
+                    <h3 className="text-base font-semibold tracking-tight text-zinc-950 sm:text-lg">{item.title}</h3>
+                    <p className="line-clamp-2 text-sm leading-6 text-zinc-600">{item.summary}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
       </article>
+
+      <SiteFooter />
     </div>
   );
 }

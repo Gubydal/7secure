@@ -70,7 +70,7 @@ export const getRecentArticles = async (env: WorkerEnv) => {
 
   const { data } = await admin
     .from("articles")
-    .select("title,slug,summary,category,published_at,image_url")
+    .select("title,slug,summary,content,category,published_at,image_url,original_url")
     .gte("published_at", since)
     .order("published_at", { ascending: false });
 
@@ -80,7 +80,7 @@ export const getRecentArticles = async (env: WorkerEnv) => {
 
   const { data: fallback } = await admin
     .from("articles")
-    .select("title,slug,summary,category,published_at,image_url")
+    .select("title,slug,summary,content,category,published_at,image_url,original_url")
     .order("published_at", { ascending: false })
     .limit(12);
 

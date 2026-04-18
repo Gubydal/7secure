@@ -61,6 +61,23 @@ const extractImageUrl = (...candidates: any[]): string | null => {
   return null;
 };
 
+const decodeEntities = (value: string): string =>
+  value
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'");
+
+const stripMarkup = (value: string): string =>
+  decodeEntities(value)
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
 const parseDate = (value: any): string | null => {
   const str = safeText(value);
   if (!str) return null;
@@ -90,11 +107,15 @@ export const parseFeedXml = (xml: string, source: RSSSource): RawFeedItem[] => {
       for (const item of items.slice(0, 20)) {
         const title = safeText(item.title);
         const url = safeText(item.link);
+        const rawDescription = safeText(item.description);
+        const rawEncoded = safeText(item["content:encoded"]) || safeText(item.content);
+        const plainDescription = stripMarkup(rawDescription);
+        const plainEncoded = stripMarkup(rawEncoded);
         const summary =
-          safeText(item.description) ||
-          safeText(item["content:encoded"]) ||
-          safeText(item.content) ||
+          plainDescription ||
+          plainEncoded ||
           `${title} - read the full report from ${source.name}.`;
+        const sourceSnippet = (plainEncoded || plainDescription || summary).slice(0, 4200);
         const publishedAt = parseDate(item.pubDate);
         const imageUrl = extractImageUrl(
           item["media:content"],
@@ -112,6 +133,7 @@ export const parseFeedXml = (xml: string, source: RSSSource): RawFeedItem[] => {
           title,
           url,
           summary,
+          sourceSnippet,
           publishedAt,
           sourceName: source.name,
           sourceUrl,
@@ -140,10 +162,15 @@ export const parseFeedXml = (xml: string, source: RSSSource): RawFeedItem[] => {
         const entryAlt = entryLinks.find((l: any) => l && l["@_rel"] === "alternate");
         const url = entryAlt ? entryAlt["@_href"] : (entryLinks[0] ? entryLinks[0]["@_href"] : "");
         
+        const rawSummary = safeText(entry.summary);
+        const rawContent = safeText(entry.content);
+        const plainSummary = stripMarkup(rawSummary);
+        const plainContent = stripMarkup(rawContent);
         const summary =
-          safeText(entry.summary) ||
-          safeText(entry.content) ||
+          plainSummary ||
+          plainContent ||
           `${title} - read the full report from ${source.name}.`;
+        const sourceSnippet = (plainContent || plainSummary || summary).slice(0, 4200);
         const publishedAt = parseDate(entry.updated) || parseDate(entry.published);
         const imageUrl = extractImageUrl(
           entry["media:content"],
@@ -161,6 +188,7 @@ export const parseFeedXml = (xml: string, source: RSSSource): RawFeedItem[] => {
           title,
           url,
           summary,
+          sourceSnippet,
           publishedAt,
           sourceName: source.name,
           sourceUrl,

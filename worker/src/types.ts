@@ -16,6 +16,7 @@ export interface RawFeedItem {
   title: string;
   url: string;
   summary: string;
+  sourceSnippet?: string;
   publishedAt: string;
   sourceName: string;
   sourceUrl: string;
