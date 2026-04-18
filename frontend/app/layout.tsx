@@ -31,7 +31,7 @@ export default function RootLayout({
     >
       <body className="min-h-full bg-[#09090b] text-[#fafafa]">
         <GlobalHeader />
-        <div className="pt-[72px]">{children}</div>
+        <div className="pt-18">{children}</div>
         <GlobalFooter />
       </body>
     </html>
