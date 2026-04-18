@@ -29,8 +29,13 @@ interface DigestSubscriber {
   role?: string | null;
 }
 
+const ARTICLE_EMOJI_REGEX = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u200D]/gu;
+
+const stripEmojiInline = (value: string): string => value.replace(ARTICLE_EMOJI_REGEX, "").replace(/\s+/g, " ").trim();
+
 const stripMarkdown = (value: string): string =>
-  value
+  stripEmojiInline(
+    value
     .replace(/```[\s\S]*?```/g, " ")
     .replace(/`[^`]*`/g, " ")
     .replace(/!\[[^\]]*\]\([^\)]*\)/g, " ")
@@ -38,7 +43,8 @@ const stripMarkdown = (value: string): string =>
     .replace(/^#{1,6}\s+/gm, "")
     .replace(/[*_>~]/g, " ")
     .replace(/\s+/g, " ")
-    .trim();
+    .trim()
+  );
 
 const clamp = (value: string, limit: number): string =>
   value.length > limit ? `${value.slice(0, limit - 3).trimEnd()}...` : value;
@@ -205,7 +211,7 @@ const pickDigestArticles = (articles: DigestArticle[]): DigestArticle[] => {
 const buildDailyRundownList = (articles: DigestArticle[]): string =>
   articles
     .map((article) => {
-      return `<li style="margin:0 0 8px 0;">${escapeHtml(article.title)}</li>`;
+      return `<li style="margin:0 0 8px 0;">${escapeHtml(stripEmojiInline(article.title))}</li>`;
     })
     .join("");
 
@@ -216,9 +222,9 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
       const originalHref = safeUrl(article.original_url, newsletterHref);
       const imageSrc = resolveImageUrl(article.image_url, siteBase);
       const category = escapeHtml(humanizeCategory(article.category).toUpperCase());
-      const title = escapeHtml(article.title);
-      const whyItMatters = escapeHtml(clamp(article.summary, 220));
-      const preview = escapeHtml(buildInsightPreview(article));
+      const title = escapeHtml(stripEmojiInline(article.title));
+      const whyItMatters = escapeHtml(clamp(stripEmojiInline(article.summary), 220));
+      const preview = escapeHtml(stripEmojiInline(buildInsightPreview(article)));
       const imageBlock = imageSrc
         ? `<tr><td style="padding:12px 14px 0 14px;"><img src="${imageSrc}" alt="${title}" width="100%" style="display:block;width:100%;height:auto;max-height:210px;object-fit:cover;border-radius:10px;" /></td></tr>`
         : "";
@@ -447,7 +453,7 @@ const buildTextDigest = (
 
   for (const article of articles) {
     const link = safeUrl(article.original_url, `${siteBase}/articles/${article.slug}`);
-    lines.push(`- ${article.title}`);
+    lines.push(`- ${stripEmojiInline(article.title)}`);
     lines.push(`  ${link}`);
   }
 
@@ -460,10 +466,10 @@ const buildTextDigest = (
   for (const article of articles) {
     const originalLink = safeUrl(article.original_url, `${siteBase}/articles/${article.slug}`);
     lines.push("");
-    lines.push(`${article.title}`);
+    lines.push(`${stripEmojiInline(article.title)}`);
     lines.push(`Category: ${humanizeCategory(article.category)}`);
-    lines.push(`Why this matters: ${clamp(article.summary, 240)}`);
-    lines.push(`Brief analysis: ${clamp(buildInsightPreview(article), 320)}`);
+    lines.push(`Why this matters: ${clamp(stripEmojiInline(article.summary), 240)}`);
+    lines.push(`Brief analysis: ${clamp(stripEmojiInline(buildInsightPreview(article)), 320)}`);
     lines.push(`Original source: ${originalLink}`);
     lines.push(`7secure version: ${siteBase}/articles/${article.slug}`);
   }
