@@ -306,8 +306,8 @@ export function GlobalHeader() {
       ) : null}
 
       {isSubscribeOpen && !isLoggedIn ? (
-        <div className="fixed inset-0 z-70 flex items-center justify-center bg-black/55 p-4">
-          <div className="w-full max-w-sm rounded-md border border-zinc-200 bg-white p-5 shadow-xl">
+        <div className="fixed inset-0 z-70 flex items-center justify-center overflow-y-auto bg-black/55 p-4" onClick={(e) => { if (e.target === e.currentTarget) closeSubscribeModal(); }}>
+          <div className="relative my-auto w-full max-w-sm rounded-md border border-zinc-200 bg-white p-5 shadow-xl">
             <div className="mb-4 flex items-start justify-between">
               <h3 className="text-lg font-semibold text-zinc-900">Subscribe</h3>
               <button

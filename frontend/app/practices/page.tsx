@@ -125,7 +125,7 @@ export default function Page() {
           </p>
         </div>
 
-        <div className="mb-8 flex flex-wrap gap-3">
+        <div className="mb-8 flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
           {categoryOptions.map((category) => {
             const isAll = category === "all";
             const meta = isAll ? null : getCategoryMeta(category);
