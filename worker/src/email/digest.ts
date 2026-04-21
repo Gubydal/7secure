@@ -109,18 +109,28 @@ const displayNameFromSubscriber = (subscriber: DigestSubscriber): string => {
   return first.charAt(0).toUpperCase() + first.slice(1);
 };
 
-const buildInsightPreview = (article: DigestArticle): string => {
+const buildArticleScript = (
+  article: DigestArticle
+): { signal: string; risk: string; action: string } => {
   const base = stripMarkdown(article.content || "");
   if (!base) {
-    return "The source highlights operational implications that require validation against your current controls and response playbooks.";
+    const fallback = clamp(stripEmojiInline(article.summary), 170);
+    return {
+      signal: fallback,
+      risk: "Potential impact depends on where this technology is deployed and exposed.",
+      action: "Validate exposure now and confirm mitigations with telemetry-backed checks."
+    };
   }
 
   const sentences = (base.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [])
     .map((sentence) => sentence.trim())
     .filter(Boolean);
 
-  const preview = sentences.slice(0, 3).join(" ") || base;
-  return clamp(preview, 320);
+  return {
+    signal: clamp(sentences[0] || article.summary || "Source reporting indicates an active security development.", 170),
+    risk: clamp(sentences[1] || "Risk likely increases where internet exposure, privileged access, or legacy versions are present.", 170),
+    action: clamp(sentences[2] || "Run a rapid owner-based remediation and verification cycle in the next 24 hours.", 170)
+  };
 };
 
 const humanizeCategory = (category: string): string => category.replace(/-/g, " ");
@@ -224,7 +234,10 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
       const category = escapeHtml(humanizeCategory(article.category).toUpperCase());
       const title = escapeHtml(stripEmojiInline(article.title));
       const whyItMatters = escapeHtml(clamp(stripEmojiInline(article.summary), 220));
-      const preview = escapeHtml(stripEmojiInline(buildInsightPreview(article)));
+      const script = buildArticleScript(article);
+      const signal = escapeHtml(stripEmojiInline(script.signal));
+      const risk = escapeHtml(stripEmojiInline(script.risk));
+      const action = escapeHtml(stripEmojiInline(script.action));
       const imageBlock = imageSrc
         ? `<tr><td style="padding:12px 14px 0 14px;"><img src="${imageSrc}" alt="${title}" width="100%" style="display:block;width:100%;height:auto;max-height:210px;object-fit:cover;border-radius:10px;" /></td></tr>`
         : "";
@@ -232,15 +245,20 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
       return `
       <tr>
         <td style="padding:${index === 0 ? "0" : "14px 0 0 0"};">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:${EMAIL_THEME.panelBg};border:1px solid ${EMAIL_THEME.frameBorder};border-radius:12px;overflow:hidden;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:${EMAIL_THEME.panelBg};border:2px solid ${EMAIL_THEME.frameBorder};border-radius:12px;overflow:hidden;">
             ${imageBlock}
             <tr>
               <td style="padding:14px 14px 14px 14px;font-family:Inter,Arial,sans-serif;color:#e8ecf8;">
-                <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#97a1c4;margin-bottom:8px;">${category}</div>
-                <a href="${originalHref}" style="font-size:24px;line-height:1.3;font-weight:700;color:#8ea2ff;text-decoration:underline;display:block;">${title}</a>
-                <p style="margin:10px 0 0 0;font-size:14px;line-height:1.56;color:#d4daee;"><strong style="color:#eef2ff;">Why this matters:</strong> ${whyItMatters}</p>
-                <p style="margin:12px 0 0 0;font-size:14px;line-height:1.58;color:#c8d0ea;">${preview}</p>
-                <p style="margin:12px 0 0 0;font-size:12px;line-height:1.4;color:#98a2bd;">${formatPublishDate(article.published_at)} · <a href="${newsletterHref}" style="color:#9ec8ff;text-decoration:underline;">Read 7secure version</a></p>
+                <div style="font-size:11px;letter-spacing:0.13em;text-transform:uppercase;color:#97a1c4;margin-bottom:8px;">${category}</div>
+                <a href="${originalHref}" style="font-size:28px;line-height:1.25;font-weight:700;color:#8ea2ff;text-decoration:underline;display:block;">${title}</a>
+                <p style="margin:10px 0 0 0;font-size:16px;line-height:1.58;color:#d4daee;"><strong style="color:#eef2ff;">Why this matters:</strong> ${whyItMatters}</p>
+                <div style="margin:12px 0 0 0;border:1px solid ${EMAIL_THEME.frameBorder};border-radius:10px;background:#060a13;padding:10px 12px;">
+                  <p style="margin:0 0 8px 0;font-size:16px;line-height:1.45;color:#f0f4ff;font-weight:700;">Short script</p>
+                  <p style="margin:0 0 6px 0;font-size:15px;line-height:1.55;color:#d4daee;"><strong style="color:#ffffff;">Signal:</strong> ${signal}</p>
+                  <p style="margin:0 0 6px 0;font-size:15px;line-height:1.55;color:#d4daee;"><strong style="color:#ffffff;">Risk:</strong> ${risk}</p>
+                  <p style="margin:0;font-size:15px;line-height:1.55;color:#d4daee;"><strong style="color:#ffffff;">Action:</strong> ${action}</p>
+                </div>
+                <p style="margin:12px 0 0 0;font-size:13px;line-height:1.4;color:#98a2bd;">${formatPublishDate(article.published_at)} · <a href="${newsletterHref}" style="color:#9ec8ff;text-decoration:underline;">Read 7secure version</a></p>
               </td>
             </tr>
           </table>
@@ -465,11 +483,14 @@ const buildTextDigest = (
 
   for (const article of articles) {
     const originalLink = safeUrl(article.original_url, `${siteBase}/articles/${article.slug}`);
+    const script = buildArticleScript(article);
     lines.push("");
     lines.push(`${stripEmojiInline(article.title)}`);
     lines.push(`Category: ${humanizeCategory(article.category)}`);
     lines.push(`Why this matters: ${clamp(stripEmojiInline(article.summary), 240)}`);
-    lines.push(`Brief analysis: ${clamp(stripEmojiInline(buildInsightPreview(article)), 320)}`);
+    lines.push(`Signal: ${stripEmojiInline(script.signal)}`);
+    lines.push(`Risk: ${stripEmojiInline(script.risk)}`);
+    lines.push(`Action: ${stripEmojiInline(script.action)}`);
     lines.push(`Original source: ${originalLink}`);
     lines.push(`7secure version: ${siteBase}/articles/${article.slug}`);
   }

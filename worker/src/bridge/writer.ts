@@ -9,13 +9,23 @@ Hard requirements:
 - Content: 620-900 words in clean markdown.
 - Content must NOT repeat the summary verbatim.
 - Content must NOT repeat the title as an H1/H2.
-- Use 5-7 descriptive H2 sections with unique headings.
+- Use exactly 6-7 descriptive H2 sections with unique headings.
+- First paragraph must be artifact-first: open with a concrete artifact from the input (CVE, actor name, malware family, affected product, advisory ID, patch version, or date).
+- Prefer proof over adjectives. Prioritize observable facts, technical behavior, and explicit uncertainty.
+- Avoid hype language and generic framing such as "game changer", "critical wake-up call", "in today's threat landscape", or "teams should stay vigilant".
+- Required section flow:
+  1) evidence snapshot
+  2) attack/failure mechanics
+  3) exposure and blast radius
+  4) operator runbook (bullets)
+  5) verification checklist (bullets)
+  6) what to watch next
 - Do not use emojis anywhere in title, summary, headings, or body.
-- Include 1-2 practical bullet lists with concrete, actionable points.
+- Include at least 2 practical bullet lists with concrete, actionable points.
 - Keep paragraphs short and scannable.
 - Avoid generic repeated headings such as "What happened" or "What teams should do now".
 - Every heading must be specific to this article. No canned section titles reused across stories.
-- Use a natural narrative flow: context, technical detail, team impact, response priorities, and open questions.
+- Use a natural narrative flow: evidence, mechanism, exposure, operations, validation, and forward watchpoints.
 - Use only facts present in the input. If unknown, write that it was not disclosed.
 - Do not include website/source name in author voice.
 - Tags: 3-5 lowercase tags.
@@ -362,6 +372,31 @@ const pickSentenceRange = (
   return value.length > maxLength ? `${value.slice(0, maxLength - 3).trimEnd()}...` : value;
 };
 
+const inferEvidenceArtifact = (item: RawFeedItem): string => {
+  const signal = `${item.title} ${item.summary} ${item.sourceSnippet || ""}`;
+  const cve = signal.match(/CVE-\d{4}-\d{4,7}/i);
+  if (cve) {
+    return cve[0].toUpperCase();
+  }
+
+  const product = signal.match(/\b(?:Windows|Linux|VMware|Citrix|Cisco|Fortinet|Ivanti|Apple|Android|Microsoft|Chrome|Kubernetes|WordPress)\b/i);
+  if (product) {
+    return `${product[0]}-related activity`;
+  }
+
+  const actor = signal.match(/\b(?:APT\d+|Lazarus|LockBit|Akira|Clop|FIN\d+|Sandworm|Volt Typhoon)\b/i);
+  if (actor) {
+    return `${actor[0]} operations`;
+  }
+
+  const date = signal.match(/\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}\b/i);
+  if (date) {
+    return `the ${date[0]} advisory window`;
+  }
+
+  return "the source-reported security artifact";
+};
+
 const buildStructuredContent = (
   summary: string,
   body: string,
@@ -370,8 +405,9 @@ const buildStructuredContent = (
   const cleanedSummary = stripEmojiInline(summary) || "Security teams should review this update for potential operational impact.";
   const sourceBase = normalizeWhitespace(body || item.sourceSnippet || cleanedSummary);
   const sourceSentences = splitSentences(sourceBase);
+  const evidenceArtifact = inferEvidenceArtifact(item);
 
-  const overview = pickSentenceRange(
+  const evidenceSnapshot = pickSentenceRange(
     sourceSentences,
     0,
     4,
@@ -379,7 +415,7 @@ const buildStructuredContent = (
     640
   );
 
-  const technicalDetails = pickSentenceRange(
+  const attackMechanics = pickSentenceRange(
     sourceSentences,
     4,
     8,
@@ -387,7 +423,7 @@ const buildStructuredContent = (
     700
   );
 
-  const operationalImpact = pickSentenceRange(
+  const exposureBlastRadius = pickSentenceRange(
     sourceSentences,
     8,
     13,
@@ -395,7 +431,7 @@ const buildStructuredContent = (
     700
   );
 
-  const responsePriorities = pickSentenceRange(
+  const runbookIntro = pickSentenceRange(
     sourceSentences,
     13,
     18,
@@ -403,57 +439,53 @@ const buildStructuredContent = (
     720
   );
 
-  const openQuestions = pickSentenceRange(
+  const verificationIntro = pickSentenceRange(
     sourceSentences,
     18,
+    22,
+    "Validation needs to prove mitigation effectiveness, not just ticket completion, by confirming behavior-level risk reduction in production telemetry.",
+    700
+  );
+
+  const watchNext = pickSentenceRange(
+    sourceSentences,
+    22,
     24,
     "Some implementation-specific details are still not disclosed, so teams should confirm assumptions with internal telemetry, vendor guidance, and environment-specific testing.",
     720
   );
 
-  const monitoringSignals = pickSentenceRange(
-    sourceSentences,
-    24,
-    30,
-    "Teams should continuously monitor authentication anomalies, process execution chains, suspicious outbound traffic, and endpoint telemetry changes while this story evolves.",
-    720
-  );
-
   const topicLabel = item.category.replace(/-/g, " ");
-  const [firstHeading, secondHeading, thirdHeading, fourthHeading] = pickFallbackHeadings(item);
-  const actionHeading = `Priority actions for ${topicLabel} teams`;
-  const monitoringHeading = "Monitoring and escalation checkpoints";
-  const sourceHeading = "Source trail and verification notes";
 
   return stripEmojiMarkdown([
-    `## ${firstHeading}`,
-    overview,
-    `## ${secondHeading}`,
-    technicalDetails,
-    `## ${thirdHeading}`,
-    operationalImpact,
-    `## ${fourthHeading}`,
-    responsePriorities,
-    `## ${actionHeading}`,
+    "## Evidence snapshot",
+    `Primary artifact in reporting: ${evidenceArtifact}. ${evidenceSnapshot}`,
+    "## Attack and failure mechanics",
+    attackMechanics,
+    "## Exposure and blast radius",
+    exposureBlastRadius,
+    "## Operator runbook for the next 24 hours",
+    runbookIntro,
     [
-      "- Confirm whether any production systems match the affected technology or behavior.",
-      "- Validate logging, alerting, and detection coverage tied to this class of threat.",
-      "- Coordinate with incident response and infrastructure owners on prioritization.",
-      `- Brief leadership on potential impact to ${topicLabel} posture and immediate mitigations.`
+      "- Inventory affected assets by product, version, and owner.",
+      "- Isolate internet-exposed or high-privilege systems first, then stage broader containment.",
+      "- Apply vendor guidance with a rollback plan and change-window ownership.",
+      "- Expand detections around execution chain, privilege changes, and unusual outbound behavior.",
+      `- Brief leadership with an explicit impact statement for ${topicLabel} operations and recovery timelines.`
     ].join("\n"),
-    `## ${monitoringHeading}`,
-    monitoringSignals,
+    "## Verification checklist",
+    verificationIntro,
     [
-      "- Define explicit escalation criteria (severity thresholds, blast-radius growth, exploitation evidence).",
-      "- Track mitigation completeness by system owner, not only by ticket status.",
-      "- Re-validate controls after each change window to ensure no regression was introduced.",
-      "- Keep an incident timeline so detection and response gaps are measurable and actionable."
+      "- Confirm mitigations on endpoints, edge services, and CI/CD runners where applicable.",
+      "- Validate detections by replaying known indicators or controlled simulation where safe.",
+      "- Ensure logging quality: timestamps, host identity, process lineage, and network context.",
+      "- Record unresolved exposure and assign owner plus deadline for each gap."
     ].join("\n"),
-    "## Critical unknowns to resolve",
-    openQuestions,
-    `## ${sourceHeading}`,
+    "## What to watch next",
+    watchNext,
+    "## Source trail and unresolved gaps",
     `Original reporting: [Open source article](${item.url}).`,
-    "Some implementation-specific details were not disclosed in the source material."
+    "If implementation-specific details were not disclosed in the source, treat them as unknown and validate with telemetry, advisories, and environment-specific testing."
   ].join("\n\n"));
 };
 
@@ -474,7 +506,7 @@ const normalizeGeneratedContent = (
   const sectionAligned = ensureSectionBodies(qualityAdjusted.content, item);
   const words = countWords(sectionAligned);
 
-  if (qualityAdjusted.headingCount >= 5 && words >= 620) {
+  if (qualityAdjusted.headingCount >= 6 && words >= 620) {
     return stripEmojiMarkdown(sectionAligned);
   }
 
