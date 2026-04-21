@@ -174,111 +174,45 @@ export function GlobalHeader() {
     : "inline-flex items-center justify-center rounded-md p-2 text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-zinc-950 md:hidden";
 
   return (
-    <header className={`fixed left-0 right-0 top-0 z-50 ${headerClasses}`}>
-      <div className="mx-auto flex h-18 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center" onClick={() => setIsMobileOpen(false)}>
-          <Image
-            src="/7secure_logo.svg"
-            alt="7secure logo"
-            width={106}
-            height={30}
-            priority
-            className={isHome ? "" : "invert"}
-          />
-        </Link>
+    <>
+      <header className={`fixed left-0 right-0 top-0 z-50 ${headerClasses}`}>
+        <div className="mx-auto flex h-18 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <Link href="/" className="flex items-center" onClick={() => setIsMobileOpen(false)}>
+            <Image
+              src="/7secure_logo.svg"
+              alt="7secure logo"
+              width={106}
+              height={30}
+              priority
+              className={isHome ? "" : "invert"}
+            />
+          </Link>
 
-        <nav className="hidden items-center gap-6 md:flex">
-          {NAV_ITEMS.map((item) => {
-            const active = isActivePath(pathname, item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`text-sm font-medium transition-colors ${navLinkClasses(active)}`}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="hidden items-center gap-3 md:flex">
-          {isLoggedIn ? (
-            <>
-              <span className={isHome ? "text-xs font-medium text-zinc-300" : "text-xs font-medium text-zinc-600"}>
-                Subscribed
-              </span>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className={desktopButtonClasses}
-              >
-                Logout
-              </button>
-            </>
-          ) : (
-            <>
-              <Link
-                href="/login"
-                className={desktopButtonClasses}
-              >
-                Login
-              </Link>
-              <button
-                type="button"
-                onClick={handleOpenSubscribe}
-                className={desktopButtonClasses}
-              >
-                Subscribe
-              </button>
-            </>
-          )}
-        </div>
-
-        <button
-          className={mobileToggleClasses}
-          onClick={() => setIsMobileOpen((prev) => !prev)}
-          aria-label="Toggle navigation"
-        >
-          {isMobileOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
-      </div>
-
-      {isMobileOpen ? (
-        <div className={`px-4 pb-5 pt-3 md:hidden ${mobilePanelClasses}`}>
-          <div className="space-y-2">
+          <nav className="hidden items-center gap-6 md:flex">
             {NAV_ITEMS.map((item) => {
               const active = isActivePath(pathname, item.href);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  onClick={() => setIsMobileOpen(false)}
-                  className={`block rounded-md px-3 py-2 text-sm font-medium transition-colors ${mobileNavClasses(active)}`}
+                  className={`text-sm font-medium transition-colors ${navLinkClasses(active)}`}
                 >
                   {item.label}
                 </Link>
               );
             })}
-          </div>
+          </nav>
 
-          <div className="mt-4 grid grid-cols-2 gap-2">
+          <div className="hidden items-center gap-3 md:flex">
             {isLoggedIn ? (
               <>
-                <button
-                  type="button"
-                  className={desktopButtonClasses.replace("h-9", "h-10")}
-                  disabled
-                >
+                <span className={isHome ? "text-xs font-medium text-zinc-300" : "text-xs font-medium text-zinc-600"}>
                   Subscribed
-                </button>
+                </span>
                 <button
                   type="button"
-                  onClick={() => {
-                    handleLogout();
-                    setIsMobileOpen(false);
-                  }}
-                  className={desktopButtonClasses.replace("h-9", "h-10")}
+                  onClick={handleLogout}
+                  className={desktopButtonClasses}
                 >
                   Logout
                 </button>
@@ -287,86 +221,168 @@ export function GlobalHeader() {
               <>
                 <Link
                   href="/login"
-                  onClick={() => setIsMobileOpen(false)}
-                  className={desktopButtonClasses.replace("h-9", "h-10")}
+                  className={desktopButtonClasses}
                 >
                   Login
                 </Link>
                 <button
                   type="button"
                   onClick={handleOpenSubscribe}
-                  className={desktopButtonClasses.replace("h-9", "h-10")}
+                  className={desktopButtonClasses}
                 >
                   Subscribe
                 </button>
               </>
             )}
           </div>
+
+          <button
+            className={mobileToggleClasses}
+            onClick={() => setIsMobileOpen((prev) => !prev)}
+            aria-label="Toggle navigation"
+          >
+            {isMobileOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
         </div>
-      ) : null}
+
+        {isMobileOpen ? (
+          <div className={`px-4 pb-5 pt-3 md:hidden ${mobilePanelClasses}`}>
+            <div className="space-y-2">
+              {NAV_ITEMS.map((item) => {
+                const active = isActivePath(pathname, item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setIsMobileOpen(false)}
+                    className={`block rounded-md px-3 py-2 text-sm font-medium transition-colors ${mobileNavClasses(active)}`}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {isLoggedIn ? (
+                <>
+                  <button
+                    type="button"
+                    className={desktopButtonClasses.replace("h-9", "h-10")}
+                    disabled
+                  >
+                    Subscribed
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleLogout();
+                      setIsMobileOpen(false);
+                    }}
+                    className={desktopButtonClasses.replace("h-9", "h-10")}
+                  >
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    onClick={() => setIsMobileOpen(false)}
+                    className={desktopButtonClasses.replace("h-9", "h-10")}
+                  >
+                    Login
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleOpenSubscribe}
+                    className={desktopButtonClasses.replace("h-9", "h-10")}
+                  >
+                    Subscribe
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        ) : null}
+      </header>
 
       {isSubscribeOpen && !isLoggedIn ? (
-        <div className="fixed inset-0 z-70 flex items-center justify-center overflow-y-auto bg-black/55 p-4" onClick={(e) => { if (e.target === e.currentTarget) closeSubscribeModal(); }}>
-          <div className="relative my-auto w-full max-w-sm rounded-md border border-zinc-200 bg-white p-5 shadow-xl">
+        <div 
+          className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-20 sm:items-center sm:pt-4" 
+          onClick={(e) => { if (e.target === e.currentTarget) closeSubscribeModal(); }}
+        >
+          <div className="relative my-auto w-full max-w-sm rounded-md border border-zinc-200 bg-white p-6 shadow-2xl">
             <div className="mb-4 flex items-start justify-between">
-              <h3 className="text-lg font-semibold text-zinc-900">Subscribe</h3>
+              <h3 className="text-xl font-bold text-zinc-900">Subscribe</h3>
               <button
                 type="button"
                 onClick={closeSubscribeModal}
-                className="rounded-md p-1 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800"
+                className="rounded-md p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-800"
                 aria-label="Close subscribe popup"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
 
-            <label htmlFor="header-subscribe-email" className="mb-2 block text-sm font-medium text-zinc-700">
-              Email address
-            </label>
-            <input
-              id="header-subscribe-email"
-              type="email"
-              value={subscribeEmail}
-              autoComplete="email"
-              onChange={(event) => {
-                setSubscribeEmail(event.target.value);
-                if (subscribeState !== "idle") {
-                  setSubscribeState("idle");
-                  setSubscribeMessage("");
-                }
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
+            <p className="mb-4 text-sm text-zinc-600">
+              Join our daily briefing and stay ahead of the latest cybersecurity threats.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="header-subscribe-email" className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                  Email Address
+                </label>
+                <input
+                  id="header-subscribe-email"
+                  type="email"
+                  value={subscribeEmail}
+                  autoComplete="email"
+                  onChange={(event) => {
+                    setSubscribeEmail(event.target.value);
+                    if (subscribeState !== "idle") {
+                      setSubscribeState("idle");
+                      setSubscribeMessage("");
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      void handleSubscribe();
+                    }
+                  }}
+                  placeholder="you@company.com"
+                  className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900"
+                />
+              </div>
+
+              {subscribeMessage ? (
+                <p className={`text-sm font-medium ${subscribeState === "error" ? "text-rose-600" : "text-emerald-600"}`}>
+                  {subscribeMessage}
+                </p>
+              ) : null}
+
+              <button
+                type="button"
+                onClick={() => {
                   void handleSubscribe();
-                }
-              }}
-              placeholder="you@company.com"
-              className="w-full rounded-md border border-zinc-300 px-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-zinc-900"
-            />
+                }}
+                disabled={subscribeState === "submitting"}
+                className="inline-flex h-11 w-full items-center justify-center rounded-md bg-zinc-900 px-4 text-sm font-bold text-white transition-all hover:bg-zinc-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {subscribeState === "submitting" ? "Subscribing..." : "Subscribe Now"}
+              </button>
+            </div>
 
-            {subscribeMessage ? (
-              <p className={`mt-2 text-sm ${subscribeState === "error" ? "text-rose-600" : "text-zinc-600"}`}>
-                {subscribeMessage}
+            {viewerEmail && !isLoggedIn ? (
+              <p className="mt-4 text-center text-xs text-zinc-400">
+                You were previously signed in as <span className="text-zinc-600">{viewerEmail}</span>
               </p>
-            ) : null}
-
-            <button
-              type="button"
-              onClick={() => {
-                void handleSubscribe();
-              }}
-              disabled={subscribeState === "submitting"}
-              className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-md bg-zinc-900 px-4 text-sm font-semibold text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {subscribeState === "submitting" ? "Subscribing..." : "Subscribe"}
-            </button>
-
-            {viewerEmail ? (
-              <p className="mt-3 text-xs text-zinc-500">Signed in as {viewerEmail}</p>
             ) : null}
           </div>
         </div>
       ) : null}
-    </header>
+    </>
   );
 }
+

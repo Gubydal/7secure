@@ -381,10 +381,10 @@ const buildHtmlDigest = (
     </style>
   </head>
   <body class="digest-bg" style="margin:0;padding:0;background:${EMAIL_THEME.pageBg};color:#e8e8f0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${EMAIL_THEME.pageBg};padding:12px 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${EMAIL_THEME.pageBg};padding:8px 0;">
       <tr>
         <td align="center">
-          <table class="digest-shell" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;border-collapse:collapse;background:${EMAIL_THEME.shellBg};border:2px solid ${EMAIL_THEME.frameBorder};border-radius:14px;overflow:hidden;">
+          <table class="digest-shell" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:660px;border-collapse:collapse;background:${EMAIL_THEME.shellBg};border:2px solid ${EMAIL_THEME.frameBorder};border-radius:14px;overflow:hidden;">
             <tr>
               <td style="padding:16px 16px 10px 16px;font-family:Inter,Arial,sans-serif;border-bottom:1px solid ${EMAIL_THEME.frameBorder};">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
@@ -407,7 +407,7 @@ const buildHtmlDigest = (
               </td>
             </tr>
             <tr>
-              <td class="digest-copy" style="padding:18px 16px;border-bottom:1px solid ${EMAIL_THEME.frameBorder};font-family:Inter,Arial,sans-serif;color:${EMAIL_THEME.headingText};">
+              <td class="digest-copy" style="padding:18px 14px;border-bottom:1px solid ${EMAIL_THEME.frameBorder};font-family:Inter,Arial,sans-serif;color:${EMAIL_THEME.headingText};">
                 <p style="margin:0;font-size:30px;line-height:1.3;font-weight:700;">Good morning, ${subscriberName}.</p>
                 <p style="margin:12px 0 0 0;font-size:16px;line-height:1.68;color:${EMAIL_THEME.bodyText};">${date} briefing: clear threat context, key developments, and quick actions worth prioritizing today.</p>
                 <p style="margin:16px 0 0 0;font-size:22px;line-height:1.34;font-weight:700;">In today's security rundown:</p>
@@ -417,7 +417,7 @@ const buildHtmlDigest = (
               </td>
             </tr>
             <tr>
-              <td style="padding:14px 16px;border-bottom:1px solid ${EMAIL_THEME.frameBorder};font-family:Inter,Arial,sans-serif;">
+              <td style="padding:14px 14px;border-bottom:1px solid ${EMAIL_THEME.frameBorder};font-family:Inter,Arial,sans-serif;">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#000000;border:1px solid ${EMAIL_THEME.frameBorder};border-radius:10px;overflow:hidden;">
                   <tr><td style="padding:10px 14px;text-align:center;font-size:30px;line-height:1.2;font-weight:700;color:${EMAIL_THEME.headingText};letter-spacing:0.03em;">LATEST DEVELOPMENTS</td></tr>
                 </table>
@@ -427,7 +427,7 @@ const buildHtmlDigest = (
               </td>
             </tr>
             <tr>
-              <td style="padding:14px 16px;border-bottom:1px solid ${EMAIL_THEME.frameBorder};font-family:Inter,Arial,sans-serif;">
+              <td style="padding:14px 14px;border-bottom:1px solid ${EMAIL_THEME.frameBorder};font-family:Inter,Arial,sans-serif;">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#000000;border:1px solid ${EMAIL_THEME.frameBorder};border-radius:10px;overflow:hidden;">
                   <tr><td style="padding:10px 14px;text-align:center;font-size:30px;line-height:1.2;font-weight:700;color:${EMAIL_THEME.headingText};letter-spacing:0.03em;">QUICK HITS</td></tr>
                 </table>
@@ -435,7 +435,7 @@ const buildHtmlDigest = (
               </td>
             </tr>
             <tr>
-              <td style="padding:14px 16px;border-bottom:1px solid ${EMAIL_THEME.frameBorder};">
+              <td style="padding:14px 14px;border-bottom:1px solid ${EMAIL_THEME.frameBorder};">
                 ${ratingSection}
               </td>
             </tr>

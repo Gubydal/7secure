@@ -117,9 +117,9 @@ export default function Home() {
   }, []);
 
   const categoryOptions = useMemo(() => {
-    const dynamicCategories = buildCategoryList(articles.map((article) => article.category), 10);
+    const dynamicCategories = buildCategoryList(articles.map((article) => article.category), 8);
 
-    return [
+    const baseOptions = [
       { key: "all" as const, label: "All", icon: <Star className="h-4 w-4" /> },
       ...dynamicCategories.map((category) => {
         const meta = getCategoryMeta(category);
@@ -130,6 +130,13 @@ export default function Home() {
           icon: <Icon className="h-4 w-4" />
         };
       })
+    ];
+
+    // Add Tools and Practices tabs
+    return [
+      ...baseOptions,
+      { key: "tools-tab", label: "Tools", icon: <Bot className="h-4 w-4" />, isSpecial: true, href: "/tools" },
+      { key: "practices-tab", label: "Practices", icon: <Shield className="h-4 w-4" />, isSpecial: true, href: "/practices" }
     ];
   }, [articles]);
 
@@ -322,16 +329,34 @@ export default function Home() {
 
             {/* Categories Tags (Centered) */}
             <div className="mx-auto flex w-full max-w-4xl flex-wrap justify-center gap-3">
-              {categoryOptions.map((cat) => (
-                <button 
-                  key={cat.key}
-                  onClick={() => setActiveCategory(cat.key)}
-                  className={`flex h-10 items-center gap-2 whitespace-nowrap rounded-md border px-5 text-sm font-medium transition-colors ${activeCategory === cat.key ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"}`}
-                >
-                  {cat.icon}
-                  {cat.label}
-                </button>
-              ))}
+              {categoryOptions.map((cat) => {
+                const isSpecial = (cat as any).isSpecial;
+                const href = (cat as any).href;
+
+                if (isSpecial) {
+                  return (
+                    <Link
+                      key={cat.key}
+                      href={href}
+                      className="flex h-10 items-center gap-2 whitespace-nowrap rounded-md border border-zinc-200 bg-white px-5 text-sm font-medium text-zinc-700 transition-colors hover:border-zinc-300 hover:bg-zinc-50"
+                    >
+                      {cat.icon}
+                      {cat.label}
+                    </Link>
+                  );
+                }
+
+                return (
+                  <button 
+                    key={cat.key}
+                    onClick={() => setActiveCategory(cat.key as any)}
+                    className={`flex h-10 items-center gap-2 whitespace-nowrap rounded-md border px-5 text-sm font-medium transition-colors ${activeCategory === cat.key ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"}`}
+                  >
+                    {cat.icon}
+                    {cat.label}
+                  </button>
+                );
+              })}
             </div>
             
           </div>
