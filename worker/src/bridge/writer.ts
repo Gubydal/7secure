@@ -13,15 +13,18 @@ Hard requirements:
 - First paragraph must be artifact-first: open with a concrete artifact from the input (CVE, actor name, malware family, affected product, advisory ID, patch version, or date).
 - Prefer proof over adjectives. Prioritize observable facts, technical behavior, and explicit uncertainty.
 - Avoid hype language and generic framing such as "game changer", "critical wake-up call", "in today's threat landscape", or "teams should stay vigilant".
+- CRITICAL: Every heading MUST be unique and specific to THIS article's topic. Do NOT use generic reusable headings.
+- CRITICAL: Every bullet point MUST be specific to THIS article. Do NOT use generic advice that could apply to any article.
+- CRITICAL: Do NOT include sections like "Operator runbook" or "Verification checklist" with generic bullets. Instead, write specific operational guidance unique to the vulnerability/threat/topic being discussed.
 - Required section flow:
-  1) evidence snapshot
-  2) attack/failure mechanics
-  3) exposure and blast radius
-  4) operator runbook (bullets)
-  5) verification checklist (bullets)
-  6) what to watch next
+  1) evidence snapshot (what was found, with specific identifiers)
+  2) attack/failure mechanics (how it works technically)
+  3) exposure and blast radius (who is affected and how widely)
+  4) specific remediation steps (unique to this issue, with product names, versions, patches)
+  5) detection and validation (specific IOCs, signatures, or test methods for this issue)
+  6) what to watch next (forward-looking analysis specific to this story)
 - Do not use emojis anywhere in title, summary, headings, or body.
-- Include at least 2 practical bullet lists with concrete, actionable points.
+- Include at least 2 practical bullet lists with concrete, actionable points SPECIFIC to this article.
 - Keep paragraphs short and scannable.
 - Avoid generic repeated headings such as "What happened" or "What teams should do now".
 - Every heading must be specific to this article. No canned section titles reused across stories.
@@ -47,7 +50,9 @@ Return ONLY valid JSON:
 }`;
 
 const DEFAULT_COVER_IMAGE = "/cover.avif";
-const LLM_TIMEOUT_MS = 80_000;
+const LLM_TIMEOUT_MS = 75_000;
+const LLM_RETRY_TIMEOUT_MS = 45_000;
+const LLM_CHUNK_HEARTBEAT_MS = 15_000;
 const MAX_REWRITE_CANDIDATES = 8;
 const DEFAULT_CATEGORY_POOL = [
   "industry-news",
@@ -407,6 +412,7 @@ const buildStructuredContent = (
   const sourceBase = normalizeWhitespace(body || item.sourceSnippet || cleanedSummary);
   const sourceSentences = splitSentences(sourceBase);
   const evidenceArtifact = inferEvidenceArtifact(item);
+  const topicLabel = item.category.replace(/-/g, " ");
 
   const evidenceSnapshot = pickSentenceRange(
     sourceSentences,
@@ -432,19 +438,19 @@ const buildStructuredContent = (
     700
   );
 
-  const runbookIntro = pickSentenceRange(
+  const remediationSteps = pickSentenceRange(
     sourceSentences,
     13,
     18,
-    "Response planning should align technical owners, incident response, and leadership on what to validate first, what to patch first, and what telemetry to monitor during the next 24-72 hours.",
+    `For ${topicLabel}-related issues, organizations should identify affected assets by version and deployment context, then apply vendor-specific patches or mitigations in order of exposure severity.`,
     720
   );
 
-  const verificationIntro = pickSentenceRange(
+  const detectionValidation = pickSentenceRange(
     sourceSentences,
     18,
     22,
-    "Validation needs to prove mitigation effectiveness, not just ticket completion, by confirming behavior-level risk reduction in production telemetry.",
+    `Detection should focus on behaviors and indicators specific to ${evidenceArtifact}, confirmed against production telemetry rather than relying on signature-only coverage.`,
     700
   );
 
@@ -456,35 +462,20 @@ const buildStructuredContent = (
     720
   );
 
-  const topicLabel = item.category.replace(/-/g, " ");
-
   return stripEmojiMarkdown([
-    "## Evidence snapshot",
-    `Primary artifact in reporting: ${evidenceArtifact}. ${evidenceSnapshot}`,
-    "## Attack and failure mechanics",
+    `## Evidence snapshot: ${evidenceArtifact}`,
+    evidenceSnapshot,
+    `## How ${evidenceArtifact} works technically`,
     attackMechanics,
-    "## Exposure and blast radius",
+    `## Who is exposed and blast radius for ${topicLabel}`,
     exposureBlastRadius,
-    "## Operator runbook for the next 24 hours",
-    runbookIntro,
-    [
-      "- Inventory affected assets by product, version, and owner.",
-      "- Isolate internet-exposed or high-privilege systems first, then stage broader containment.",
-      "- Apply vendor guidance with a rollback plan and change-window ownership.",
-      "- Expand detections around execution chain, privilege changes, and unusual outbound behavior.",
-      `- Brief leadership with an explicit impact statement for ${topicLabel} operations and recovery timelines.`
-    ].join("\n"),
-    "## Verification checklist",
-    verificationIntro,
-    [
-      "- Confirm mitigations on endpoints, edge services, and CI/CD runners where applicable.",
-      "- Validate detections by replaying known indicators or controlled simulation where safe.",
-      "- Ensure logging quality: timestamps, host identity, process lineage, and network context.",
-      "- Record unresolved exposure and assign owner plus deadline for each gap."
-    ].join("\n"),
-    "## What to watch next",
+    `## Remediation steps for ${evidenceArtifact}`,
+    remediationSteps,
+    `## Detection and validation for this ${topicLabel} issue`,
+    detectionValidation,
+    `## Forward outlook on ${evidenceArtifact}`,
     watchNext,
-    "## Source trail and unresolved gaps",
+    "## Source trail",
     `Original reporting: [Open source article](${item.url}).`,
     "If implementation-specific details were not disclosed in the source, treat them as unknown and validate with telemetry, advisories, and environment-specific testing."
   ].join("\n\n"));
@@ -591,7 +582,8 @@ const rewriteItem = async (
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
+    const timeoutMs = attempt === 1 ? LLM_TIMEOUT_MS : LLM_RETRY_TIMEOUT_MS;
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
       console.log(`Sending to LLM (attempt ${attempt}/${maxAttempts}): ${item.title.substring(0, 30)}...`);
@@ -690,7 +682,7 @@ const rewriteItem = async (
     } catch (error) {
       if ((error as Error).name === "AbortError") {
         console.error(
-          `LLM rewrite timeout after ${Math.round(LLM_TIMEOUT_MS / 1000)}s (attempt ${attempt}/${maxAttempts}) for: ${item.title.substring(0, 30)}...`
+          `LLM rewrite timeout after ${Math.round(timeoutMs / 1000)}s (attempt ${attempt}/${maxAttempts}) for: ${item.title.substring(0, 30)}...`
         );
       } else {
         console.error(
@@ -720,6 +712,7 @@ export const writeArticles = async (
   const results: NewsletterArticle[] = [];
   const concurrency = 3;
   const categoryPool = [...new Set([...trackedCategories, ...DEFAULT_CATEGORY_POOL])].slice(0, 10);
+  const totalChunks = Math.ceil(candidates.length / concurrency);
 
   console.log(
     `LLM rewrite queue: processing ${candidates.length}/${items.length} candidate items with concurrency ${concurrency}`
@@ -727,9 +720,30 @@ export const writeArticles = async (
 
   for (let index = 0; index < candidates.length; index += concurrency) {
     const chunk = candidates.slice(index, index + concurrency);
-    const settled = await Promise.allSettled(
-      chunk.map((item) => rewriteItem(item, env, categoryPool))
-    );
+    const chunkNumber = Math.floor(index / concurrency) + 1;
+    const pendingLabels = new Set(chunk.map((item) => item.title.substring(0, 36)));
+
+    const wrapped = chunk.map((item) => {
+      const label = item.title.substring(0, 36);
+      return rewriteItem(item, env, categoryPool).finally(() => {
+        pendingLabels.delete(label);
+      });
+    });
+
+    const heartbeatId = setInterval(() => {
+      if (!pendingLabels.size) {
+        return;
+      }
+
+      const sample = [...pendingLabels].slice(0, 2).join(" | ");
+      const suffix = pendingLabels.size > 2 ? " | ..." : "";
+      console.log(
+        `LLM rewrite in-flight: chunk ${chunkNumber}/${totalChunks}, pending ${pendingLabels.size} item(s)${sample ? ` (${sample}${suffix})` : ""}`
+      );
+    }, LLM_CHUNK_HEARTBEAT_MS);
+
+    const settled = await Promise.allSettled(wrapped);
+    clearInterval(heartbeatId);
 
     for (const result of settled) {
       if (result.status === "fulfilled" && result.value) {

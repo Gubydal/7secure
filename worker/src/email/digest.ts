@@ -238,9 +238,13 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
       const signal = escapeHtml(stripEmojiInline(script.signal));
       const risk = escapeHtml(stripEmojiInline(script.risk));
       const action = escapeHtml(stripEmojiInline(script.action));
+      const isCoverFallback = !imageSrc || /cover\.avif(?:$|\?)/i.test(imageSrc || "");
       const imageBlock = imageSrc
-        ? `<tr><td style="padding:0;"><img src="${imageSrc}" alt="${title}" width="100%" style="display:block;width:100%;height:auto;max-height:210px;object-fit:cover;" /></td></tr>`
+        ? (isCoverFallback
+            ? `<tr><td style="padding:16px 16px 0 16px;text-align:center;background:${EMAIL_THEME.panelBg};"><img src="${imageSrc}" alt="${title}" width="120" style="display:inline-block;width:120px;height:auto;" /></td></tr>`
+            : `<tr><td style="padding:0;"><img src="${imageSrc}" alt="${title}" width="100%" style="display:block;width:100%;height:auto;max-height:210px;object-fit:cover;" /></td></tr>`)
         : "";
+      const authorIcon = `<img src="${siteBase}/Small_Icon.svg" alt="7s" width="18" height="18" style="display:inline-block;width:18px;height:18px;border-radius:50%;vertical-align:middle;margin-right:5px;background:#0a0f1c;" />`;
 
       return `
       <tr>
@@ -251,14 +255,14 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
               <td style="padding:14px;font-family:Inter,Arial,sans-serif;color:#e8ecf8;">
                 <div style="font-size:11px;letter-spacing:0.13em;text-transform:uppercase;color:#97a1c4;margin-bottom:8px;">${category}</div>
                 <a href="${originalHref}" style="font-size:28px;line-height:1.25;font-weight:700;color:#8ea2ff;text-decoration:underline;display:block;">${title}</a>
-                <div style="margin:12px 0 0 0;border:1px solid ${EMAIL_THEME.frameBorder};border-radius:10px;background:#060a13;padding:10px 12px;">
-                  <p style="margin:0 0 8px 0;font-size:16px;line-height:1.45;color:#f0f4ff;font-weight:700;">Short script</p>
-                  <p style="margin:0 0 6px 0;font-size:15px;line-height:1.55;color:#d4daee;"><strong style="color:#ffffff;">Signal:</strong> ${signal}</p>
-                  <p style="margin:0 0 6px 0;font-size:15px;line-height:1.55;color:#d4daee;"><strong style="color:#ffffff;">Risk:</strong> ${risk}</p>
-                  <p style="margin:0;font-size:15px;line-height:1.55;color:#d4daee;"><strong style="color:#ffffff;">Action:</strong> ${action}</p>
+                <p style="margin:12px 0 0 0;font-size:16px;line-height:1.45;color:#f0f4ff;font-weight:700;">Short script</p>
+                <p style="margin:6px 0 0 0;font-size:15px;line-height:1.55;color:#d4daee;"><strong style="color:#ffffff;">Signal:</strong> ${signal}</p>
+                <p style="margin:4px 0 0 0;font-size:15px;line-height:1.55;color:#d4daee;"><strong style="color:#ffffff;">Risk:</strong> ${risk}</p>
+                <p style="margin:4px 0 0 0;font-size:15px;line-height:1.55;color:#d4daee;"><strong style="color:#ffffff;">Action:</strong> ${action}</p>
+                <div style="margin:12px 0 0 0;border-top:1px solid ${EMAIL_THEME.frameBorder};padding-top:10px;">
+                  <p style="margin:0;font-size:16px;line-height:1.58;color:#d4daee;"><strong style="color:#eef2ff;">Why this matters:</strong> ${whyItMatters}</p>
                 </div>
-                <p style="margin:12px 0 0 0;font-size:16px;line-height:1.58;color:#d4daee;"><strong style="color:#eef2ff;">Why this matters:</strong> ${whyItMatters}</p>
-                <p style="margin:12px 0 0 0;font-size:13px;line-height:1.4;color:#98a2bd;">${formatPublishDate(article.published_at)} · <a href="${newsletterHref}" style="color:#9ec8ff;text-decoration:underline;">Read 7secure version</a></p>
+                <p style="margin:12px 0 0 0;font-size:13px;line-height:1.4;color:#98a2bd;">${authorIcon}7secure \u00b7 ${formatPublishDate(article.published_at)} \u00b7 <a href="${newsletterHref}" style="color:#9ec8ff;text-decoration:underline;">Read full version</a></p>
               </td>
             </tr>
           </table>
@@ -380,16 +384,21 @@ const buildHtmlDigest = (
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${EMAIL_THEME.pageBg};padding:12px 0;">
       <tr>
         <td align="center">
-          <table class="digest-shell" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;border-collapse:collapse;background:${EMAIL_THEME.shellBg};border:2px solid ${EMAIL_THEME.frameBorder};border-radius:0;overflow:hidden;">
+          <table class="digest-shell" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;border-collapse:collapse;background:${EMAIL_THEME.shellBg};border:2px solid ${EMAIL_THEME.frameBorder};border-radius:14px;overflow:hidden;">
             <tr>
-              <td style="padding:12px 16px 6px 16px;font-family:Inter,Arial,sans-serif;">
-                <div style="text-align:right;font-size:14px;line-height:1.5;">
-                  <a href="${siteBase}" style="color:#9aa6cc;text-decoration:underline;">Read Online</a>
-                  <span style="color:#576082;"> | </span>
-                  <a href="${siteBase}/subscribe" style="color:#9aa6cc;text-decoration:underline;">Sign Up</a>
-                  <span style="color:#576082;"> | </span>
-                  <a href="${siteBase}/contact" style="color:#9aa6cc;text-decoration:underline;">Advertise</a>
-                </div>
+              <td style="padding:16px 16px 10px 16px;font-family:Inter,Arial,sans-serif;border-bottom:1px solid ${EMAIL_THEME.frameBorder};">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                  <tr>
+                    <td style="vertical-align:middle;"><img src="${siteBase}/7secure_logo.svg" alt="7secure" width="100" style="display:block;width:100px;height:auto;" /></td>
+                    <td style="text-align:right;font-size:13px;line-height:1.5;vertical-align:middle;">
+                      <a href="${siteBase}" style="color:#9aa6cc;text-decoration:underline;">Read Online</a>
+                      <span style="color:#576082;"> | </span>
+                      <a href="${siteBase}/subscribe" style="color:#9aa6cc;text-decoration:underline;">Sign Up</a>
+                      <span style="color:#576082;"> | </span>
+                      <a href="${siteBase}/contact" style="color:#9aa6cc;text-decoration:underline;">Advertise</a>
+                    </td>
+                  </tr>
+                </table>
               </td>
             </tr>
             <tr>

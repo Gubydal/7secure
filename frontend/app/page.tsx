@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@heroui/react";
 import { useEffect, useMemo, useState } from "react";
-import { supabasePublic } from "../lib/supabase";
+import { supabasePublic, type GuideRecord } from "../lib/supabase";
 import { Bot, Search, Send, Shield, Star } from "lucide-react";
 import {
   buildCategoryList,
@@ -36,34 +36,7 @@ const markSubscriberSession = (email: string) => {
   window.dispatchEvent(new CustomEvent("sevensecure-auth-changed", { detail: { email } }));
 };
 
-const PRACTICE_KEYWORDS =
-  /(practice|playbook|guide|checklist|hardening|mitigation|response|defense|incident|baseline|detection|remediation|compliance|policy)/i;
 
-const TOOL_KEYWORDS =
-  /(tool|platform|framework|scanner|agent|automation|open[-\s]?source|github|model|cli|integration|vendor|product|release)/i;
-
-const articleSignal = (article: Pick<HomeArticle, "title" | "summary" | "category">): string =>
-  `${article.title} ${article.summary} ${article.category}`.toLowerCase();
-
-const isLikelyPracticeArticle = (article: HomeArticle): boolean => {
-  const signal = articleSignal(article);
-  if (PRACTICE_KEYWORDS.test(signal)) {
-    return true;
-  }
-
-  const category = normalizeCategory(article.category);
-  return /(vulnerab|threat|research|government|compliance|security-control)/.test(category);
-};
-
-const isLikelyToolArticle = (article: HomeArticle): boolean => {
-  const signal = articleSignal(article);
-  if (TOOL_KEYWORDS.test(signal)) {
-    return true;
-  }
-
-  const category = normalizeCategory(article.category);
-  return /(ai|tool|automation|platform|product|framework)/.test(category);
-};
 
 export default function Home() {
   const [activeCategory, setActiveCategory] = useState<"all" | CategoryKey>("all");
@@ -73,6 +46,8 @@ export default function Home() {
   const [heroSubscribeMessage, setHeroSubscribeMessage] = useState("");
 
   const [articles, setArticles] = useState<HomeArticle[]>([]);
+  const [practiceGuides, setPracticeGuides] = useState<GuideRecord[]>([]);
+  const [toolGuides, setToolGuides] = useState<GuideRecord[]>([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -119,7 +94,22 @@ export default function Home() {
       ]);
     };
 
+    const loadGuides = async () => {
+      const { data } = await supabasePublic
+        .from("guides")
+        .select("id,slug,title,summary,content,type,category,icon,url,image_url,is_active,published_at")
+        .eq("is_active", true)
+        .order("published_at", { ascending: false })
+        .limit(20);
+
+      if (!isMounted || !data) return;
+      const guides = data as GuideRecord[];
+      setPracticeGuides(guides.filter((g) => g.type === "practice").slice(0, 3));
+      setToolGuides(guides.filter((g) => g.type === "tool").slice(0, 3));
+    };
+
     loadArticles();
+    loadGuides();
 
     return () => {
       isMounted = false;
@@ -215,43 +205,13 @@ export default function Home() {
   const featuredPrimary = latestArticles[0] || null;
   const featuredSecondary = latestArticles.slice(1, 5);
 
-  const featuredPracticeArticles = useMemo(
-    () => {
-      const focused = articles.filter((article) => isLikelyPracticeArticle(article));
-      const selected = focused.slice(0, 3);
-
-      if (selected.length >= 3) {
-        return selected;
-      }
-
-      const used = new Set(selected.map((article) => article.id));
-      const fillers = articles.filter((article) => !used.has(article.id)).slice(0, 3 - selected.length);
-      return [...selected, ...fillers];
-    },
-    [articles]
-  );
-
-  const featuredToolArticles = useMemo(
-    () => {
-      const focused = articles.filter((article) => isLikelyToolArticle(article));
-      const selected = focused.slice(0, 3);
-
-      if (selected.length >= 3) {
-        return selected;
-      }
-
-      const used = new Set(selected.map((article) => article.id));
-      const fillers = articles.filter((article) => !used.has(article.id)).slice(0, 3 - selected.length);
-      return [...selected, ...fillers];
-    },
-    [articles]
-  );
+  // Practice and tool guides are fetched directly from the guides table
 
   return (
     <div className="flex flex-col min-h-screen font-sans bg-[#09090b]">
       
       {/* 1. HERO SECTION (BLACK) */}
-      <section className="relative flex min-h-svh w-full flex-col justify-center bg-[#09090b] pb-16 text-[#fafafa] md:min-h-[86svh] md:pb-18">
+      <section className="relative z-30 flex min-h-svh w-full flex-col justify-center bg-[#09090b] pb-16 text-[#fafafa] md:min-h-[86svh] md:pb-18">
         <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center justify-center px-6 pb-8 pt-8 text-center md:pt-10">
           <h1 className="mb-4 text-[1.9rem] font-bold leading-tight tracking-tight text-white sm:text-4xl lg:text-[3.25rem]">
             Master InfoSec with{" "}
@@ -388,7 +348,7 @@ export default function Home() {
                   href={`/articles/${featuredPrimary.slug}`}
                   className="group overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm transition-all duration-200 hover:border-zinc-300 hover:shadow-md lg:col-span-2"
                 >
-                  <div className="relative aspect-video w-full overflow-hidden bg-zinc-100">
+                  <div className="relative aspect-[2/1] w-full overflow-hidden bg-zinc-100">
                     <img
                       src={featuredPrimary.image_url || "/cover.avif"}
                       alt={featuredPrimary.title}
@@ -398,8 +358,8 @@ export default function Home() {
                       {getCategoryLabel(featuredPrimary.category)}
                     </div>
                   </div>
-                  <div className="p-5">
-                    <h3 className="mb-3 text-[2rem] font-bold leading-tight tracking-tight text-zinc-900 group-hover:text-blue-700">
+                  <div className="p-4">
+                    <h3 className="mb-2 text-xl font-bold leading-tight tracking-tight text-zinc-900 group-hover:text-blue-700 sm:text-2xl">
                       {featuredPrimary.title}
                     </h3>
                     <p className="text-sm text-zinc-500">
@@ -408,14 +368,14 @@ export default function Home() {
                   </div>
                 </Link>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:col-span-1 lg:grid-cols-2">
+                <div className="grid grid-cols-2 gap-3 lg:col-span-1 lg:grid-cols-1">
                   {featuredSecondary.map((article) => (
                     <Link
                       key={article.id}
                       href={`/articles/${article.slug}`}
                       className="group overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm transition-all duration-200 hover:border-zinc-300 hover:shadow-md"
                     >
-                      <div className="relative aspect-video w-full overflow-hidden bg-zinc-100">
+                      <div className="relative aspect-[3/2] w-full overflow-hidden bg-zinc-100">
                         <img
                           src={article.image_url || "/cover.avif"}
                           alt={article.title}
@@ -426,10 +386,10 @@ export default function Home() {
                         </div>
                       </div>
                       <div className="p-3">
-                        <h3 className="line-clamp-2 text-[1.02rem] font-bold leading-tight text-zinc-900 group-hover:text-blue-700">
+                        <h3 className="line-clamp-2 text-sm font-bold leading-tight text-zinc-900 group-hover:text-blue-700">
                           {article.title}
                         </h3>
-                        <p className="mt-2 text-xs text-zinc-500">
+                        <p className="mt-1 text-xs text-zinc-500">
                           {(article.source_name || "7secure")} • {new Date(article.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                         </p>
                       </div>
@@ -465,16 +425,16 @@ export default function Home() {
                   <h3 className="text-xl font-bold">Security practices</h3>
                 </div>
                 <div className="space-y-3">
-                  {featuredPracticeArticles.map((article) => (
+                  {practiceGuides.map((guide) => (
                     <a
-                      key={article.id}
-                      href={`/articles/${article.slug}`}
+                      key={guide.id}
+                      href={`/articles/${guide.slug}`}
                       className="block rounded-md border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-300"
                     >
                       <p className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">
-                        {getCategoryLabel(article.category)}
+                        {guide.category.replace(/-/g, " ")}
                       </p>
-                      <h4 className="mt-1 line-clamp-2 text-sm font-semibold text-zinc-900">{article.title}</h4>
+                      <h4 className="mt-1 line-clamp-2 text-sm font-semibold text-zinc-900">{guide.title}</h4>
                     </a>
                   ))}
                 </div>
@@ -492,16 +452,18 @@ export default function Home() {
                   <h3 className="text-xl font-bold">Tool watch</h3>
                 </div>
                 <div className="space-y-3">
-                  {featuredToolArticles.map((article) => (
+                  {toolGuides.map((guide) => (
                     <a
-                      key={article.id}
-                      href={`/articles/${article.slug}`}
+                      key={guide.id}
+                      href={guide.url || `/articles/${guide.slug}`}
+                      target={guide.url ? "_blank" : undefined}
+                      rel={guide.url ? "noopener noreferrer" : undefined}
                       className="block rounded-md border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-300"
                     >
                       <p className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">
-                        {getCategoryLabel(article.category)}
+                        {guide.category.replace(/-/g, " ")}
                       </p>
-                      <h4 className="mt-1 line-clamp-2 text-sm font-semibold text-zinc-900">{article.title}</h4>
+                      <h4 className="mt-1 line-clamp-2 text-sm font-semibold text-zinc-900">{guide.title}</h4>
                     </a>
                   ))}
                 </div>

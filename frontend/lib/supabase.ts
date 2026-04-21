@@ -33,3 +33,18 @@ export interface ArticleRecord {
   tags: string[];
   image_url?: string | null;
 }
+
+export interface GuideRecord {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string;
+  content: string;
+  type: "tool" | "practice";
+  category: string;
+  icon: string;
+  url?: string | null;
+  image_url?: string | null;
+  is_active: boolean;
+  published_at: string;
+}
