@@ -47,7 +47,8 @@ Return ONLY valid JSON:
 }`;
 
 const DEFAULT_COVER_IMAGE = "/cover.avif";
-const LLM_TIMEOUT_MS = 105_000;
+const LLM_TIMEOUT_MS = 80_000;
+const MAX_REWRITE_CANDIDATES = 8;
 const DEFAULT_CATEGORY_POOL = [
   "industry-news",
   "threat-intel",
@@ -586,6 +587,7 @@ const rewriteItem = async (
   categoryPool: string[]
 ): Promise<NewsletterArticle | null> => {
   const maxAttempts = 2;
+  const rewriteStartedAt = Date.now();
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const controller = new AbortController();
@@ -630,6 +632,7 @@ const rewriteItem = async (
       if (!response.ok) {
         console.error("LLM API Error:", response.status, await response.text());
         if (attempt === maxAttempts) {
+          console.warn(`Falling back to deterministic article for ${item.title.substring(0, 60)} (LLM API error)`);
           return fallbackArticle(item, categoryPool);
         }
         continue;
@@ -643,6 +646,7 @@ const rewriteItem = async (
       if (!content) {
         console.error("No content from LLM");
         if (attempt === maxAttempts) {
+          console.warn(`Falling back to deterministic article for ${item.title.substring(0, 60)} (empty LLM content)`);
           return fallbackArticle(item, categoryPool);
         }
         continue;
@@ -651,6 +655,7 @@ const rewriteItem = async (
       const parsed = extractJson(content) as any;
       if (!isValidArticle(parsed)) {
         if (attempt === maxAttempts) {
+          console.warn(`Falling back to deterministic article for ${item.title.substring(0, 60)} (invalid JSON payload)`);
           return fallbackArticle(item, categoryPool);
         }
         continue;
@@ -665,6 +670,10 @@ const rewriteItem = async (
         item
       );
       const finalCategory = pickCategory(parsed.category || item.category, item, categoryPool);
+
+      console.log(
+        `LLM rewrite complete: ${item.title.substring(0, 40)}... in ${Math.round((Date.now() - rewriteStartedAt) / 1000)}s`
+      );
 
       // Default to the original item's metadata if the LLM hallucinated or forgot to include it
       return {
@@ -691,6 +700,7 @@ const rewriteItem = async (
       }
 
       if (attempt === maxAttempts) {
+        console.warn(`Falling back to deterministic article for ${item.title.substring(0, 60)} (exception path)`);
         return fallbackArticle(item, categoryPool);
       }
     } finally {
@@ -706,10 +716,14 @@ export const writeArticles = async (
   env: WorkerEnv,
   trackedCategories: string[] = DEFAULT_CATEGORY_POOL
 ): Promise<NewsletterArticle[]> => {
-  const candidates = items.slice(0, 8);
+  const candidates = items.slice(0, MAX_REWRITE_CANDIDATES);
   const results: NewsletterArticle[] = [];
   const concurrency = 3;
   const categoryPool = [...new Set([...trackedCategories, ...DEFAULT_CATEGORY_POOL])].slice(0, 10);
+
+  console.log(
+    `LLM rewrite queue: processing ${candidates.length}/${items.length} candidate items with concurrency ${concurrency}`
+  );
 
   for (let index = 0; index < candidates.length; index += concurrency) {
     const chunk = candidates.slice(index, index + concurrency);
@@ -722,6 +736,10 @@ export const writeArticles = async (
         results.push(result.value);
       }
     }
+
+    console.log(
+      `LLM rewrite progress: ${Math.min(index + concurrency, candidates.length)}/${candidates.length} processed, ${results.length} prepared`
+    );
   }
 
   return results;
