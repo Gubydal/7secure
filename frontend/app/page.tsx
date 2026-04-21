@@ -368,12 +368,13 @@ export default function Home() {
             </div>
 
             {featuredPrimary ? (
-              <div className="grid grid-cols-1 gap-4 text-left lg:grid-cols-3">
+              <div className="space-y-4 text-left">
+                {/* Primary article — full width */}
                 <Link
                   href={`/articles/${featuredPrimary.slug}`}
-                  className="group overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm transition-all duration-200 hover:border-zinc-300 hover:shadow-md lg:col-span-2"
+                  className="group block overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm transition-all duration-200 hover:border-zinc-300 hover:shadow-md"
                 >
-                  <div className="relative aspect-[2/1] w-full overflow-hidden bg-zinc-100">
+                  <div className="relative aspect-[2.5/1] w-full overflow-hidden bg-zinc-100">
                     <img
                       src={featuredPrimary.image_url || "/cover.avif"}
                       alt={featuredPrimary.title}
@@ -393,7 +394,8 @@ export default function Home() {
                   </div>
                 </Link>
 
-                <div className="grid grid-cols-2 gap-3 lg:col-span-1 lg:grid-cols-1">
+                {/* Secondary articles — 2×2 grid on desktop */}
+                <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                   {featuredSecondary.map((article) => (
                     <Link
                       key={article.id}
@@ -453,7 +455,7 @@ export default function Home() {
                   {practiceGuides.map((guide) => (
                     <a
                       key={guide.id}
-                      href={`/articles/${guide.slug}`}
+                      href={`/guides/${guide.slug}`}
                       className="block rounded-md border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-300"
                     >
                       <p className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">

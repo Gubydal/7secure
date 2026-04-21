@@ -87,7 +87,7 @@ export default function Page() {
             {filtered.map((guide) => (
               <Link
                 key={guide.id}
-                href={guide.url || `/articles/${guide.slug}`}
+                href={guide.url || `/guides/${guide.slug}`}
                 target={guide.url ? "_blank" : undefined}
                 rel={guide.url ? "noopener noreferrer" : undefined}
                 className="group rounded-2xl border border-zinc-200 bg-gradient-to-br from-white to-zinc-50 p-5 transition-all hover:border-zinc-300 hover:shadow-md"

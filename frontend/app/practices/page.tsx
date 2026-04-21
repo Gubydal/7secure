@@ -98,7 +98,7 @@ export default function Page() {
               return (
                 <Link
                   key={guide.id}
-                  href={`/articles/${guide.slug}`}
+                  href={`/guides/${guide.slug}`}
                   className="group rounded-2xl border border-zinc-200 bg-white p-5 transition-all hover:border-zinc-300 hover:shadow-md"
                 >
                   <div className="flex items-start gap-4">
