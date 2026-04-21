@@ -368,55 +368,58 @@ export default function Home() {
             </div>
 
             {featuredPrimary ? (
-              <div className="space-y-4 text-left">
-                {/* Primary article — full width */}
+              <div className="grid grid-cols-1 gap-6 text-left lg:grid-cols-2">
+                {/* Primary article — Left side on desktop */}
                 <Link
                   href={`/articles/${featuredPrimary.slug}`}
-                  className="group block overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm transition-all duration-200 hover:border-zinc-300 hover:shadow-md"
+                  className="group flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition-all duration-200 hover:border-zinc-300 hover:shadow-md"
                 >
-                  <div className="relative aspect-[2.5/1] w-full overflow-hidden bg-zinc-100">
+                  <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden bg-zinc-100">
                     <img
                       src={featuredPrimary.image_url || "/cover.avif"}
                       alt={featuredPrimary.title}
-                      className="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.01]"
+                      className="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
                     />
                     <div className="absolute left-3 top-3 rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs font-semibold text-zinc-800">
                       {getCategoryLabel(featuredPrimary.category)}
                     </div>
                   </div>
-                  <div className="p-4">
-                    <h3 className="mb-2 text-xl font-bold leading-tight tracking-tight text-zinc-900 group-hover:text-blue-700 sm:text-2xl">
+                  <div className="flex flex-1 flex-col justify-center p-5 sm:p-6">
+                    <h3 className="mb-3 text-2xl font-bold leading-tight tracking-tight text-zinc-900 group-hover:text-blue-700 sm:text-3xl">
                       {featuredPrimary.title}
                     </h3>
-                    <p className="text-sm text-zinc-500">
+                    <p className="line-clamp-3 text-base text-zinc-600 mb-4">
+                      {featuredPrimary.summary}
+                    </p>
+                    <p className="mt-auto text-sm text-zinc-500 font-medium">
                       {(featuredPrimary.source_name || "7secure")} • {new Date(featuredPrimary.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                     </p>
                   </div>
                 </Link>
 
-                {/* Secondary articles — 2×2 grid on desktop */}
-                <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                {/* Secondary articles — 2×2 grid on Right side */}
+                <div className="grid grid-cols-2 gap-4 sm:gap-6">
                   {featuredSecondary.map((article) => (
                     <Link
                       key={article.id}
                       href={`/articles/${article.slug}`}
-                      className="group overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm transition-all duration-200 hover:border-zinc-300 hover:shadow-md"
+                      className="group flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition-all duration-200 hover:border-zinc-300 hover:shadow-md"
                     >
-                      <div className="relative aspect-[3/2] w-full overflow-hidden bg-zinc-100">
+                      <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden bg-zinc-100">
                         <img
                           src={article.image_url || "/cover.avif"}
                           alt={article.title}
-                          className="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
+                          className="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.03]"
                         />
-                        <div className="absolute left-2 top-2 rounded-md border border-zinc-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-zinc-800">
+                        <div className="absolute left-2 top-2 rounded-md border border-zinc-200/80 bg-white/95 backdrop-blur-sm px-2 py-0.5 text-[11px] font-semibold text-zinc-800 shadow-sm">
                           {getCategoryLabel(article.category)}
                         </div>
                       </div>
-                      <div className="p-3">
-                        <h3 className="line-clamp-2 text-sm font-bold leading-tight text-zinc-900 group-hover:text-blue-700">
+                      <div className="flex flex-1 flex-col p-4">
+                        <h3 className="mb-2 line-clamp-3 text-sm font-bold leading-snug text-zinc-900 group-hover:text-blue-700 sm:text-base">
                           {article.title}
                         </h3>
-                        <p className="mt-1 text-xs text-zinc-500">
+                        <p className="mt-auto text-xs font-medium text-zinc-500">
                           {(article.source_name || "7secure")} • {new Date(article.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                         </p>
                       </div>
