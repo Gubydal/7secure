@@ -392,10 +392,10 @@ const buildHtmlDigest = (
     </style>
   </head>
   <body class="digest-bg" style="margin:0;padding:0;background:${EMAIL_THEME.pageBg};color:#e8e8f0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${EMAIL_THEME.pageBg};padding:8px 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${EMAIL_THEME.pageBg};padding:32px 16px;">
       <tr>
         <td align="center">
-          <table class="digest-shell" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:100%;border-collapse:collapse;background:${EMAIL_THEME.shellBg};border:2px solid #ffffff;border-radius:14px;overflow:hidden;">
+          <table class="digest-shell" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:720px;border-collapse:collapse;background:${EMAIL_THEME.shellBg};border:1px solid #ffffff;border-radius:16px;overflow:hidden;">
             <tr>
               <td style="padding:12px 18px;font-family:Inter,Arial,sans-serif;border-bottom:1px solid ${EMAIL_THEME.frameBorder};text-align:center;font-size:13px;line-height:1.5;">
                 <a href="${siteBase}" style="color:#9aa6cc;text-decoration:underline;">Read Online</a>
