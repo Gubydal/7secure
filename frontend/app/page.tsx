@@ -363,8 +363,8 @@ export default function Home() {
 
           {/* LATEST ARTICLES */}
           <section id="articles" className="mb-24">
-            <div className="mb-8">
-              <h2 className="text-3xl font-bold text-zinc-900">Latest Intel</h2>
+            <div className="mb-8 text-center lg:text-left">
+              <h2 className="text-3xl font-bold text-zinc-900">Latest Articles</h2>
             </div>
 
             {featuredPrimary ? (
