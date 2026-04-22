@@ -400,10 +400,10 @@ const buildHtmlDigest = (
     <!-- outer wrapper -->
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#111827;padding:24px 0;">
       <tr>
-        <td align="center" style="padding:0 16px;">
+        <td align="center" style="padding:0;">
 
           <!-- nav bar above card -->
-          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px;">
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
             <tr>
               <td align="center" style="padding:0 0 10px 0;font-family:Arial,sans-serif;font-size:12px;color:#9ca3af;">
                 <a href="${siteBase}" style="color:#9ca3af;text-decoration:underline;">Read Online</a>
@@ -416,12 +416,12 @@ const buildHtmlDigest = (
           </table>
 
           <!-- email card: white bg, 1px fine border -->
-          <table class="card-bg" role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px;background-color:#ffffff;border:1px solid #EBEBEB;border-radius:10px;overflow:hidden;" data-ogsc>
+          <table class="card-bg" role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#ffffff;border:1px solid #EBEBEB;overflow:hidden;" data-ogsc>
 
             <!-- cover image -->
             <tr>
               <td style="padding:0;line-height:0;">
-                <img src="${coverImage}" alt="7secure" width="600" style="display:block;width:100%;max-width:600px;height:auto;max-height:200px;object-fit:cover;border-radius:10px 10px 0 0;" />
+                <img src="${coverImage}" alt="7secure" width="100%" style="display:block;width:100%;height:auto;max-height:200px;object-fit:cover;" />
               </td>
             </tr>
 
