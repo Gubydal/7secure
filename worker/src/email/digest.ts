@@ -111,25 +111,25 @@ const displayNameFromSubscriber = (subscriber: DigestSubscriber): string => {
 
 const buildArticleScript = (
   article: DigestArticle
-): { signal: string; risk: string; action: string } => {
-  const base = stripMarkdown(article.content || "");
-  if (!base) {
-    const fallback = clamp(stripEmojiInline(article.summary), 170);
+): { keyPoints: string; description: string; whyImportant: string } => {
+  const content = article.content || "";
+  
+  const keyPointsMatch = content.match(/##\s*Key Points\n([\s\S]*?)(?=\n##|$)/i);
+  const descriptionMatch = content.match(/##\s*Description\n([\s\S]*?)(?=\n##|$)/i);
+  const whyImportantMatch = content.match(/##\s*Why it's important\n([\s\S]*?)(?=\n##|$)/i);
+
+  if (!keyPointsMatch && !descriptionMatch && !whyImportantMatch) {
     return {
-      signal: fallback,
-      risk: "Potential impact depends on where this technology is deployed and exposed.",
-      action: "Validate exposure now and confirm mitigations with telemetry-backed checks."
+      keyPoints: "",
+      description: clamp(stripMarkdown(content), 300),
+      whyImportant: article.summary || ""
     };
   }
 
-  const sentences = (base.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [])
-    .map((sentence) => sentence.trim())
-    .filter(Boolean);
-
   return {
-    signal: sentences[0] || article.summary || "Source reporting indicates an active security development.",
-    risk: sentences[1] || "Risk likely increases where internet exposure, privileged access, or legacy versions are present.",
-    action: sentences[2] || "Run a rapid owner-based remediation and verification cycle in the next 24 hours."
+    keyPoints: keyPointsMatch ? keyPointsMatch[1].trim() : "",
+    description: descriptionMatch ? descriptionMatch[1].trim() : "",
+    whyImportant: whyImportantMatch ? whyImportantMatch[1].trim() : ""
   };
 };
 
@@ -233,7 +233,6 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
       const imageSrc = resolveImageUrl(article.image_url, siteBase);
       const category = escapeHtml(humanizeCategory(article.category).toUpperCase());
       const title = escapeHtml(stripEmojiInline(article.title));
-      const whyItMatters = escapeHtml(stripEmojiInline(article.summary));
       const script = buildArticleScript(article);
       
       const cleanScriptField = (text: string) => {
@@ -241,13 +240,25 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
         return cleaned.length > 5 ? escapeHtml(stripEmojiInline(cleaned)) : "";
       };
 
-      const signal = cleanScriptField(script.signal);
-      const risk = cleanScriptField(script.risk);
-      const action = cleanScriptField(script.action);
-      
-      const signalHtml = signal ? `<p style="margin:6px 0 0 0;font-size:14px;line-height:1.55;color:#334155;font-family:Inter,Arial,sans-serif;"><strong style="color:#0f172a;">Signal:</strong> ${signal}</p>` : "";
-      const riskHtml = risk ? `<p style="margin:4px 0 0 0;font-size:14px;line-height:1.55;color:#334155;font-family:Inter,Arial,sans-serif;"><strong style="color:#0f172a;">Risk:</strong> ${risk}</p>` : "";
-      const actionHtml = action ? `<p style="margin:4px 0 0 0;font-size:14px;line-height:1.55;color:#334155;font-family:Inter,Arial,sans-serif;"><strong style="color:#0f172a;">Action:</strong> ${action}</p>` : "";
+      const markdownListToHtml = (mdList: string): string => {
+        const items = mdList.split('\n').filter(line => line.trim().startsWith('-'));
+        if (items.length === 0) return escapeHtml(mdList);
+        return `<ul style="margin:8px 0 0 20px;padding:0;color:#334155;font-size:14px;line-height:1.6;font-family:Arial,sans-serif;">` + 
+          items.map(item => `<li style="margin-bottom:4px;">${escapeHtml(item.replace(/^- /, '').trim())}</li>`).join('') + 
+        `</ul>`;
+      };
+
+      const keyPointsHtml = script.keyPoints 
+        ? `<div style="margin:16px 0 0 0;"><strong style="font-size:13px;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;font-family:Arial,sans-serif;">Key Points</strong>${markdownListToHtml(script.keyPoints)}</div>` 
+        : "";
+        
+      const descriptionHtml = script.description
+        ? `<div style="margin:16px 0 0 0;"><strong style="font-size:13px;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;font-family:Arial,sans-serif;">Description</strong><p style="margin:6px 0 0 0;font-size:14px;line-height:1.6;color:#334155;font-family:Arial,sans-serif;">${cleanScriptField(script.description)}</p></div>`
+        : "";
+        
+      const whyImportantHtml = script.whyImportant
+        ? `<div style="margin:16px 0 0 0;border-top:1px solid #e8ecf5;padding-top:14px;"><strong style="font-size:13px;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;font-family:Arial,sans-serif;">Why it's important</strong><p style="margin:6px 0 0 0;font-size:14px;line-height:1.6;color:#334155;font-family:Arial,sans-serif;">${cleanScriptField(script.whyImportant)}</p></div>`
+        : "";
 
       const isCoverFallback = !imageSrc || /cover\.avif(?:$|\?)/i.test(imageSrc || "");
       const imageBlock = imageSrc && !isCoverFallback
@@ -258,19 +269,15 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
         <td style="padding:${index === 0 ? "0" : "20px 0 0 0"}">
           <table role="presentation" width="100%" cellpadding="20" cellspacing="0" style="border-collapse:collapse;background-color:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
             <tr>
-              <td style="padding:0;font-family:Inter,Arial,sans-serif;color:#0f172a;">
+              <td style="padding:0;font-family:Arial,sans-serif;color:#0f172a;">
                 ${imageBlock}
                 <div style="padding:${imageSrc ? '16px 20px 20px' : '20px'};">
-                  <div style="font-size:11px;letter-spacing:0.13em;text-transform:uppercase;color:#64748b;margin-bottom:8px;font-family:Inter,Arial,sans-serif;">${category}</div>
-                  <a href="${originalHref}" style="font-size:22px;line-height:1.25;font-weight:700;color:#1d4ed8;text-decoration:underline;display:block;font-family:Inter,Arial,sans-serif;">${title}</a>
-                  <p style="margin:12px 0 0 0;font-size:14px;line-height:1.45;color:#0f172a;font-weight:700;font-family:Inter,Arial,sans-serif;">Short script</p>
-                  ${signalHtml}
-                  ${riskHtml}
-                  ${actionHtml}
-                  <div style="margin:12px 0 0 0;border-top:1px solid #e8ecf5;padding-top:10px;">
-                    <p style="margin:0;font-size:15px;line-height:1.58;color:#334155;font-family:Inter,Arial,sans-serif;"><strong style="color:#0f172a;">Why this matters:</strong> ${whyItMatters}</p>
-                  </div>
-                  <p style="margin:12px 0 0 0;font-size:13px;line-height:1.4;color:#94a3b8;font-family:Inter,Arial,sans-serif;">7secure &middot; ${formatPublishDate(article.published_at)} &middot; <a href="${newsletterHref}" style="color:#1d4ed8;text-decoration:underline;">Read full version</a></p>
+                  <div style="font-size:11px;letter-spacing:0.13em;text-transform:uppercase;color:#64748b;margin-bottom:8px;font-family:Arial,sans-serif;">${category}</div>
+                  <a href="${originalHref}" style="font-size:22px;line-height:1.25;font-weight:700;color:#1d4ed8;text-decoration:underline;display:block;font-family:Arial,sans-serif;">${title}</a>
+                  ${keyPointsHtml}
+                  ${descriptionHtml}
+                  ${whyImportantHtml}
+                  <p style="margin:16px 0 0 0;font-size:13px;line-height:1.4;color:#94a3b8;font-family:Arial,sans-serif;">7secure &middot; ${formatPublishDate(article.published_at)} &middot; <a href="${newsletterHref}" style="color:#1d4ed8;text-decoration:underline;">Read full version</a></p>
                 </div>
               </td>
             </tr>

@@ -248,10 +248,7 @@ export default async function ArticlePage(
             </a>
           ) : null}
 
-          <section className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-5 sm:px-6 sm:py-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">Why this matters</p>
-            <p className="mt-2 text-base leading-8 text-zinc-700 sm:text-lg">{cleanSummary}</p>
-          </section>
+
         </div>
 
         <div className="mx-auto max-w-4xl px-4 pb-8 sm:px-6 lg:px-8 lg:pb-12">

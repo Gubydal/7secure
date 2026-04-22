@@ -7,29 +7,21 @@ Hard requirements:
 - Title: MUST be heavily optimized, specific, catchy, and concrete. Keep it 45-72 chars. No clickbait or vague wording.
 - Data Cleaning: You MUST completely remove any garbage characters, weird numbers, random bracket expressions, or raw HTML entities (like &#x5b; or &#x5d;) from both the title and the content. Make it perfectly readable.
 - Summary: 2 concise sentences explaining why readers should care (this is rendered as "Why this matters").
-- Content: 620-900 words in clean markdown.
-- Content must NOT repeat the summary verbatim.
-- Content must NOT repeat the title as an H1/H2.
-- Use exactly 6-7 descriptive H2 sections with unique headings.
-- First paragraph must be artifact-first: open with a concrete artifact from the input (CVE, actor name, malware family, affected product, advisory ID, patch version, or date).
+- Title: Act as a senior cybersecurity editor and B2B marketing strategist writing for CISOs, IT Directors, and Compliance Officers. Generate a single, high-impact title. Do not summarize literally. Synthesize the shared strategic theme or risk signal. Emphasize impact, consequence, or decision relevance. Avoid words like 'newsletter', 'digest', or 'roundup'. Maximum 14 words. Use strong executive language (risk, exposure, resilience, intelligence, control, trust).
+- Summary: 2 concise sentences explaining why readers should care.
+- Content: You MUST format the body as Markdown with EXACTLY these three H2 sections and NO OTHERS:
+  ## Key Points
+  (A bulleted list of 2-4 the most important factual points)
+  
+  ## Description
+  (1-2 paragraphs detailing the issue, mechanics, or news)
+  
+  ## Why it's important
+  (1-2 paragraphs on the strategic impact, consequence, or decision relevance)
+- Do NOT include any other headings. Do NOT include generic advice.
 - Prefer proof over adjectives. Prioritize observable facts, technical behavior, and explicit uncertainty.
-- Avoid hype language and generic framing such as "game changer", "critical wake-up call", "in today's threat landscape", or "teams should stay vigilant".
-- CRITICAL: Every heading MUST be unique and specific to THIS article's topic. Do NOT use generic reusable headings.
-- CRITICAL: Every bullet point MUST be specific to THIS article. Do NOT use generic advice that could apply to any article.
-- CRITICAL: Do NOT include sections like "Operator runbook" or "Verification checklist" with generic bullets. Instead, write specific operational guidance unique to the vulnerability/threat/topic being discussed.
-- Required section flow:
-  1) evidence snapshot (what was found, with specific identifiers)
-  2) attack/failure mechanics (how it works technically)
-  3) exposure and blast radius (who is affected and how widely)
-  4) specific remediation steps (unique to this issue, with product names, versions, patches)
-  5) detection and validation (specific IOCs, signatures, or test methods for this issue)
-  6) what to watch next (forward-looking analysis specific to this story)
+- Avoid hype language and generic framing such as "game changer", "critical wake-up call".
 - Do not use emojis anywhere in title, summary, headings, or body.
-- Include at least 2 practical bullet lists with concrete, actionable points SPECIFIC to this article.
-- Keep paragraphs short and scannable.
-- Avoid generic repeated headings such as "What happened" or "What teams should do now".
-- Every heading must be specific to this article. No canned section titles reused across stories.
-- Use a natural narrative flow: evidence, mechanism, exposure, operations, validation, and forward watchpoints.
 - Use only facts present in the input. If unknown, write that it was not disclosed.
 - Do not include website/source name in author voice.
 - Tags: 3-5 lowercase tags.
