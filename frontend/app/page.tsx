@@ -358,12 +358,11 @@ export default function Home() {
                 );
               })}
             </div>
-            
           </div>
 
           {/* LATEST ARTICLES */}
           <section id="articles" className="mb-24">
-            <div className="mb-8 text-center lg:text-left">
+            <div className="mb-8">
               <h2 className="text-3xl font-bold text-zinc-900">Latest Articles</h2>
             </div>
 
@@ -398,7 +397,7 @@ export default function Home() {
                 </Link>
 
                 {/* Secondary articles — 2×2 grid on Right side */}
-                <div className="grid grid-cols-2 gap-4 sm:gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 sm:gap-6">
                   {featuredSecondary.map((article) => (
                     <Link
                       key={article.id}
