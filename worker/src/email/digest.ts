@@ -377,78 +377,128 @@ const buildHtmlDigest = (
     .join("");
 
   return `<!doctype html>
-<html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml">
   <head>
-    <meta name="color-scheme" content="light only" />
-    <meta name="supported-color-schemes" content="light only" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
     <style>
-      :root { color-scheme: light only; }
-      body { margin:0; padding:0; background-color:#111827 !important; }
-      .email-card { background-color:#ffffff !important; color:#0f172a !important; }
-      .email-card * { color:inherit; }
+      :root { color-scheme: light; supported-color-schemes: light; }
+      @media (prefers-color-scheme: dark) {
+        .body-bg { background-color: #111827 !important; }
+        .card-bg { background-color: #ffffff !important; }
+        .card-text { color: #0f172a !important; }
+        .card-muted { color: #64748b !important; }
+        .card-divider { border-color: #f1f5f9 !important; }
+      }
     </style>
   </head>
-  <body style="margin:0;padding:0;background-color:#111827;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#111827;padding:28px 16px;">
+  <body class="body-bg" style="margin:0;padding:0;background-color:#111827;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;" data-ogsc>
+    <!-- outer wrapper -->
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#111827;padding:24px 0;">
       <tr>
-        <td align="center">
-          <!-- Nav -->
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;margin-bottom:8px;">
+        <td align="center" style="padding:0 16px;">
+
+          <!-- nav bar above card -->
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px;">
             <tr>
-              <td style="text-align:center;font-family:Inter,Arial,sans-serif;font-size:12px;color:#6b7280;padding:0 0 8px 0;">
+              <td align="center" style="padding:0 0 10px 0;font-family:Arial,sans-serif;font-size:12px;color:#9ca3af;">
                 <a href="${siteBase}" style="color:#9ca3af;text-decoration:underline;">Read Online</a>
-                <span style="color:#374151;"> | </span>
+                &nbsp;|&nbsp;
                 <a href="${siteBase}/subscribe" style="color:#9ca3af;text-decoration:underline;">Sign Up</a>
-                <span style="color:#374151;"> | </span>
+                &nbsp;|&nbsp;
                 <a href="${siteBase}/contact" style="color:#9ca3af;text-decoration:underline;">Advertise</a>
               </td>
             </tr>
           </table>
-          <!-- White card with 1px fine border -->
-          <table class="email-card" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:620px;border-collapse:collapse;background-color:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+
+          <!-- email card: white bg, 1px fine border -->
+          <table class="card-bg" role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px;background-color:#ffffff;border:1px solid #EBEBEB;border-radius:10px;overflow:hidden;" data-ogsc>
+
+            <!-- cover image -->
             <tr>
-              <td style="padding:0;">
-                <img src="${coverImage}" alt="7secure" width="100%" style="display:block;width:100%;height:auto;max-height:200px;object-fit:cover;" />
+              <td style="padding:0;line-height:0;">
+                <img src="${coverImage}" alt="7secure" width="600" style="display:block;width:100%;max-width:600px;height:auto;max-height:200px;object-fit:cover;border-radius:10px 10px 0 0;" />
               </td>
             </tr>
+
+            <!-- greeting section -->
             <tr>
-              <td style="padding:24px 24px 20px 24px;border-bottom:1px solid #f1f5f9;font-family:Inter,Arial,sans-serif;">
-                <p style="margin:0;font-size:26px;line-height:1.3;font-weight:700;color:#0f172a;">Good morning, ${subscriberName}.</p>
-                <p style="margin:10px 0 0 0;font-size:14px;line-height:1.7;color:#64748b;">${date} briefing: clear threat context, key developments, and quick actions worth prioritizing today.</p>
-                <p style="margin:16px 0 6px 0;font-size:15px;line-height:1.4;font-weight:700;color:#0f172a;">In today's security rundown:</p>
-                <ul style="margin:0 0 0 18px;padding:0;color:#475569;font-size:14px;line-height:1.7;">
-                  ${dailyRundownList}
-                </ul>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:24px;border-bottom:1px solid #f1f5f9;font-family:Inter,Arial,sans-serif;">
-                <p style="margin:0 0 16px 0;font-size:13px;line-height:1.2;font-weight:700;color:#64748b;letter-spacing:0.08em;text-transform:uppercase;">Latest Developments</p>
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
-                  ${latestDevelopmentCards}
+              <td class="card-bg card-text" style="background-color:#ffffff;padding:24px 24px 20px 24px;border-bottom:1px solid #f1f5f9;" data-ogsc>
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                  <tr>
+                    <td style="font-family:Arial,sans-serif;">
+                      <p class="card-text" style="margin:0;font-size:24px;line-height:1.3;font-weight:700;color:#0f172a;">Good morning, ${subscriberName}.</p>
+                      <p class="card-muted" style="margin:10px 0 0 0;font-size:14px;line-height:1.7;color:#64748b;">${date} briefing: clear threat context, key developments, and quick actions worth prioritizing today.</p>
+                      <p class="card-text" style="margin:16px 0 6px 0;font-size:15px;line-height:1.4;font-weight:700;color:#0f172a;">In today's security rundown:</p>
+                      <ul style="margin:0 0 0 20px;padding:0;font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#475569;">
+                        ${dailyRundownList}
+                      </ul>
+                    </td>
+                  </tr>
                 </table>
               </td>
             </tr>
+
+            <!-- latest developments section -->
             <tr>
-              <td style="padding:24px;border-bottom:1px solid #f1f5f9;font-family:Inter,Arial,sans-serif;">
-                <p style="margin:0 0 16px 0;font-size:13px;line-height:1.2;font-weight:700;color:#64748b;letter-spacing:0.08em;text-transform:uppercase;">Quick Hits</p>
-                <div>${quickHits}</div>
+              <td class="card-bg" style="background-color:#ffffff;padding:24px;border-bottom:1px solid #f1f5f9;" data-ogsc>
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                  <tr>
+                    <td style="font-family:Arial,sans-serif;padding-bottom:16px;">
+                      <span style="font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:0.1em;text-transform:uppercase;">Latest Developments</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                        ${latestDevelopmentCards}
+                      </table>
+                    </td>
+                  </tr>
+                </table>
               </td>
             </tr>
+
+            <!-- quick hits section -->
             <tr>
-              <td style="padding:24px;border-bottom:1px solid #f1f5f9;">
+              <td class="card-bg" style="background-color:#ffffff;padding:24px;border-bottom:1px solid #f1f5f9;" data-ogsc>
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                  <tr>
+                    <td style="font-family:Arial,sans-serif;padding-bottom:16px;">
+                      <span style="font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:0.1em;text-transform:uppercase;">Quick Hits</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>${quickHits}</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- rating section -->
+            <tr>
+              <td class="card-bg" style="background-color:#ffffff;padding:24px;border-bottom:1px solid #f1f5f9;" data-ogsc>
                 ${ratingSection}
               </td>
             </tr>
+
+            <!-- footer -->
             <tr>
-              <td style="padding:20px 24px;font-family:Inter,Arial,sans-serif;text-align:center;">
-                <p style="margin:0;font-size:16px;font-weight:600;color:#0f172a;">See you soon 👋</p>
-                <p style="margin:8px 0 0 0;font-size:12px;color:#94a3b8;">
+              <td class="card-bg" style="background-color:#ffffff;padding:20px 24px;text-align:center;" data-ogsc>
+                <p style="margin:0;font-family:Arial,sans-serif;font-size:15px;font-weight:600;color:#0f172a;">See you soon 👋</p>
+                <p style="margin:8px 0 0 0;font-family:Arial,sans-serif;font-size:12px;color:#94a3b8;">
                   <a href="${unsubscribeUrl}" style="color:#94a3b8;text-decoration:underline;">Unsubscribe</a>
                 </p>
               </td>
             </tr>
+
           </table>
+          <!-- /email card -->
+
         </td>
       </tr>
     </table>
