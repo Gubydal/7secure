@@ -52,9 +52,10 @@ Return ONLY valid JSON:
 }`;
 
 const DEFAULT_COVER_IMAGE = "/cover.avif";
-const LLM_TIMEOUT_MS = 110_000;
-const LLM_RETRY_TIMEOUT_MS = 90_000;
+const LLM_TIMEOUT_MS = 75_000;
+const LLM_RETRY_TIMEOUT_MS = 55_000;
 const LLM_CHUNK_HEARTBEAT_MS = 15_000;
+const LLM_DIAGNOSTIC_MAX_LEN = 420;
 const MAX_REWRITE_CANDIDATES = 8;
 const DEFAULT_CATEGORY_POOL = [
   "industry-news",
@@ -555,6 +556,103 @@ const extractJson = (raw: string): unknown => {
   }
 };
 
+interface LLMResponseMessage {
+  content?: string | Array<string | { type?: string; text?: string; content?: string }>;
+  output_text?: string;
+  reasoning_content?: string;
+}
+
+interface LLMResponseChoice {
+  message?: LLMResponseMessage;
+  text?: string;
+  finish_reason?: string;
+}
+
+interface LLMResponsePayload {
+  choices?: LLMResponseChoice[];
+  output_text?: string;
+}
+
+const firstNonEmptyText = (values: unknown[]): string => {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return "";
+};
+
+const extractMessageContent = (message: LLMResponseMessage | undefined): string => {
+  if (!message) {
+    return "";
+  }
+
+  if (typeof message.content === "string" && message.content.trim()) {
+    return message.content.trim();
+  }
+
+  if (Array.isArray(message.content)) {
+    const joined = message.content
+      .map((part) => {
+        if (typeof part === "string") {
+          return part;
+        }
+        if (!part || typeof part !== "object") {
+          return "";
+        }
+
+        const text =
+          (typeof part.text === "string" && part.text) ||
+          (typeof part.content === "string" && part.content) ||
+          "";
+        return text;
+      })
+      .filter(Boolean)
+      .join("\n")
+      .trim();
+
+    if (joined) {
+      return joined;
+    }
+  }
+
+  return firstNonEmptyText([message.output_text, message.reasoning_content]);
+};
+
+const extractLlmContent = (payload: LLMResponsePayload): string => {
+  const firstChoice = payload.choices?.[0];
+  const fromMessage = extractMessageContent(firstChoice?.message);
+  if (fromMessage) {
+    return fromMessage;
+  }
+
+  return firstNonEmptyText([firstChoice?.text, payload.output_text]);
+};
+
+const buildLlmPayloadDiagnostic = (payload: LLMResponsePayload): string => {
+  const firstChoice = payload.choices?.[0] as
+    | (Record<string, unknown> & { finish_reason?: string })
+    | undefined;
+  const message = firstChoice?.message as Record<string, unknown> | undefined;
+
+  const diagnostic = {
+    choiceCount: Array.isArray(payload.choices) ? payload.choices.length : 0,
+    finishReason: typeof firstChoice?.finish_reason === "string" ? firstChoice.finish_reason : undefined,
+    firstChoiceKeys: firstChoice ? Object.keys(firstChoice).slice(0, 10) : [],
+    messageKeys: message ? Object.keys(message).slice(0, 10) : [],
+    hasFallbackText: Boolean(
+      firstNonEmptyText([
+        payload.output_text,
+        message?.output_text,
+        message?.reasoning_content,
+        firstChoice?.text
+      ])
+    )
+  };
+
+  return JSON.stringify(diagnostic).slice(0, LLM_DIAGNOSTIC_MAX_LEN);
+};
+
 const isValidArticle = (article: any): article is NewsletterArticle => {
   if (!article) return false;
   const isOk = (
@@ -599,7 +697,6 @@ const rewriteItem = async (
         body: JSON.stringify({
           model: env.LLM_MODEL,
           temperature: 0.2,
-          max_tokens: 1400,
           messages: [
             {
               role: "system",
@@ -633,13 +730,11 @@ const rewriteItem = async (
         continue;
       }
 
-      const payload = (await response.json()) as {
-        choices?: Array<{ message?: { content?: string } }>;
-      };
+      const payload = (await response.json()) as LLMResponsePayload;
 
-      const content = payload.choices?.[0]?.message?.content;
+      const content = extractLlmContent(payload);
       if (!content) {
-        console.error("No content from LLM");
+        console.error(`No content from LLM. Diagnostic: ${buildLlmPayloadDiagnostic(payload)}`);
         if (attempt === maxAttempts) {
           console.warn(`Falling back to deterministic article for ${item.title.substring(0, 60)} (empty LLM content)`);
           return fallbackArticle(item, categoryPool);
