@@ -37,6 +37,7 @@ Hard requirements:
 - If a new category is truly needed, keep it concise (1-3 words, kebab-case).
 - Slug: lowercase URL-safe with hyphens.
 - image_url: use source image if available, otherwise /cover.avif.
+- sufficient_data: true or false. Evaluate the input strictly. If the input summary/snippet is too short, vague, or lacks enough concrete technical details to write a high-quality 600+ word article without hallucinating, set this to false.
 
 Input fields:
 - summary: short feed summary text.
@@ -47,7 +48,7 @@ Return ONLY valid JSON:
 {
   'title': '...', 'slug': '...', 'summary': '...', 'content': '...',
   'category': '...', 'tags': ['...'], 'source_name': '7secure', 'source_url': '...',
-  'original_url': '...', 'image_url': '...'
+  'original_url': '...', 'image_url': '...', 'sufficient_data': true
 }`;
 
 const DEFAULT_COVER_IMAGE = "/cover.avif";
@@ -646,6 +647,11 @@ const rewriteItem = async (
       }
 
       const parsed = extractJson(content) as any;
+      if (parsed && parsed.sufficient_data === false) {
+        console.warn(`LLM rejected article due to insufficient data: ${item.title.substring(0, 60)}`);
+        return null;
+      }
+
       if (!isValidArticle(parsed)) {
         if (attempt === maxAttempts) {
           console.warn(`Falling back to deterministic article for ${item.title.substring(0, 60)} (invalid JSON payload)`);
