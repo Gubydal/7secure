@@ -233,11 +233,22 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
       const imageSrc = resolveImageUrl(article.image_url, siteBase);
       const category = escapeHtml(humanizeCategory(article.category).toUpperCase());
       const title = escapeHtml(stripEmojiInline(article.title));
-      const whyItMatters = escapeHtml(clamp(stripEmojiInline(article.summary), 400));
+      const whyItMatters = escapeHtml(stripEmojiInline(article.summary));
       const script = buildArticleScript(article);
-      const signal = escapeHtml(stripEmojiInline(script.signal));
-      const risk = escapeHtml(stripEmojiInline(script.risk));
-      const action = escapeHtml(stripEmojiInline(script.action));
+      
+      const cleanScriptField = (text: string) => {
+        const cleaned = text.replace(/[\[\]]/g, "").replace(/\.\.\./g, "").trim();
+        return cleaned.length > 5 ? escapeHtml(stripEmojiInline(cleaned)) : "";
+      };
+
+      const signal = cleanScriptField(script.signal);
+      const risk = cleanScriptField(script.risk);
+      const action = cleanScriptField(script.action);
+      
+      const signalHtml = signal ? `<p style="margin:6px 0 0 0;font-size:15px;line-height:1.55;color:#d4daee;"><strong style="color:#ffffff;">Signal:</strong> ${signal}</p>` : "";
+      const riskHtml = risk ? `<p style="margin:4px 0 0 0;font-size:15px;line-height:1.55;color:#d4daee;"><strong style="color:#ffffff;">Risk:</strong> ${risk}</p>` : "";
+      const actionHtml = action ? `<p style="margin:4px 0 0 0;font-size:15px;line-height:1.55;color:#d4daee;"><strong style="color:#ffffff;">Action:</strong> ${action}</p>` : "";
+
       const isCoverFallback = !imageSrc || /cover\.avif(?:$|\?)/i.test(imageSrc || "");
       const imageBlock = imageSrc
         ? (isCoverFallback
@@ -256,9 +267,9 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
                 <div style="font-size:11px;letter-spacing:0.13em;text-transform:uppercase;color:#97a1c4;margin-bottom:8px;">${category}</div>
                 <a href="${originalHref}" style="font-size:28px;line-height:1.25;font-weight:700;color:#8ea2ff;text-decoration:underline;display:block;">${title}</a>
                 <p style="margin:12px 0 0 0;font-size:16px;line-height:1.45;color:#f0f4ff;font-weight:700;">Short script</p>
-                <p style="margin:6px 0 0 0;font-size:15px;line-height:1.55;color:#d4daee;"><strong style="color:#ffffff;">Signal:</strong> ${signal}</p>
-                <p style="margin:4px 0 0 0;font-size:15px;line-height:1.55;color:#d4daee;"><strong style="color:#ffffff;">Risk:</strong> ${risk}</p>
-                <p style="margin:4px 0 0 0;font-size:15px;line-height:1.55;color:#d4daee;"><strong style="color:#ffffff;">Action:</strong> ${action}</p>
+                ${signalHtml}
+                ${riskHtml}
+                ${actionHtml}
                 <div style="margin:12px 0 0 0;border-top:1px solid ${EMAIL_THEME.frameBorder};padding-top:10px;">
                   <p style="margin:0;font-size:16px;line-height:1.58;color:#d4daee;"><strong style="color:#eef2ff;">Why this matters:</strong> ${whyItMatters}</p>
                 </div>
@@ -384,7 +395,7 @@ const buildHtmlDigest = (
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${EMAIL_THEME.pageBg};padding:8px 0;">
       <tr>
         <td align="center">
-          <table class="digest-shell" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:100%;border-collapse:collapse;background:${EMAIL_THEME.shellBg};border:4px solid #4a5578;border-radius:14px;overflow:hidden;">
+          <table class="digest-shell" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:100%;border-collapse:collapse;background:${EMAIL_THEME.shellBg};border:2px solid #ffffff;border-radius:14px;overflow:hidden;">
             <tr>
               <td style="padding:12px 18px;font-family:Inter,Arial,sans-serif;border-bottom:1px solid ${EMAIL_THEME.frameBorder};text-align:center;font-size:13px;line-height:1.5;">
                 <a href="${siteBase}" style="color:#9aa6cc;text-decoration:underline;">Read Online</a>
@@ -431,7 +442,6 @@ const buildHtmlDigest = (
             <tr>
               <td style="padding:16px;font-family:Inter,Arial,sans-serif;text-align:center;">
                 <p style="margin:0;font-size:18px;line-height:1.7;font-weight:700;color:${EMAIL_THEME.headingText};">See you soon 👋</p>
-                <div style="margin:14px 0 0 0;">${socialIconLinks}</div>
                 <p style="margin:12px 0 0 0;font-size:13px;line-height:1.6;color:${EMAIL_THEME.mutedText};">
                   <a href="${unsubscribeUrl}" style="color:${EMAIL_THEME.linkText};text-decoration:underline;">Unsubscribe</a>
                 </p>

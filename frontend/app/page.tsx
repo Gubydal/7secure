@@ -387,7 +387,7 @@ export default function Home() {
                     <h3 className="mb-3 text-2xl font-bold leading-tight tracking-tight text-zinc-900 group-hover:text-blue-700 sm:text-3xl">
                       {featuredPrimary.title}
                     </h3>
-                    <p className="line-clamp-3 text-base text-zinc-600 mb-4">
+                    <p className="text-base text-zinc-600 mb-4">
                       {featuredPrimary.summary}
                     </p>
                     <p className="mt-auto text-sm text-zinc-500 font-medium">
