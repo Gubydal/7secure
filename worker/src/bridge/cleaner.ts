@@ -71,6 +71,19 @@ const normalizeArticleUrl = (rawUrl: string): string => {
   }
 };
 
+const decodeHtmlEntities = (text: string): string => {
+  if (!text) return text;
+  return text
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&#x([0-9a-fA-F]+);?/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&#(\d+);?/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)));
+};
+
 export const cleanItems = (items: RawFeedItem[]): RawFeedItem[] => {
   const minSummary = items.filter((item) => {
     const summaryLength = item.summary.trim().length;
@@ -113,5 +126,10 @@ export const cleanItems = (items: RawFeedItem[]): RawFeedItem[] => {
     return Date.parse(b.publishedAt) - Date.parse(a.publishedAt);
   });
 
-  return sorted.slice(0, 30);
+  return sorted.slice(0, 30).map(item => ({
+    ...item,
+    title: decodeHtmlEntities(item.title).trim(),
+    summary: decodeHtmlEntities(item.summary).trim(),
+    sourceSnippet: item.sourceSnippet ? decodeHtmlEntities(item.sourceSnippet).trim() : undefined
+  }));
 };
