@@ -36,6 +36,7 @@ wrangler secret put SUPABASE_SERVICE_KEY
 wrangler secret put LLM_API_KEY
 wrangler secret put LLM_BASE_URL
 wrangler secret put LLM_MODEL
+wrangler secret put BRAVE_SEARCH_API_KEY
 wrangler secret put RESEND_API_KEY
 wrangler secret put RESEND_FROM_EMAIL
 wrangler secret put RESEND_AUDIENCE_ID

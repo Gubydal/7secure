@@ -8,7 +8,7 @@ import type { WorkerEnv } from "./types";
 export const runDailyPipeline = async (env: WorkerEnv): Promise<void> => {
   try {
     console.log("Starting daily pipeline...");
-    const raw = await fetchFeeds();
+    const raw = await fetchFeeds(env);
     console.log(`Fetched ${raw.length} raw items`);
     const cleaned = cleanItems(raw);
     console.log(`Cleaned down to ${cleaned.length} items`);

@@ -12,6 +12,10 @@ enabled = false
 [vars]
 LLM_BASE_URL = "https://api.longcat.chat/openai/v1"
 LLM_MODEL = "LongCat-Flash-Thinking-2601"
+BRAVE_SEARCH_COUNTRY = "us"
+BRAVE_SEARCH_LANG = "en"
+BRAVE_SEARCH_RESULTS_PER_QUERY = "12"
+BRAVE_SEARCH_FRESHNESS = "pw"
 RESEND_FROM_EMAIL = "7secure <onboarding@resend.dev>"
 NEXT_PUBLIC_SITE_URL = "https://7secure.pages.dev"
 

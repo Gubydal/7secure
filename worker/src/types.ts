@@ -38,6 +38,11 @@ export interface WorkerEnv {
   LLM_API_KEY: string;
   LLM_BASE_URL: string;
   LLM_MODEL: string;
+  BRAVE_SEARCH_API_KEY?: string;
+  BRAVE_SEARCH_COUNTRY?: string;
+  BRAVE_SEARCH_LANG?: string;
+  BRAVE_SEARCH_RESULTS_PER_QUERY?: string;
+  BRAVE_SEARCH_FRESHNESS?: string;
   RESEND_API_KEY: string;
   RESEND_FROM_EMAIL: string;
   RESEND_AUDIENCE_ID: string;

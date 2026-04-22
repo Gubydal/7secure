@@ -54,6 +54,7 @@ npx wrangler secret put SUPABASE_SERVICE_KEY
 npx wrangler secret put RESEND_API_KEY
 npx wrangler secret put RESEND_AUDIENCE_ID
 npx wrangler secret put LLM_API_KEY
+npx wrangler secret put BRAVE_SEARCH_API_KEY
 ```
 
 ## Summary Checklist for the AI (Provide these back to me when ready!):

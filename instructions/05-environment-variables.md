@@ -12,6 +12,11 @@
 | `LLM_API_KEY` | Worker, test script | API key for selected OpenAI-compatible LLM provider | Provider dashboard (OpenAI/Anthropic-compatible gateway/etc.) |
 | `LLM_BASE_URL` | Worker, test script | Base URL for OpenAI-compatible Chat Completions API | Provider API docs (example format: `https://api.openai.com/v1`) |
 | `LLM_MODEL` | Worker, test script | Model ID used for rewrite calls | Provider model list (set to your default model, e.g. GPT-4o) |
+| `BRAVE_SEARCH_API_KEY` | Worker | API key for Brave Search API web/image endpoints used for article discovery | Brave Search API dashboard |
+| `BRAVE_SEARCH_COUNTRY` | Worker (optional) | Two-letter country bias for Brave search results | Set manually (example: `us`) |
+| `BRAVE_SEARCH_LANG` | Worker (optional) | Search language for Brave query ranking | Set manually (example: `en`) |
+| `BRAVE_SEARCH_RESULTS_PER_QUERY` | Worker (optional) | Number of Brave results per category query (recommended 8-20) | Set manually (example: `12`) |
+| `BRAVE_SEARCH_FRESHNESS` | Worker (optional) | News freshness filter (`pd`, `pw`, `pm`, `py`, or custom `YYYY-MM-DDtoYYYY-MM-DD`) | Set manually (example: `pw`) |
 | `RESEND_API_KEY` | Worker, frontend API routes, test script | Auth key for sending emails and audience updates | Resend > API Keys |
 | `RESEND_FROM_EMAIL` | Worker, frontend API routes, test script | Sender address used for digest and welcome emails | Verified sender from your verified Resend domain |
 | `RESEND_AUDIENCE_ID` | Worker, frontend API routes, test script | Audience ID for subscriber sync | Resend > Audiences > select audience |
@@ -31,6 +36,11 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 LLM_API_KEY=YOUR_LLM_API_KEY
 LLM_BASE_URL=https://api.openai.com/v1
 LLM_MODEL=YOUR_MODEL_ID
+BRAVE_SEARCH_API_KEY=YOUR_BRAVE_SEARCH_API_KEY
+BRAVE_SEARCH_COUNTRY=us
+BRAVE_SEARCH_LANG=en
+BRAVE_SEARCH_RESULTS_PER_QUERY=12
+BRAVE_SEARCH_FRESHNESS=pw
 RESEND_API_KEY=YOUR_RESEND_API_KEY
 RESEND_FROM_EMAIL=briefing@YOUR_VERIFIED_DOMAIN
 RESEND_AUDIENCE_ID=YOUR_RESEND_AUDIENCE_ID
