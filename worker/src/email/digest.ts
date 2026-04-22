@@ -36,14 +36,14 @@ const stripEmojiInline = (value: string): string => value.replace(ARTICLE_EMOJI_
 const stripMarkdown = (value: string): string =>
   stripEmojiInline(
     value
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/`[^`]*`/g, " ")
-    .replace(/!\[[^\]]*\]\([^\)]*\)/g, " ")
-    .replace(/\[[^\]]*\]\([^\)]*\)/g, " ")
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/[*_>~]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
+      .replace(/```[\s\S]*?```/g, " ")
+      .replace(/`[^`]*`/g, " ")
+      .replace(/!\[[^\]]*\]\([^\)]*\)/g, " ")
+      .replace(/\[[^\]]*\]\([^\)]*\)/g, " ")
+      .replace(/^#{1,6}\s+/gm, "")
+      .replace(/[*_>~]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
   );
 
 const clamp = (value: string, limit: number): string =>
@@ -225,51 +225,116 @@ const buildDailyRundownList = (articles: DigestArticle[]): string =>
     })
     .join("");
 
-const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string): string =>
-  articles
-    .map((article, index) => {
-      const newsletterHref = `${siteBase}/articles/${article.slug}`;
-      const originalHref = safeUrl(article.original_url, newsletterHref);
-      const imageSrc = resolveImageUrl(article.image_url, siteBase);
-      const category = escapeHtml(humanizeCategory(article.category).toUpperCase());
-      const title = escapeHtml(stripEmojiInline(article.title));
-      const whyItMatters = escapeHtml(clamp(stripEmojiInline(article.summary), 400));
-      const script = buildArticleScript(article);
-      const signal = escapeHtml(stripEmojiInline(script.signal));
-      const risk = escapeHtml(stripEmojiInline(script.risk));
-      const action = escapeHtml(stripEmojiInline(script.action));
-      const isCoverFallback = !imageSrc || /cover\.avif(?:$|\?)/i.test(imageSrc || "");
-      const imageBlock = imageSrc
+const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string): string => {
+  if (articles.length === 0) return "";
+
+  const buildCard = (article: DigestArticle, index: number, isGridItem: boolean): string => {
+    const newsletterHref = `${siteBase}/articles/${article.slug}`;
+    const originalHref = safeUrl(article.original_url, newsletterHref);
+    const imageSrc = resolveImageUrl(article.image_url, siteBase);
+    const category = escapeHtml(humanizeCategory(article.category).toUpperCase());
+    const title = escapeHtml(stripEmojiInline(article.title));
+    const whyItMatters = escapeHtml(clamp(stripEmojiInline(article.summary), 400));
+    const script = buildArticleScript(article);
+    const signal = escapeHtml(stripEmojiInline(script.signal));
+    const risk = escapeHtml(stripEmojiInline(script.risk));
+    const action = escapeHtml(stripEmojiInline(script.action));
+    const isCoverFallback = !imageSrc || /cover\.avif(?:$|\?)/i.test(imageSrc || "");
+    const authorIcon = `<img src="${siteBase}/Small_Icon.svg" alt="7s" width="18" height="18" style="display:inline-block;width:18px;height:18px;border-radius:50%;vertical-align:middle;margin-right:5px;background:#0a0f1c;" />`;
+
+    if (isGridItem) {
+      const gridImageBlock = imageSrc
         ? (isCoverFallback
-            ? `<div style="padding:16px 0 12px 0;text-align:center;"><img src="${imageSrc}" alt="${title}" width="120" style="display:inline-block;width:120px;height:auto;" /></div>`
-            : `<div style="padding:0 0 12px 0;"><img src="${imageSrc}" alt="${title}" width="100%" style="display:block;width:100%;height:auto;max-height:210px;object-fit:cover;border-radius:8px;" /></div>`)
+            ? `<div style="padding:10px 0;text-align:center;background:#18181b;border-radius:8px;"><img src="${imageSrc}" alt="${title}" width="80" style="display:inline-block;width:80px;height:auto;" /></div>`
+            : `<div style="padding:0 0 12px 0;"><img src="${imageSrc}" alt="${title}" width="100%" style="display:block;width:100%;height:auto;max-height:160px;object-fit:cover;border-radius:8px;" /></div>`)
         : "";
-      const authorIcon = `<img src="${siteBase}/Small_Icon.svg" alt="7s" width="18" height="18" style="display:inline-block;width:18px;height:18px;border-radius:50%;vertical-align:middle;margin-right:5px;background:#0a0f1c;" />`;
 
       return `
-      <tr>
-        <td style="padding:${index === 0 ? "0" : "28px 0 0 0"}">
-          ${imageBlock}
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
-            <tr>
-              <td style="padding:0;font-family:Inter,Arial,sans-serif;color:#e8ecf8;">
-                <div style="font-size:11px;letter-spacing:0.13em;text-transform:uppercase;color:#97a1c4;margin-bottom:8px;">${category}</div>
-                <a href="${originalHref}" style="font-size:28px;line-height:1.25;font-weight:700;color:#8ea2ff;text-decoration:underline;display:block;">${title}</a>
-                <p style="margin:12px 0 0 0;font-size:16px;line-height:1.45;color:#f0f4ff;font-weight:700;">Short script</p>
-                <p style="margin:6px 0 0 0;font-size:15px;line-height:1.55;color:#d4daee;"><strong style="color:#ffffff;">Signal:</strong> ${signal}</p>
-                <p style="margin:4px 0 0 0;font-size:15px;line-height:1.55;color:#d4daee;"><strong style="color:#ffffff;">Risk:</strong> ${risk}</p>
-                <p style="margin:4px 0 0 0;font-size:15px;line-height:1.55;color:#d4daee;"><strong style="color:#ffffff;">Action:</strong> ${action}</p>
-                <div style="margin:12px 0 0 0;border-top:1px solid ${EMAIL_THEME.frameBorder};padding-top:10px;">
-                  <p style="margin:0;font-size:16px;line-height:1.58;color:#d4daee;"><strong style="color:#eef2ff;">Why this matters:</strong> ${whyItMatters}</p>
-                </div>
-                <p style="margin:12px 0 0 0;font-size:13px;line-height:1.4;color:#98a2bd;">${authorIcon}7secure \u00b7 ${formatPublishDate(article.published_at)} \u00b7 <a href="${newsletterHref}" style="color:#9ec8ff;text-decoration:underline;">Read full version</a></p>
-              </td>
-            </tr>
-          </table>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+        <tr>
+          <td style="padding:12px 8px;font-family:Inter,Arial,sans-serif;color:#e8ecf8;vertical-align:top;text-align:left;">
+            ${gridImageBlock}
+            <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#97a1c4;margin-bottom:6px;">${category}</div>
+            <a href="${originalHref}" style="font-size:18px;line-height:1.35;font-weight:700;color:#8ea2ff;text-decoration:underline;display:block;min-height:48px;">${title}</a>
+            <p style="margin:10px 0 0 0;font-size:12px;line-height:1.4;color:#98a2bd;">7secure \u00b7 ${formatPublishDate(article.published_at)}</p>
+          </td>
+        </tr>
+      </table>`;
+    }
+
+    const mainImageBlock = imageSrc
+      ? (isCoverFallback
+          ? `<div style="padding:16px 0 12px 0;text-align:center;"><img src="${imageSrc}" alt="${title}" width="120" style="display:inline-block;width:120px;height:auto;" /></div>`
+          : `<div style="padding:0 0 16px 0;"><img src="${imageSrc}" alt="${title}" width="100%" style="display:block;width:100%;height:auto;max-height:260px;object-fit:cover;border-radius:10px;" /></div>`)
+      : "";
+
+    return `
+    <tr>
+      <td style="padding:0 0 24px 0;">
+        ${mainImageBlock}
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+          <tr>
+            <td style="padding:0;font-family:Inter,Arial,sans-serif;color:#e8ecf8;text-align:left;">
+              <div style="font-size:11px;letter-spacing:0.13em;text-transform:uppercase;color:#97a1c4;margin-bottom:8px;">${category}</div>
+              <a href="${originalHref}" style="font-size:28px;line-height:1.25;font-weight:700;color:#8ea2ff;text-decoration:underline;display:block;">${title}</a>
+              <p style="margin:12px 0 0 0;font-size:16px;line-height:1.45;color:#f0f4ff;font-weight:700;">Short script</p>
+              <p style="margin:6px 0 0 0;font-size:15px;line-height:1.55;color:#d4daee;"><strong style="color:#ffffff;">Signal:</strong> ${signal}</p>
+              <p style="margin:4px 0 0 0;font-size:15px;line-height:1.55;color:#d4daee;"><strong style="color:#ffffff;">Risk:</strong> ${risk}</p>
+              <p style="margin:4px 0 0 0;font-size:15px;line-height:1.55;color:#d4daee;"><strong style="color:#ffffff;">Action:</strong> ${action}</p>
+              <div style="margin:12px 0 0 0;border-top:1px solid ${EMAIL_THEME.frameBorder};padding-top:10px;">
+                <p style="margin:0;font-size:16px;line-height:1.58;color:#d4daee;"><strong style="color:#eef2ff;">Why this matters:</strong> ${whyItMatters}</p>
+              </div>
+              <p style="margin:12px 0 0 0;font-size:13px;line-height:1.4;color:#98a2bd;">${authorIcon}7secure \u00b7 ${formatPublishDate(article.published_at)} \u00b7 <a href="${newsletterHref}" style="color:#9ec8ff;text-decoration:underline;">Read full version</a></p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>`;
+  };
+
+  let html = buildCard(articles[0], 0, false);
+
+  if (articles.length > 1) {
+    const gridArticles = articles.slice(1, 5); // Ensure exactly 4 articles max for the 2x2 grid
+    
+    let gridHtml = `
+    <tr>
+      <td style="padding:10px 0 0 0; font-size:0; text-align:center;">
+        <!--[if mso]>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+        <![endif]-->
+    `;
+
+    gridArticles.forEach((article, index) => {
+      gridHtml += `
+        <!--[if mso]>
+        <td width="50%" valign="top">
+        <![endif]-->
+        <div style="display:inline-block; width:100%; max-width:305px; vertical-align:top;">
+          ${buildCard(article, index + 1, true)}
+        </div>
+        <!--[if mso]>
         </td>
-      </tr>`;
-    })
-    .join("");
+        ${(index % 2 === 1 && index < gridArticles.length - 1) ? `</tr><tr>` : ""}
+        <![endif]-->
+      `;
+    });
+
+    gridHtml += `
+        <!--[if mso]>
+        </tr>
+        </table>
+        <![endif]-->
+      </td>
+    </tr>
+    `;
+    
+    html += gridHtml;
+  }
+
+  return html;
+};
 
 const buildQuickHitsSection = (): string => `
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:${EMAIL_THEME.panelBg};border:1px solid ${EMAIL_THEME.frameBorder};border-radius:12px;overflow:hidden;">
@@ -411,7 +476,7 @@ const buildHtmlDigest = (
             </tr>
             <tr>
               <td style="padding:18px 18px;border-bottom:1px solid ${EMAIL_THEME.frameBorder};font-family:Inter,Arial,sans-serif;">
-                <p style="margin:0 0 18px 0;font-size:28px;line-height:1.2;font-weight:700;color:${EMAIL_THEME.headingText};letter-spacing:0.02em;text-transform:uppercase;">Latest Developments</p>
+                <p style="margin:0 0 18px 0;font-size:28px;line-height:1.2;font-weight:700;color:${EMAIL_THEME.headingText};letter-spacing:0.02em;text-transform:uppercase;">Latest Articles</p>
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
                   ${latestDevelopmentCards}
                 </table>
@@ -578,7 +643,7 @@ export const sendDigest = async (env: WorkerEnv): Promise<DigestSendResult> => {
           text: buildTextDigest(digestArticles, subscriber as DigestSubscriber, env.NEXT_PUBLIC_SITE_URL)
         }))
       );
-      
+
       if (response.error) {
         hadErrors = true;
         console.error(`Resend batch ${batchLabel} error: ${serializeError(response.error)}`);
