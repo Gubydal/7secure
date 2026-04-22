@@ -311,7 +311,7 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
         <!--[if mso]>
         <td width="50%" valign="top">
         <![endif]-->
-        <div style="display:inline-block; width:100%; max-width:305px; vertical-align:top;">
+        <div style="display:inline-block; width:100%; max-width:280px; vertical-align:top;">
           ${buildCard(article, index + 1, true)}
         </div>
         <!--[if mso]>
