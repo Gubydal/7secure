@@ -52,8 +52,8 @@ Return ONLY valid JSON:
 }`;
 
 const DEFAULT_COVER_IMAGE = "/cover.avif";
-const LLM_TIMEOUT_MS = 75_000;
-const LLM_RETRY_TIMEOUT_MS = 45_000;
+const LLM_TIMEOUT_MS = 110_000;
+const LLM_RETRY_TIMEOUT_MS = 90_000;
 const LLM_CHUNK_HEARTBEAT_MS = 15_000;
 const MAX_REWRITE_CANDIDATES = 8;
 const DEFAULT_CATEGORY_POOL = [
@@ -599,6 +599,7 @@ const rewriteItem = async (
         body: JSON.stringify({
           model: env.LLM_MODEL,
           temperature: 0.2,
+          max_tokens: 1400,
           messages: [
             {
               role: "system",
@@ -717,7 +718,7 @@ export const writeArticles = async (
 ): Promise<NewsletterArticle[]> => {
   const candidates = items.slice(0, MAX_REWRITE_CANDIDATES);
   const results: NewsletterArticle[] = [];
-  const concurrency = 3;
+  const concurrency = 2;
   const categoryPool = [...new Set([...trackedCategories, ...DEFAULT_CATEGORY_POOL])].slice(0, 10);
   const totalChunks = Math.ceil(candidates.length / concurrency);
 
