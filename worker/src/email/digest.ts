@@ -127,9 +127,9 @@ const buildArticleScript = (
     .filter(Boolean);
 
   return {
-    signal: clamp(sentences[0] || article.summary || "Source reporting indicates an active security development.", 170),
-    risk: clamp(sentences[1] || "Risk likely increases where internet exposure, privileged access, or legacy versions are present.", 170),
-    action: clamp(sentences[2] || "Run a rapid owner-based remediation and verification cycle in the next 24 hours.", 170)
+    signal: sentences[0] || article.summary || "Source reporting indicates an active security development.",
+    risk: sentences[1] || "Risk likely increases where internet exposure, privileged access, or legacy versions are present.",
+    action: sentences[2] || "Run a rapid owner-based remediation and verification cycle in the next 24 hours."
   };
 };
 
@@ -384,7 +384,7 @@ const buildHtmlDigest = (
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${EMAIL_THEME.pageBg};padding:8px 0;">
       <tr>
         <td align="center">
-          <table class="digest-shell" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:660px;border-collapse:collapse;background:${EMAIL_THEME.shellBg};border:2px solid ${EMAIL_THEME.frameBorder};border-radius:14px;overflow:hidden;">
+          <table class="digest-shell" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:100%;border-collapse:collapse;background:${EMAIL_THEME.shellBg};border:4px solid #4a5578;border-radius:14px;overflow:hidden;">
             <tr>
               <td style="padding:12px 18px;font-family:Inter,Arial,sans-serif;border-bottom:1px solid ${EMAIL_THEME.frameBorder};text-align:center;font-size:13px;line-height:1.5;">
                 <a href="${siteBase}" style="color:#9aa6cc;text-decoration:underline;">Read Online</a>
