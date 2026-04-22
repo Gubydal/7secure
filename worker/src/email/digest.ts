@@ -379,62 +379,72 @@ const buildHtmlDigest = (
   return `<!doctype html>
 <html>
   <head>
-    <meta name="color-scheme" content="light" />
-    <meta name="supported-color-schemes" content="light" />
+    <meta name="color-scheme" content="light only" />
+    <meta name="supported-color-schemes" content="light only" />
+    <style>
+      :root { color-scheme: light only; }
+      body { margin:0; padding:0; background-color:#111827 !important; }
+      .email-card { background-color:#ffffff !important; color:#0f172a !important; }
+      .email-card * { color:inherit; }
+    </style>
   </head>
-  <body style="margin:0;padding:0;background-color:#f3f5fa;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f5fa;padding:32px 16px;">
+  <body style="margin:0;padding:0;background-color:#111827;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#111827;padding:28px 16px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:680px;border-collapse:collapse;background-color:#ffffff;border:1px solid #d1d9e8;border-radius:16px;overflow:hidden;">
+          <!-- Nav -->
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;margin-bottom:8px;">
             <tr>
-              <td style="padding:12px 18px;font-family:Inter,Arial,sans-serif;border-bottom:1px solid #e8ecf5;text-align:center;font-size:13px;line-height:1.5;color:#6b7899;">
-                <a href="${siteBase}" style="color:#4a6cf7;text-decoration:underline;">Read Online</a>
-                <span style="color:#bcc4dc;"> | </span>
-                <a href="${siteBase}/subscribe" style="color:#4a6cf7;text-decoration:underline;">Sign Up</a>
-                <span style="color:#bcc4dc;"> | </span>
-                <a href="${siteBase}/contact" style="color:#4a6cf7;text-decoration:underline;">Advertise</a>
+              <td style="text-align:center;font-family:Inter,Arial,sans-serif;font-size:12px;color:#6b7280;padding:0 0 8px 0;">
+                <a href="${siteBase}" style="color:#9ca3af;text-decoration:underline;">Read Online</a>
+                <span style="color:#374151;"> | </span>
+                <a href="${siteBase}/subscribe" style="color:#9ca3af;text-decoration:underline;">Sign Up</a>
+                <span style="color:#374151;"> | </span>
+                <a href="${siteBase}/contact" style="color:#9ca3af;text-decoration:underline;">Advertise</a>
               </td>
             </tr>
+          </table>
+          <!-- White card with 1px fine border -->
+          <table class="email-card" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:620px;border-collapse:collapse;background-color:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
             <tr>
               <td style="padding:0;">
-                <img src="${coverImage}" alt="7secure cover" width="100%" style="display:block;width:100%;height:auto;max-height:230px;object-fit:cover;" />
+                <img src="${coverImage}" alt="7secure" width="100%" style="display:block;width:100%;height:auto;max-height:200px;object-fit:cover;" />
               </td>
             </tr>
             <tr>
-              <td style="padding:24px;border-bottom:1px solid #e8ecf5;font-family:Inter,Arial,sans-serif;color:#0f172a;">
-                <p style="margin:0;font-size:28px;line-height:1.3;font-weight:700;color:#0f172a;">Good morning, ${subscriberName}.</p>
-                <p style="margin:12px 0 0 0;font-size:15px;line-height:1.68;color:#475569;">${date} briefing: clear threat context, key developments, and quick actions worth prioritizing today.</p>
-                <p style="margin:16px 0 0 0;font-size:18px;line-height:1.34;font-weight:700;color:#0f172a;">In today's security rundown:</p>
-                <ul style="margin:10px 0 0 18px;padding:0;color:#334155;font-size:14px;line-height:1.7;">
+              <td style="padding:24px 24px 20px 24px;border-bottom:1px solid #f1f5f9;font-family:Inter,Arial,sans-serif;">
+                <p style="margin:0;font-size:26px;line-height:1.3;font-weight:700;color:#0f172a;">Good morning, ${subscriberName}.</p>
+                <p style="margin:10px 0 0 0;font-size:14px;line-height:1.7;color:#64748b;">${date} briefing: clear threat context, key developments, and quick actions worth prioritizing today.</p>
+                <p style="margin:16px 0 6px 0;font-size:15px;line-height:1.4;font-weight:700;color:#0f172a;">In today's security rundown:</p>
+                <ul style="margin:0 0 0 18px;padding:0;color:#475569;font-size:14px;line-height:1.7;">
                   ${dailyRundownList}
                 </ul>
               </td>
             </tr>
             <tr>
-              <td style="padding:24px;border-bottom:1px solid #e8ecf5;font-family:Inter,Arial,sans-serif;">
-                <p style="margin:0 0 18px 0;font-size:22px;line-height:1.2;font-weight:700;color:#0f172a;letter-spacing:0.02em;text-transform:uppercase;">Latest Developments</p>
+              <td style="padding:24px;border-bottom:1px solid #f1f5f9;font-family:Inter,Arial,sans-serif;">
+                <p style="margin:0 0 16px 0;font-size:13px;line-height:1.2;font-weight:700;color:#64748b;letter-spacing:0.08em;text-transform:uppercase;">Latest Developments</p>
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
                   ${latestDevelopmentCards}
                 </table>
               </td>
             </tr>
             <tr>
-              <td style="padding:24px;border-bottom:1px solid #e8ecf5;font-family:Inter,Arial,sans-serif;">
-                <p style="margin:0 0 18px 0;font-size:22px;line-height:1.2;font-weight:700;color:#0f172a;letter-spacing:0.02em;text-transform:uppercase;">Quick Hits</p>
+              <td style="padding:24px;border-bottom:1px solid #f1f5f9;font-family:Inter,Arial,sans-serif;">
+                <p style="margin:0 0 16px 0;font-size:13px;line-height:1.2;font-weight:700;color:#64748b;letter-spacing:0.08em;text-transform:uppercase;">Quick Hits</p>
                 <div>${quickHits}</div>
               </td>
             </tr>
             <tr>
-              <td style="padding:24px;border-bottom:1px solid #e8ecf5;">
+              <td style="padding:24px;border-bottom:1px solid #f1f5f9;">
                 ${ratingSection}
               </td>
             </tr>
             <tr>
-              <td style="padding:24px;font-family:Inter,Arial,sans-serif;text-align:center;">
-                <p style="margin:0;font-size:18px;line-height:1.7;font-weight:700;color:#0f172a;">See you soon 👋</p>
-                <p style="margin:12px 0 0 0;font-size:13px;line-height:1.6;color:#64748b;">
-                  <a href="${unsubscribeUrl}" style="color:#4a6cf7;text-decoration:underline;">Unsubscribe</a>
+              <td style="padding:20px 24px;font-family:Inter,Arial,sans-serif;text-align:center;">
+                <p style="margin:0;font-size:16px;font-weight:600;color:#0f172a;">See you soon 👋</p>
+                <p style="margin:8px 0 0 0;font-size:12px;color:#94a3b8;">
+                  <a href="${unsubscribeUrl}" style="color:#94a3b8;text-decoration:underline;">Unsubscribe</a>
                 </p>
               </td>
             </tr>
