@@ -12,6 +12,7 @@ CREATE TABLE articles (
   published_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   is_featured BOOLEAN DEFAULT FALSE,
+  is_incident BOOLEAN DEFAULT FALSE,
   tags TEXT[] DEFAULT '{}'
 );
 

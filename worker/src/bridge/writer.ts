@@ -1,5 +1,6 @@
 import type { NewsletterArticle, RawFeedItem, WorkerEnv } from "../types";
 import { isRegulatoryContent, applyRegulatoryTag } from "./regulatory-classifier";
+import { classifyIncidentDetailed, isSecurityIncident } from "./incident-classifier";
 
 const SYSTEM_PROMPT = `You are a technology copywriter specializing in AI and cybersecurity. Analyze the following article and produce a concise, intelligence-style summary in English.
 
@@ -761,7 +762,8 @@ const fallbackArticle = (item: RawFeedItem, categoryPool: string[]): NewsletterA
   const summary =
     cleanedSummary ||
     `Security teams should review this update relevant to ${item.category.replace(/-/g, " ")}.`;
-  const content = buildStructuredContent(summary, item.sourceSnippet || summary, item);
+  const deterministicIncident = isSecurityIncident(item);
+  const content = buildStructuredContent(summary, item.sourceSnippet || summary, item, undefined, deterministicIncident);
   const category = pickCategory(item.category, item, categoryPool);
 
   return {
@@ -775,7 +777,8 @@ const fallbackArticle = (item: RawFeedItem, categoryPool: string[]): NewsletterA
     source_url: item.sourceUrl,
     original_url: item.url,
     image_url: item.imageUrl || DEFAULT_COVER_IMAGE,
-    is_featured: false
+    is_featured: false,
+    is_incident: deterministicIncident
   };
 };
 
@@ -918,6 +921,10 @@ const rewriteItem = async (
 ): Promise<NewsletterArticle | null> => {
   const maxAttempts = 2;
   const rewriteStartedAt = Date.now();
+  const deterministicClassification = classifyIncidentDetailed(item);
+  console.log(
+    `Incident classification for "${item.title.substring(0, 50)}...": score=${deterministicClassification.score}, confidence=${deterministicClassification.confidence}, isIncident=${deterministicClassification.isIncident}, signals=[${deterministicClassification.signals.join(", ")}]`
+  );
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const controller = new AbortController();
@@ -953,7 +960,9 @@ const rewriteItem = async (
                 source_url: item.sourceUrl,
                 category: item.category,
                 preferred_categories: categoryPool,
-                image_url: item.imageUrl || DEFAULT_COVER_IMAGE
+                image_url: item.imageUrl || DEFAULT_COVER_IMAGE,
+                likely_incident: deterministicClassification.isIncident,
+                incident_signals: deterministicClassification.signals
               })
             }
           ]

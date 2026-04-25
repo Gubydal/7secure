@@ -114,6 +114,7 @@ export const saveArticles = async (
     image_url: article.image_url ?? null,
     tags: article.tags,
     is_featured: index === 0,
+    is_incident: article.is_incident ?? false,
     published_at: new Date().toISOString()
   }));
 
@@ -139,7 +140,7 @@ export const getRecentArticles = async (env: WorkerEnv) => {
 
   const { data } = await admin
     .from("articles")
-    .select("title,slug,summary,content,category,published_at,image_url,original_url")
+    .select("title,slug,summary,content,category,published_at,image_url,original_url,is_incident")
     .gte("published_at", since)
     .order("published_at", { ascending: false });
 
@@ -149,7 +150,7 @@ export const getRecentArticles = async (env: WorkerEnv) => {
 
   const { data: fallback } = await admin
     .from("articles")
-    .select("title,slug,summary,content,category,published_at,image_url,original_url")
+    .select("title,slug,summary,content,category,published_at,image_url,original_url,is_incident")
     .order("published_at", { ascending: false })
     .limit(12);
 
