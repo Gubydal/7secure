@@ -257,16 +257,30 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
           `</ul>`;
       };
 
+      const isIncident = Boolean(script.incidentOverview);
+
       const keyPointsHtml = script.keyPoints
-        ? `<div style="margin:16px 0 0 0;"><strong style="font-size:13px;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;font-family:Arial,sans-serif;">Key Points</strong>${markdownListToHtml(script.keyPoints)}</div>`
+        ? `<div style="margin:16px 0 0 0;"><strong style="font-size:14px;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;font-family:Arial,sans-serif;">Key Takeaways</strong>${markdownListToHtml(script.keyPoints)}</div>`
         : "";
 
-      const descriptionHtml = script.description
-        ? `<div style="margin:16px 0 0 0;"><strong style="font-size:13px;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;font-family:Arial,sans-serif;">Description</strong><p style="margin:6px 0 0 0;font-size:14px;line-height:1.6;color:#334155;font-family:Arial,sans-serif;">${cleanScriptField(script.description)}</p></div>`
+      const descriptionHtml = !isIncident && script.description
+        ? `<div style="margin:16px 0 0 0;"><strong style="font-size:14px;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;font-family:Arial,sans-serif;">Description</strong><p style="margin:6px 0 0 0;font-size:15px;line-height:1.6;color:#334155;font-family:Arial,sans-serif;">${cleanScriptField(script.description)}</p></div>`
         : "";
 
-      const whyImportantHtml = script.whyImportant
-        ? `<div style="margin:16px 0 0 0;border-top:1px solid #e8ecf5;padding-top:14px;"><strong style="font-size:13px;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;font-family:Arial,sans-serif;">Why this matters</strong><p style="margin:6px 0 0 0;font-size:14px;line-height:1.6;color:#334155;font-family:Arial,sans-serif;">${cleanScriptField(script.whyImportant)}</p></div>`
+      const whyImportantHtml = !isIncident && script.whyImportant
+        ? `<div style="margin:16px 0 0 0;border-top:1px solid #e8ecf5;padding-top:14px;"><strong style="font-size:14px;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;font-family:Arial,sans-serif;">Why It Matters</strong><p style="margin:6px 0 0 0;font-size:15px;line-height:1.6;color:#334155;font-family:Arial,sans-serif;">${cleanScriptField(script.whyImportant)}</p></div>`
+        : "";
+
+      const incidentOverviewHtml = isIncident && script.incidentOverview
+        ? `<div style="margin:16px 0 0 0;"><strong style="font-size:14px;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;font-family:Arial,sans-serif;">Incident Overview</strong><p style="margin:6px 0 0 0;font-size:15px;line-height:1.6;color:#334155;font-family:Arial,sans-serif;">${cleanScriptField(script.incidentOverview)}</p></div>`
+        : "";
+
+      const securityImplicationsHtml = isIncident && script.securityImplications
+        ? `<div style="margin:16px 0 0 0;border-top:1px solid #e8ecf5;padding-top:14px;"><strong style="font-size:14px;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;font-family:Arial,sans-serif;">Security Implications</strong><p style="margin:6px 0 0 0;font-size:15px;line-height:1.6;color:#334155;font-family:Arial,sans-serif;">${cleanScriptField(script.securityImplications)}</p></div>`
+        : "";
+
+      const recommendedMitigationsHtml = isIncident && script.recommendedMitigations
+        ? `<div style="margin:16px 0 0 0;border-top:1px solid #e8ecf5;padding-top:14px;"><strong style="font-size:14px;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;font-family:Arial,sans-serif;">Recommended Mitigations</strong>${markdownListToHtml(script.recommendedMitigations)}</div>`
         : "";
 
       const isCoverFallback = !imageSrc || /cover\.avif(?:$|\?)/i.test(imageSrc || "");
@@ -276,16 +290,19 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
       return `
       <tr>
         <td style="padding:${index === 0 ? "0" : "20px 0 0 0"}">
-          <table role="presentation" width="100%" cellpadding="20" cellspacing="0" style="border-collapse:collapse;background-color:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background-color:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
             <tr>
               <td style="padding:0;font-family:Arial,sans-serif;color:#0f172a;">
                 ${imageBlock}
-                <div style="padding:${imageSrc ? '16px 20px 20px' : '20px'};">
+                <div style="padding:24px;">
                   <div style="font-size:11px;letter-spacing:0.13em;text-transform:uppercase;color:#64748b;margin-bottom:8px;font-family:Arial,sans-serif;">${category}</div>
-                  <a href="${originalHref}" style="font-size:22px;line-height:1.25;font-weight:700;color:#1d4ed8;text-decoration:underline;display:block;font-family:Arial,sans-serif;">${title}</a>
+                  <a href="${originalHref}" style="font-size:24px;line-height:1.25;font-weight:700;color:#1d4ed8;text-decoration:underline;display:block;font-family:Arial,sans-serif;">${title}</a>
                   ${keyPointsHtml}
                   ${descriptionHtml}
                   ${whyImportantHtml}
+                  ${incidentOverviewHtml}
+                  ${securityImplicationsHtml}
+                  ${recommendedMitigationsHtml}
                   <p style="margin:16px 0 0 0;font-size:13px;line-height:1.4;color:#94a3b8;font-family:Arial,sans-serif;">7secure &middot; ${formatPublishDate(article.published_at)} &middot; <a href="${newsletterHref}" style="color:#1d4ed8;text-decoration:underline;">Read full version</a></p>
                 </div>
               </td>
@@ -482,6 +499,9 @@ const buildHtmlDigest = (
                 </table>
               </td>
             </tr>
+
+            <!-- snippet of the week -->
+            ${snippetSection ? `<tr><td class="card-bg" style="background-color:#ffffff;padding:24px;border-bottom:1px solid #f1f5f9;" data-ogsc>${snippetSection}</td></tr>` : ""}
 
             <!-- latest developments section -->
             <tr>

@@ -41,6 +41,7 @@ Style rules:
 - Do not use emojis anywhere in title, summary, headings, or body.
 - Use only facts present in the input. If unknown, write that it was not disclosed.
 - Do not include website/source name in author voice.
+- Do NOT include any promotional text, advertisements, sponsored content, webinar invitations, course promotions, whitepaper downloads, or vendor marketing material.
 - Tags: 3-5 lowercase tags.
 - Category: short kebab-case slug. Prefer categories from preferred_categories when possible.
 - If a new category is truly needed, keep it concise (1-3 words, kebab-case).
@@ -97,6 +98,52 @@ const hashString = (value: string): string => {
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const normalizeWhitespace = (value: string): string => value.replace(/\s+/g, " ").trim();
+
+const GARBAGE_PATTERNS = [
+  /lead the future of[^.]*?georgetown/i,
+  /online master'?s? from georgetown/i,
+  /cybersecurity insiders/i,
+  /zscaler threatlabz \d{4} vpn risk report/i,
+  /download the full report/i,
+  /register now for/i,
+  /sign up today/i,
+  /limited time offer/i,
+  / sponsored /i,
+  /advertisement/i,
+  /promotional content/i,
+  /click here to learn more/i,
+  /read the whitepaper/i,
+  /request a demo/i,
+  /free trial/i,
+  /subscribe to our newsletter/i
+];
+
+const stripGarbageText = (value: string): string => {
+  let cleaned = value;
+  for (const pattern of GARBAGE_PATTERNS) {
+    cleaned = cleaned.replace(pattern, "");
+  }
+  return normalizeWhitespace(cleaned);
+};
+
+const dedupeAcrossSections = (sections: string[]): string[] => {
+  const seen = new Set<string>();
+  return sections.map((section) => {
+    const normalized = normalizeWhitespace(section).toLowerCase();
+    if (seen.has(normalized)) {
+      return "";
+    }
+    for (const existing of seen) {
+      if (normalized.includes(existing) || existing.includes(normalized)) {
+        if (normalized.length < existing.length) {
+          return "";
+        }
+      }
+    }
+    seen.add(normalized);
+    return section;
+  });
+};
 
 const stripEmojiInline = (value: string): string =>
   normalizeWhitespace(value.replace(EMOJI_REGEX, " "));
@@ -900,7 +947,7 @@ const rewriteItem = async (
                 title: item.title,
                 url: item.url,
                 summary: item.summary,
-                source_snippet: item.sourceSnippet || "",
+                source_snippet: stripGarbageText(item.sourceSnippet || ""),
                 published_at: item.publishedAt,
                 source_name: item.sourceName,
                 source_url: item.sourceUrl,
