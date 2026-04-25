@@ -6,28 +6,35 @@ const SYSTEM_PROMPT = `You are a senior cybersecurity intelligence analyst writi
 
 HARD REQUIREMENTS:
 
-1. METADATA BLOCK — Place this at the very top of the content field, before any sections:
+1. SCRAPER DEBRIS REMOVAL — Before writing, mentally strip ALL of the following from the source:
+- Article tags / metadata strings: comma-separated topic labels (e.g., "artificial intelligence, Cloud security, cybersecurity...")
+- Author bios: "[Name] is a journalist/writer/reporter with X years of experience..."
+- Social media CTAs: "Follow us on Google News / Twitter / LinkedIn" or "Found this article interesting?"
+- Unrelated report promotions: third-party report titles with no connection to the article topic
+- Truncated CVE prefixes: if text begins with a number fragment like "3 flaw..." or "5752 allows...", this is a truncated CVE. Reconstruct using the full CVE from context.
+
+2. METADATA BLOCK — Place this at the very top of the content field, before any sections:
 **Severity:** [Critical / High / Medium / Low]
 **Affected Sectors:** [e.g., Technology, Finance, Critical Infrastructure, Healthcare, Government]
 **Threat Type:** [e.g., Supply Chain Attack, Ransomware, Zero-Day Exploitation, Data Breach, Credential Stuffing, Insider Threat]
 **Attribution:** [Threat actor name if known, or "Unknown"]
 
-2. NO CONTENT REPETITION:
+3. NO CONTENT REPETITION:
 - Each sentence may appear exactly ONCE in the entire article.
 - Key Takeaways must be bullet-point previews — they must NOT restate content verbatim from What Happened, Why It Matters, or Security Implications.
 - If source content duplicates itself, collapse into one clear statement and expand with context.
 
-3. COMPLETE ALL CONTENT:
+4. COMPLETE ALL CONTENT:
 - If any section ends mid-sentence, mid-word, or with "..." — reconstruct the complete thought using your knowledge and context.
 - If reconstruction is impossible, remove the incomplete section entirely.
 - Never publish truncated content as-is.
 
-4. NO PLACEHOLDER CONTENT:
+5. NO PLACEHOLDER CONTENT:
 - Never write "content is being curated," "coming soon," "check back later," "trending tools section is being prepared," or similar meta-commentary.
 - No empty bullets. No "→..." placeholders.
 - If a section has no real content, omit it entirely.
 
-5. MINIMUM DEPTH PER SECTION:
+6. MINIMUM DEPTH PER SECTION:
 
 KEY TAKEAWAYS (3–5 bullets)
 - Each bullet is a distinct, specific, actionable insight.
@@ -42,6 +49,7 @@ WHY IT MATTERS (2–3 sentences)
 - Original analyst commentary connecting this event to broader threat trends.
 - Must answer: What does this mean for defenders right now?
 - Must NOT be a restatement of What Happened.
+- ZERO TOLERANCE FOR TEMPLATE TEXT: The following sentence (or any variation) must NEVER appear: "For [category] teams, this update should be treated as a prioritization signal and validated against live asset exposure, detection coverage, and response readiness." If you catch yourself writing this, stop and write original commentary specific to THIS article.
 
 SECURITY IMPLICATIONS (2–4 sentences — incident articles only)
 - Explain the strategic or systemic risk, not just the incident itself.
@@ -52,14 +60,14 @@ RECOMMENDED MITIGATIONS (3–6 bullets — incident articles only)
 - Avoid generic advice like "improve security posture" or "update your systems."
 - Where possible, reference specific tools, configurations, or standards.
 
-6. EDITORIAL VOICE:
+7. EDITORIAL VOICE:
 - Write in clear, confident, third-person analyst voice.
 - No marketing language (e.g., "world-class," "cutting-edge," "industry-leading").
 - Avoid passive constructions where possible. Use active voice.
 - Treat the reader as a senior security practitioner — no over-explaining basic concepts, but always contextualize novel or niche findings.
 - Each article should read as if a human analyst read the source material, understood it, and wrote a tight brief — not as if it was copied and reformatted.
 
-7. TIERED HANDLING:
+8. TIERED HANDLING:
 First, attempt to write the full article meeting all standards above.
 If the source material is too thin to meet full standards, apply this tiered decision:
 
@@ -78,7 +86,7 @@ Drop the article entirely if ANY of the following are true:
 - Reconstructing the content would require fabricating facts.
 Set sufficient_data to false and tier to "drop".
 
-8. FORMAT:
+9. FORMAT:
 If security incident, use EXACTLY these H2 sections in this order:
 ## Key Takeaways
 ## What Happened
@@ -91,12 +99,12 @@ If NOT a security incident, use EXACTLY these H2 sections in this order:
 ## What Happened
 ## Why It Matters
 
-9. TITLE AND SUMMARY:
+10. TITLE AND SUMMARY:
 - Title: MUST be heavily optimized, specific, catchy, and concrete. Keep it 45–72 chars. No clickbait or vague wording. Clean all garbage characters, weird numbers, random bracket expressions, or raw HTML entities.
 - Summary: 2 concise sentences explaining why readers should care. Must contain a specific fact, not generic framing.
 - is_incident: true if the article describes a security incident, false otherwise.
 
-10. OTHER FIELDS:
+11. OTHER FIELDS:
 - Tags: 3–5 lowercase tags.
 - Category: short kebab-case slug. Prefer categories from preferred_categories when possible.
 - If a new category is truly needed, keep it concise (1–3 words, kebab-case).
@@ -149,6 +157,7 @@ const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\
 
 const normalizeWhitespace = (value: string): string => value.replace(/\s+/g, " ").trim();
 
+// ─── Scraper Debris Patterns ────────────────────────────────────
 const GARBAGE_PATTERNS = [
   /lead the future of[^.]*?georgetown/i,
   /online master'?s? from georgetown/i,
@@ -165,7 +174,22 @@ const GARBAGE_PATTERNS = [
   /read the whitepaper/i,
   /request a demo/i,
   /free trial/i,
-  /subscribe to our newsletter/i
+  /subscribe to our newsletter/i,
+  // Author bios
+  /\b\w+\s+\w+\s+is\s+a\s+(?:journalist|writer|reporter|analyst|editor)\s+with\s+\d+\s+years?\s+of\s+experience[^.]*\./gi,
+  /\b\w+\s+\w+\s+is\s+a\s+(?:cybersecurity|technology|security)\s+(?:journalist|writer|reporter|analyst)[^.]*\./gi,
+  // Social CTAs
+  /follow\s+us\s+on\s+(?:google\s+news|twitter|linkedin|facebook|youtube)[^.]*\./gi,
+  /found\s+this\s+article\s+interesting\?[^.]*\./gi,
+  /share\s+this\s+article\s+on\s+(?:twitter|linkedin|facebook)[^.]*\./gi,
+  /stay\s+up\s+to\s+date\s+with\s+[^.]*\./gi,
+  // Unrelated report promotions
+  /zscaler threatlabz \d{4} vpn risk report/i,
+  /norton cyber safety insights report/i,
+  /ibm cost of a data breach report/i,
+  /verizon data breach investigations report/i,
+  // Tag metadata strings (comma-separated security topics)
+  /(?:artificial intelligence|ai|cloud security|cybersecurity|data breach|incident response|oauth|saas security|zero trust|endpoint security|network security|application security|threat intelligence|vulnerability management|identity management|data protection|compliance|governance|risk management)(?:\s*,\s*(?:artificial intelligence|ai|cloud security|cybersecurity|data breach|incident response|oauth|saas security|zero trust|endpoint security|network security|application security|threat intelligence|vulnerability management|identity management|data protection|compliance|governance|risk management)){2,}/gi
 ];
 
 const stripGarbageText = (value: string): string => {
@@ -174,6 +198,47 @@ const stripGarbageText = (value: string): string => {
     cleaned = cleaned.replace(pattern, "");
   }
   return normalizeWhitespace(cleaned);
+};
+
+// ─── Template Text Detection ────────────────────────────────────
+const TEMPLATE_TEXT_PATTERNS = [
+  /for\s+\w+\s+teams,?\s+this\s+update\s+should\s+be\s+treated\s+as\s+a\s+prioritization\s+signal\s+and\s+validated\s+against\s+live\s+asset\s+exposure[^.]*/i,
+  /this\s+update\s+should\s+be\s+treated\s+as\s+a\s+prioritization\s+signal/i,
+  /validated\s+against\s+live\s+asset\s+exposure[^.]*/i,
+  /detection\s+coverage[^.]*response\s+readiness/i
+];
+
+const isTemplateText = (text: string): boolean => {
+  return TEMPLATE_TEXT_PATTERNS.some((pattern) => pattern.test(text));
+};
+
+// ─── Truncated CVE Reconstruction ───────────────────────────────
+const reconstructTruncatedCve = (text: string, context: string): string => {
+  // Check if text starts with a number fragment that looks like a truncated CVE
+  const truncatedMatch = text.match(/^(\d+)\s+(flaw|vulnerability|bug|issue|allows?|enables?|permits?)/i);
+  if (!truncatedMatch) return text;
+
+  const numberFragment = truncatedMatch[1];
+  // Look for full CVE in context
+  const cveMatch = context.match(new RegExp(`CVE-\\d{4}-${numberFragment}`, "i"));
+  if (cveMatch) {
+    return text.replace(new RegExp(`^${numberFragment}\\s+`, "i"), `${cveMatch[0]}, a `);
+  }
+
+  // Try matching partial CVE patterns
+  const partialCveMatch = context.match(new RegExp(`CVE-\\d{4}-\\d{0,4}${numberFragment}`, "i"));
+  if (partialCveMatch) {
+    return text.replace(new RegExp(`^${numberFragment}\\s+`, "i"), `${partialCveMatch[0]}, a `);
+  }
+
+  return text;
+};
+
+// ─── Article Tag Metadata Removal ───────────────────────────────
+const removeTagMetadata = (text: string): string => {
+  // Remove comma-separated security topic lists that appear as tag metadata
+  const tagPattern = /\b(?:artificial intelligence|ai|cloud security|cybersecurity|data breach|incident response|oauth|saas security|zero trust|endpoint security|network security|application security|threat intelligence|vulnerability management|identity management|data protection|compliance|governance|risk management|malware|ransomware|phishing|social engineering|supply chain|insider threat)(?:\s*,\s*(?:artificial intelligence|ai|cloud security|cybersecurity|data breach|incident response|oauth|saas security|zero trust|endpoint security|network security|application security|threat intelligence|vulnerability management|identity management|data protection|compliance|governance|risk management|malware|ransomware|phishing|social engineering|supply chain|insider threat)){2,}\b/gi;
+  return text.replace(tagPattern, "").replace(/\s{2,}/g, " ").trim();
 };
 
 const dedupeAcrossSections = (sections: string[]): string[] => {
@@ -629,14 +694,13 @@ const removePlaceholderSections = (content: string): string => {
   for (let i = 0; i < sections.length; i++) {
     const section = sections[i];
     if (i === 0 && !section.trim().startsWith("**Severity:**")) {
-      // Metadata block or preamble before first heading
       if (section.trim()) cleaned.push(section);
       continue;
     }
 
     const sectionBody = section.replace(/^[^\n]+\n*/, "").trim();
     if (hasPlaceholderContent(sectionBody) || !sectionBody || sectionBody.length < 10) {
-      continue; // Skip empty/placeholder sections
+      continue;
     }
 
     cleaned.push(section);
@@ -655,11 +719,9 @@ const completeTruncatedSection = (text: string, context: string): string => {
   const trimmed = text.trim();
   if (!trimmed.endsWith("...")) return trimmed;
 
-  // Remove trailing ellipsis and complete the sentence
   const withoutEllipsis = trimmed.replace(/\.\.\.\s*$/, "").trim();
   if (!withoutEllipsis) return "";
 
-  // Try to infer completion from context
   const sentences = splitSentences(context);
   const lastWord = withoutEllipsis.split(" ").pop()?.toLowerCase() || "";
 
@@ -670,7 +732,6 @@ const completeTruncatedSection = (text: string, context: string): string => {
     }
   }
 
-  // Generic completion for common truncated patterns
   if (/\b(attackers|threat actors|actors)\s+used?\s+[^.]*$/i.test(withoutEllipsis)) {
     return withoutEllipsis + " to gain initial access and escalate privileges within the target environment.";
   }
@@ -731,13 +792,57 @@ const removeDuplicateSentencesAcrossSections = (content: string): string => {
   return output.join("\n");
 };
 
+const cleanScrapedDebris = (text: string): string => {
+  let cleaned = text;
+
+  // Remove author bios
+  cleaned = cleaned.replace(/\b\w+\s+\w+\s+is\s+a\s+(?:journalist|writer|reporter|analyst|editor)\s+with\s+\d+\s+years?\s+of\s+experience[^.]*\./gi, "");
+  cleaned = cleaned.replace(/\b\w+\s+\w+\s+is\s+a\s+(?:cybersecurity|technology|security)\s+(?:journalist|writer|reporter|analyst)[^.]*\./gi, "");
+
+  // Remove social CTAs
+  cleaned = cleaned.replace(/follow\s+us\s+on\s+(?:google\s+news|twitter|linkedin|facebook|youtube)[^.]*\./gi, "");
+  cleaned = cleaned.replace(/found\s+this\s+article\s+interesting\?[^.]*\./gi, "");
+  cleaned = cleaned.replace(/share\s+this\s+article\s+on\s+(?:twitter|linkedin|facebook)[^.]*\./gi, "");
+  cleaned = cleaned.replace(/stay\s+up\s+to\s+date\s+with\s+[^.]*\./gi, "");
+
+  // Remove tag metadata strings
+  cleaned = removeTagMetadata(cleaned);
+
+  // Remove unrelated report promotions
+  cleaned = cleaned.replace(/zscaler threatlabz \d{4} vpn risk report/i, "");
+  cleaned = cleaned.replace(/norton cyber safety insights report/i, "");
+  cleaned = cleaned.replace(/ibm cost of a data breach report/i, "");
+  cleaned = cleaned.replace(/verizon data breach investigations report/i, "");
+
+  return normalizeWhitespace(cleaned);
+};
+
 const postProcessContent = (content: string, sourceText: string): string => {
   let processed = content;
 
-  // 1. Remove placeholder sections
+  // 1. Clean scraper debris
+  processed = cleanScrapedDebris(processed);
+
+  // 2. Reconstruct truncated CVEs in What Happened
+  const whPattern = /(##\s*What\s*Happened\s*\n)([\s\S]*?)(?=\n##|$)/i;
+  processed = processed.replace(whPattern, (match, heading, body) => {
+    return heading + reconstructTruncatedCve(body, processed);
+  });
+
+  // 3. Remove template text from Why It Matters
+  const wimPattern = /(##\s*Why\s*It\s*Matters?\s*\n)([\s\S]*?)(?=\n##|$)/i;
+  processed = processed.replace(wimPattern, (match, heading, body) => {
+    if (isTemplateText(body)) {
+      // Return empty section — will be caught by quality gate
+      return heading + "[REMOVED: template text detected]";
+    }
+    return match;
+  });
+
+  // 4. Remove placeholder sections
   processed = removePlaceholderSections(processed);
 
-  // 2. Complete truncated sections
+  // 5. Complete truncated sections
   const sectionPattern = /(## [^\n]+\n)([\s\S]*?)(?=\n## |$)/g;
   processed = processed.replace(sectionPattern, (match, heading, body) => {
     if (isTruncated(body)) {
@@ -747,10 +852,10 @@ const postProcessContent = (content: string, sourceText: string): string => {
     return match;
   });
 
-  // 3. Remove duplicate sentences across sections
+  // 6. Remove duplicate sentences across sections
   processed = removeDuplicateSentencesAcrossSections(processed);
 
-  // 4. Clean up empty lines
+  // 7. Clean up empty lines
   processed = processed.replace(/\n{3,}/g, "\n\n").trim();
 
   return processed;
@@ -762,7 +867,6 @@ const validateThumbnail = async (imageUrl: string | null | undefined, item: RawF
     return DEFAULT_COVER_IMAGE;
   }
 
-  // Check for suspicious/generic image patterns
   const genericPatterns = [
     /placeholder/i,
     /dummy/i,
@@ -780,7 +884,6 @@ const validateThumbnail = async (imageUrl: string | null | undefined, item: RawF
     }
   }
 
-  // Try to validate the image URL with a HEAD request
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -839,7 +942,7 @@ const applyTieredQualityGate = (
     };
   }
 
-  // Full article: validate depth
+  // Full article: validate depth and check for template text
   const content = article.content || "";
   const hasKeyTakeaways = /##\s*Key\s*Takeaways?/i.test(content);
   const hasWhatHappened = /##\s*What\s*Happened/i.test(content);
@@ -851,13 +954,20 @@ const applyTieredQualityGate = (
   const whatHappenedSection = extractMarkdownSection(content, [
     /##\s*What\s*Happened\s*\n([\s\S]*?)(?=\n##|$)/i
   ]);
+  const whyItMattersSection = extractMarkdownSection(content, [
+    /##\s*Why\s*It\s*Matters?\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
 
   const ktBullets = keyTakeawaysSection.split("\n").filter((line) => line.trim().startsWith("-")).length;
   const whWords = countWords(whatHappenedSection);
 
-  // If full article doesn't meet minimum depth, downgrade to short
-  if (!hasKeyTakeaways || !hasWhatHappened || !hasWhyItMatters || ktBullets < 2 || whWords < 15) {
-    console.warn(`TIER 1 SHORT: Downgrading article due to insufficient depth: ${article.title} (bullets=${ktBullets}, whWords=${whWords})`);
+  // Check Why It Matters for template text
+  const hasTemplateText = isTemplateText(whyItMattersSection);
+
+  // If full article doesn't meet minimum depth or has template text, downgrade to short
+  if (!hasKeyTakeaways || !hasWhatHappened || !hasWhyItMatters || ktBullets < 2 || whWords < 15 || hasTemplateText) {
+    const reason = hasTemplateText ? "template text detected" : "insufficient depth";
+    console.warn(`TIER 1 SHORT: Downgrading article due to ${reason}: ${article.title} (bullets=${ktBullets}, whWords=${whWords}, template=${hasTemplateText})`);
     const shortContent = buildShortCardContent(content, item);
     return {
       ...article,
@@ -884,11 +994,46 @@ const buildShortCardContent = (content: string, item: RawFeedItem): string => {
   const cleanKt = keyPoints || fallbackKt;
   const cleanWh = whatHappened || fallbackWh;
 
-  // Limit bullets to 3
   const bullets = cleanKt.split("\n").filter((line) => line.trim().startsWith("-")).slice(0, 3);
   const ktBlock = bullets.length > 0 ? bullets.join("\n") : fallbackKt;
 
   return `**Severity:** Medium\n**Affected Sectors:** General\n**Threat Type:** ${topicLabel}\n**Attribution:** Unknown\n\n## Key Takeaways\n${ktBlock}\n\n## What Happened\n${clampSnippet(cleanWh, 280)}`;
+};
+
+// ─── Fallback Content — No Template Text ────────────────────────
+const generateOriginalWhyItMatters = (item: RawFeedItem, isIncident: boolean): string => {
+  const topicLabel = item.category.replace(/-/g, " ");
+  const signal = `${item.title} ${item.summary} ${item.sourceSnippet || ""}`;
+
+  const cve = signal.match(/CVE-\d{4}-\d{4,7}/i);
+  const hasActor = /\b(?:APT\d+|Lazarus|LockBit|Akira|Clop|FIN\d+|Sandworm|Volt Typhoon|BlackCat|Royal)\b/i.test(signal);
+  const hasExploit = /\b(?:exploit|exploited|zero-day|0-day|RCE|remote code)\b/i.test(signal);
+  const hasData = /\b(?:breach|leaked|exposed data|stolen|compromised)\b/i.test(signal);
+
+  if (isIncident) {
+    if (hasExploit && cve) {
+      return `${cve[0]} is actively exploited in the wild. Security teams should prioritize patching or isolating affected systems before broader weaponization occurs.`;
+    }
+    if (hasActor) {
+      return `This incident reflects a sustained, capable threat actor operation. Organizations with similar profiles should review their detection coverage for the identified TTPs and validate incident response readiness.`;
+    }
+    if (hasData) {
+      return `The confirmed data exposure creates compliance and third-party risk obligations. Affected organizations must assess notification requirements and monitor for secondary abuse of leaked credentials.`;
+    }
+    return `This ${topicLabel} incident reveals gaps that are likely replicated across peer organizations. Security leaders should use this case to audit their own controls in the same areas.`;
+  }
+
+  if (cve) {
+    return `The disclosed ${cve[0]} vulnerability carries immediate patching urgency. Delayed response widens the window for mass exploitation, particularly for internet-facing services.`;
+  }
+  if (/\b(?:AI|artificial intelligence|machine learning|LLM)\b/i.test(signal)) {
+    return `AI-driven attack techniques are accelerating faster than defensive tooling. Security teams should evaluate whether their current controls can detect automated or generated threats.`;
+  }
+  if (/\b(?:supply chain|third.party|vendor|dependency)\b/i.test(signal)) {
+    return `Supply chain exposure remains one of the highest-impact, lowest-visibility risks in enterprise security. This update should trigger a review of vendor security assessments and software bill of materials practices.`;
+  }
+
+  return `This ${topicLabel} development signals a shifting threat landscape that security teams should monitor closely. Proactive validation of relevant controls is recommended before broader exploitation occurs.`;
 };
 
 const buildStructuredContent = (
@@ -906,6 +1051,9 @@ const buildStructuredContent = (
   const topicLabel = item.category.replace(/-/g, " ");
 
   const metadataBlock = `**Severity:** Medium\n**Affected Sectors:** General\n**Threat Type:** ${topicLabel}\n**Attribution:** Unknown`;
+
+  // Generate original Why It Matters — never template text
+  const originalWhyItMatters = generateOriginalWhyItMatters(item, isIncident);
 
   if (isIncident) {
     const incidentOverview = clampSnippet(
@@ -929,7 +1077,7 @@ const buildStructuredContent = (
             sourceSentences,
             5,
             10,
-            `For ${topicLabel} teams, this incident signals potential supply chain, IAM, or third-party exposure that should be validated against internal telemetry.`,
+            `This ${topicLabel} incident reveals systemic exposure that peer organizations should audit against their own controls.`,
             760
           )
       ),
@@ -952,7 +1100,7 @@ const buildStructuredContent = (
         "## What Happened",
         incidentOverview,
         "## Why It Matters",
-        `For ${topicLabel} teams, this update should be treated as a prioritization signal and validated against live asset exposure, detection coverage, and response readiness.`,
+        originalWhyItMatters,
         "## Security Implications",
         securityImplications,
         "## Recommended Mitigations",
@@ -976,23 +1124,9 @@ const buildStructuredContent = (
     760
   );
 
-  const whyImportant = clampSnippet(
-    toPlainText(
-      sections?.whyImportant ||
-        pickSentenceRange(
-          sourceSentences,
-          5,
-          10,
-          `For ${topicLabel} teams, this update should be treated as a prioritization signal and validated against live asset exposure, detection coverage, and response readiness.`,
-          760
-        )
-    ),
-    760
-  );
-
   const keyPoints = normalizeKeyPoints(
     sections?.keyPoints || "",
-    [description, whyImportant, sourceBase].filter(Boolean).join(" "),
+    [description, originalWhyItMatters, sourceBase].filter(Boolean).join(" "),
     topicLabel
   );
 
@@ -1004,7 +1138,7 @@ const buildStructuredContent = (
       "## What Happened",
       description,
       "## Why It Matters",
-      whyImportant
+      originalWhyItMatters
     ].join("\n\n")
   );
 };
@@ -1023,7 +1157,6 @@ const normalizeGeneratedContent = (
     return buildStructuredContent(summary, item.sourceSnippet || summary, item, undefined, isIncident);
   }
 
-  // Try new intelligence-style sections first
   const keyTakeaways = extractMarkdownSection(cleanedContent, [
     /##\s*Key\s*Takeaways?\s*\n([\s\S]*?)(?=\n##|$)/i
   ]);
@@ -1049,7 +1182,6 @@ const normalizeGeneratedContent = (
     /##\s*(?:Why\s+this\s+matters|Why\s+it'?s\s+important)\s*\n([\s\S]*?)(?=\n##|$)/i
   ]);
 
-  // Detect if content has incident-style sections
   const hasIncidentSections = incidentOverview || securityImplications || recommendedMitigations;
   const resolvedIsIncident = isIncident || Boolean(hasIncidentSections);
 
@@ -1442,10 +1574,11 @@ export const generateThreatPulse = async (
 
 Requirements:
 - Identify the dominant threat theme(s) across today's articles.
-- Highlight the single highest-priority item defenders should act on today.
+- Highlight the single highest-priority item defenders should act on today and WHY it is the most urgent.
 - Write in a confident, direct analyst voice — not a list, not bullets.
 - Do not use marketing language or passive voice.
 - Maximum 80 words.
+- Must be original analysis based on today's specific articles — never a template.
 
 Articles:
 ${articleSummaries}
