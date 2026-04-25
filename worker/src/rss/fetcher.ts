@@ -368,14 +368,14 @@ const buildNewsSearchParams = (
   params.set("count", String(count));
   params.set("freshness", parseFreshness(env));
   params.set("extra_snippets", "true");
-  params.set("safesearch", "moderate");
+  params.set("safesearch", "strict");
   return params;
 };
 
 const buildImageSearchParams = (env: WorkerEnv, query: string): URLSearchParams => {
   const params = buildCommonBraveParams(env, query);
   params.set("count", "1");
-  params.set("safesearch", "moderate");
+  params.set("safesearch", "strict");
   return params;
 };
 
