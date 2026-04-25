@@ -924,26 +924,27 @@ const applyTieredQualityGate = (
   article: NewsletterArticle,
   item: RawFeedItem
 ): NewsletterArticle | null => {
-  const tier = (article as any).tier || "full";
+  const tier = (article as any).tier || 'full';
 
   // Tier 2: Drop entirely
-  if (tier === "drop" || article.sufficient_data === false) {
-    console.warn(`TIER 2 DROP: Article dropped due to insufficient data: ${article.title}`);
+  if (tier === 'drop' || article.sufficient_data === false) {
+    console.warn(`TIER 2 DROP: ${article.title}`);
     return null;
   }
 
   // Tier 1: Shortened card
-  if (tier === "short") {
+  if (tier === 'short') {
     const shortContent = buildShortCardContent(article.content, item);
+    if (!shortContent) return null;
     return {
       ...article,
       content: shortContent,
-      summary: article.summary || "Brief security update."
+      summary: article.summary || 'Brief security update.'
     };
   }
 
   // Full article: validate depth and check for template text
-  const content = article.content || "";
+  const content = article.content || '';
   const hasKeyTakeaways = /##\s*Key\s*Takeaways?/i.test(content);
   const hasWhatHappened = /##\s*What\s*Happened/i.test(content);
   const hasWhyItMatters = /##\s*Why\s*It\s*Matters?/i.test(content);
@@ -958,28 +959,26 @@ const applyTieredQualityGate = (
     /##\s*Why\s*It\s*Matters?\s*\n([\s\S]*?)(?=\n##|$)/i
   ]);
 
-  const ktBullets = keyTakeawaysSection.split("\n").filter((line) => line.trim().startsWith("-")).length;
+  const ktBullets = keyTakeawaysSection.split('\n').filter((line) => line.trim().startsWith('-')).length;
   const whWords = countWords(whatHappenedSection);
-
-  // Check Why It Matters for template text
   const hasTemplateText = isTemplateText(whyItMattersSection);
 
-  // If full article doesn't meet minimum depth or has template text, downgrade to short
   if (!hasKeyTakeaways || !hasWhatHappened || !hasWhyItMatters || ktBullets < 2 || whWords < 15 || hasTemplateText) {
-    const reason = hasTemplateText ? "template text detected" : "insufficient depth";
-    console.warn(`TIER 1 SHORT: Downgrading article due to ${reason}: ${article.title} (bullets=${ktBullets}, whWords=${whWords}, template=${hasTemplateText})`);
+    const reason = hasTemplateText ? 'template text' : 'insufficient depth';
+    console.warn(`TIER 1 SHORT: ${article.title} (${reason}, bullets=${ktBullets}, words=${whWords})`);
     const shortContent = buildShortCardContent(content, item);
+    if (!shortContent) return null;
     return {
       ...article,
       content: shortContent,
-      summary: article.summary || "Brief security update."
+      summary: article.summary || 'Brief security update.'
     };
   }
 
   return article;
 };
 
-const buildShortCardContent = (content: string, item: RawFeedItem): string => {
+const buildShortCardContent = (content: string, item: RawFeedItem): string | null => {
   const keyPoints = extractMarkdownSection(content, [
     /##\s*Key\s*Takeaways?\s*\n([\s\S]*?)(?=\n##|$)/i
   ]);
@@ -987,17 +986,25 @@ const buildShortCardContent = (content: string, item: RawFeedItem): string => {
     /##\s*What\s*Happened\s*\n([\s\S]*?)(?=\n##|$)/i
   ]);
 
-  const topicLabel = item.category.replace(/-/g, " ");
-  const fallbackKt = `- Source reporting indicates a live ${topicLabel} development that requires triage.\n- Key implementation details are partially disclosed and should be validated with internal telemetry.`;
-  const fallbackWh = `The source described a ${topicLabel} update, but complete technical details were not disclosed.`;
+  // Extract meaningful content from source if LLM sections are empty
+  const sourceText = [item.summary, item.sourceSnippet || ''].join(' ').trim();
+  const sentences = splitSentences(sourceText);
+  const sourceFacts = sentences.filter(s => s.length > 30 && !s.includes('should be validated')).slice(0, 3);
 
-  const cleanKt = keyPoints || fallbackKt;
-  const cleanWh = whatHappened || fallbackWh;
+  const cleanKt = keyPoints || (sourceFacts.length > 0 ? sourceFacts.map(f => '- ' + f).join('\n') : '');
+  const cleanWh = whatHappened || (sourceFacts.length > 0 ? sourceFacts[0] : '');
 
-  const bullets = cleanKt.split("\n").filter((line) => line.trim().startsWith("-")).slice(0, 3);
-  const ktBlock = bullets.length > 0 ? bullets.join("\n") : fallbackKt;
+  // If we have NO meaningful content at all, return null to drop this article
+  if (!cleanKt && !cleanWh) {
+    console.warn(`Dropping article with zero extractable content: ${item.title}`);
+    return null;
+  }
 
-  return `**Severity:** Medium\n**Affected Sectors:** General\n**Threat Type:** ${topicLabel}\n**Attribution:** Unknown\n\n## Key Takeaways\n${ktBlock}\n\n## What Happened\n${clampSnippet(cleanWh, 280)}`;
+  const bullets = cleanKt.split('\n').filter((line) => line.trim().startsWith('-')).slice(0, 3);
+  const ktBlock = bullets.length > 0 ? bullets.join('\n') : (cleanKt ? '- ' + cleanKt : '- Source reported a security update.');
+  const whBlock = cleanWh || 'Source details are limited.';
+
+  return `**Severity:** Medium\n**Affected Sectors:** General\n**Threat Type:** ${item.category.replace(/-/g, ' ')}\n**Attribution:** Unknown\n\n## Key Takeaways\n${ktBlock}\n\n## What Happened\n${clampSnippet(whBlock, 280)}`;
 };
 
 // ─── Fallback Content — No Template Text ────────────────────────
@@ -1624,52 +1631,55 @@ export const writeArticles = async (
   env: WorkerEnv,
   trackedCategories: string[] = DEFAULT_CATEGORY_POOL
 ): Promise<NewsletterArticle[]> => {
-  const candidates = items.slice(0, MAX_REWRITE_CANDIDATES);
+  const MIN_ARTICLES = 4;
+  const WAVE_SIZE = 6;
+  const HARD_CAP = 30;
   const results: NewsletterArticle[] = [];
   const concurrency = 2;
   const categoryPool = [...new Set([...trackedCategories, ...DEFAULT_CATEGORY_POOL])].slice(0, 10);
-  const totalChunks = Math.ceil(candidates.length / concurrency);
 
   console.log(
-    `LLM rewrite queue: processing ${candidates.length}/${items.length} candidate items with concurrency ${concurrency}`
+    `LLM rewrite: need ${MIN_ARTICLES} quality articles, up to ${HARD_CAP} sources available`
   );
 
-  for (let index = 0; index < candidates.length; index += concurrency) {
-    const chunk = candidates.slice(index, index + concurrency);
-    const chunkNumber = Math.floor(index / concurrency) + 1;
-    const pendingLabels = new Set(chunk.map((item) => item.title.substring(0, 36)));
+  for (let waveStart = 0; waveStart < Math.min(items.length, HARD_CAP); waveStart += WAVE_SIZE) {
+    const wave = items.slice(waveStart, waveStart + WAVE_SIZE);
+    const waveNum = Math.floor(waveStart / WAVE_SIZE) + 1;
+    const totalWaves = Math.ceil(Math.min(items.length, HARD_CAP) / WAVE_SIZE);
+    const pendingLabels = new Set(wave.map((item) => item.title.substring(0, 36)));
 
-    const wrapped = chunk.map((item) => {
+    console.log(`Wave ${waveNum}/${totalWaves}: processing ${wave.length} items (have ${results.length})`);
+
+    const wrapped = wave.map((item) => {
       const label = item.title.substring(0, 36);
-      return rewriteItem(item, env, categoryPool).finally(() => {
-        pendingLabels.delete(label);
-      });
+      return rewriteItem(item, env, categoryPool).finally(() => pendingLabels.delete(label));
     });
 
     const heartbeatId = setInterval(() => {
-      if (!pendingLabels.size) {
-        return;
-      }
-
-      const sample = [...pendingLabels].slice(0, 2).join(" | ");
-      const suffix = pendingLabels.size > 2 ? " | ..." : "";
-      console.log(
-        `LLM rewrite in-flight: chunk ${chunkNumber}/${totalChunks}, pending ${pendingLabels.size} item(s)${sample ? ` (${sample}${suffix})` : ""}`
-      );
+      if (!pendingLabels.size) return;
+      const sample = [...pendingLabels].slice(0, 2).join(' | ');
+      console.log(`In-flight wave ${waveNum}: pending ${pendingLabels.size} (${sample}...)`);
     }, LLM_CHUNK_HEARTBEAT_MS);
 
     const settled = await Promise.allSettled(wrapped);
     clearInterval(heartbeatId);
 
     for (const result of settled) {
-      if (result.status === "fulfilled" && result.value) {
+      if (result.status === 'fulfilled' && result.value) {
         results.push(result.value);
       }
     }
 
-    console.log(
-      `LLM rewrite progress: ${Math.min(index + concurrency, candidates.length)}/${candidates.length} processed, ${results.length} prepared`
-    );
+    console.log(`Wave ${waveNum} done: ${results.length} articles gathered`);
+
+    if (results.length >= MIN_ARTICLES) {
+      console.log(`Reached ${MIN_ARTICLES} articles. Stopping.`);
+      break;
+    }
+  }
+
+  if (results.length < MIN_ARTICLES) {
+    console.warn(`WARNING: Only ${results.length}/${MIN_ARTICLES} articles gathered.`);
   }
 
   return results;

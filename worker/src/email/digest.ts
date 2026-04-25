@@ -226,8 +226,6 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
       <tr>
         <td style="padding:24px;font-family:Arial,sans-serif;color:${TEXT_PRIMARY};">
           ${imageBlock}
-          <div style="font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:${ACCENT};margin-bottom:10px;font-family:Arial,sans-serif;">${category}</div>
-          ${metadataBlock}
           <a href="${originalHref}" style="font-size:24px;line-height:1.2;font-weight:800;color:${TEXT_PRIMARY};text-decoration:none;display:block;font-family:Arial,sans-serif;">${title}</a>
           ${bodyHtml}
           <p style="margin:18px 0 0 0;font-size:13px;line-height:1.5;color:${TEXT_SECONDARY};font-family:Arial,sans-serif;"><strong style="color:${TEXT_PRIMARY};">7secure</strong> · ${formatPublishDate(article.published_at)} · <a href="${newsletterHref}" style="color:${ACCENT};text-decoration:underline;font-weight:600;">Read full version →</a></p>
@@ -261,11 +259,11 @@ const buildRatingSection = (subscriberEmail: string, siteBase: string): string =
   </tr>`;
 };
 
-const buildAuthorSection = (authors: Array<{ name: string; image_url?: string | null }>): string => {
+const buildAuthorSection = (siteBase: string, authors: Array<{ name: string; image_url?: string | null }>): string => {
   const authorItems = authors.map((author) => {
     const img = author.image_url
       ? `<img src="${author.image_url}" alt="${escapeHtml(author.name)}" width="40" height="40" style="display:block;width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid ${BORDER_COLOR};" />`
-      : `<div style="width:40px;height:40px;border-radius:50%;background:${ACCENT};display:flex;align-items:center;justify-content:center;color:#ffffff;font-size:16px;font-weight:700;">${author.name.charAt(0).toUpperCase()}</div>`;
+      : `<img src="${siteBase}/7secure_logo.svg" alt="7secure" width="40" height="40" style="display:block;width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid ${BORDER_COLOR};background:#ffffff;padding:4px;" />`;
     return `<td style="padding:0 12px 0 0;text-align:center;">${img}<p style="margin:6px 0 0 0;font-size:13px;color:${TEXT_SECONDARY};font-family:Arial,sans-serif;">${escapeHtml(author.name)}</p></td>`;
   }).join("");
 
@@ -299,7 +297,7 @@ const buildHtmlDigest = (
   const dailyRundownList = buildDailyRundownList(articles);
   const latestDevelopmentCards = buildLatestDevelopmentCards(articles, siteBase);
   const ratingSection = buildRatingSection(subscriber.email, siteBase);
-  const authorSection = authors.length > 0 ? buildAuthorSection(authors) : "";
+  const authorSection = authors.length > 0 ? buildAuthorSection(siteBase, authors) : "";
 
   const threatPulseBlock = threatPulse
     ? `<tr>
@@ -348,7 +346,7 @@ const buildHtmlDigest = (
             <tr>
               <td style="padding:24px;font-family:Arial,sans-serif;">
                 <p style="margin:0;font-size:26px;line-height:1.2;font-weight:800;color:${TEXT_PRIMARY};font-family:Arial,sans-serif;">Good morning, ${subscriberName}.</p>
-                <p style="margin:10px 0 0 0;font-size:16px;line-height:1.6;color:${TEXT_SECONDARY};font-family:Arial,sans-serif;">${date} briefing: clear threat context, key developments, and quick actions worth prioritizing today.</p>
+                <p style="margin:10px 0 0 0;font-size:16px;line-height:1.6;color:${TEXT_SECONDARY};font-family:Arial,sans-serif;">${date}</p>
               </td>
             </tr>
 
