@@ -3,7 +3,8 @@ import {
   getRecentArticles,
   getSentArticleSlugs,
   getSubscribers,
-  markDigestArticlesSent
+  markDigestArticlesSent,
+  getAuthors
 } from "../db/supabase";
 import type { WorkerEnv, ArticleSnippet } from "../types";
 
@@ -223,14 +224,15 @@ const BORDER_COLOR = "#2a2a3a";
 const TEXT_PRIMARY = "#e2e2ea";
 const TEXT_SECONDARY = "#9ca3af";
 const ACCENT = "#3b82f6";
+const TITLE_BLUE = "#60a5fa";
 
 const borderedBox = (padding: string, extra = ""): string =>
-  `background-color:${CARD_BG};border:1px solid ${BORDER_COLOR};border-radius:12px;${padding ? `padding:${padding};` : ""}${extra}`;
+  `background-color:${CARD_BG};border:1px solid ${BORDER_COLOR};border-radius:16px;${padding ? `padding:${padding};` : ""}${extra}`;
 
 const buildDailyRundownList = (articles: DigestArticle[]): string =>
   articles
     .map((article) => {
-      return `<li style="margin:0 0 14px 0;color:${TEXT_SECONDARY};"><strong style="font-size:16px;color:${TEXT_PRIMARY};font-weight:700;">${escapeHtml(stripEmojiInline(article.title))}</strong><br/><span style="font-size:14px;color:${TEXT_SECONDARY};line-height:1.5;">${escapeHtml(clamp(stripEmojiInline(article.summary), 120))}</span></li>`;
+      return `<li style="margin:0 0 14px 0;color:${TEXT_SECONDARY};"><strong style="font-size:16px;color:${TITLE_BLUE};font-weight:700;">${escapeHtml(stripEmojiInline(article.title))}</strong><br/><span style="font-size:14px;color:${TEXT_SECONDARY};line-height:1.5;">${escapeHtml(clamp(stripEmojiInline(article.summary), 120))}</span></li>`;
     })
     .join("");
 
@@ -290,7 +292,7 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
       return `
       <tr>
         <td style="padding:0;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;${borderedBox("20px", "margin-bottom:16px;")}">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;${borderedBox("24px", "margin-bottom:16px;")}">
             <tr>
               <td style="padding:0;font-family:Arial,sans-serif;color:${TEXT_PRIMARY};">
                 ${imageBlock}
@@ -312,7 +314,7 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
     .join("");
 
 const buildQuickHitsSection = (): string => `
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;${borderedBox("20px")}">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;${borderedBox("24px")}">
     <tr>
       <td style="padding:0;font-family:Arial,sans-serif;">
         <div style="font-size:18px;font-weight:800;color:${TEXT_PRIMARY};margin-bottom:12px;font-family:Arial,sans-serif;">⚡ Quick Hits</div>
@@ -327,20 +329,43 @@ const buildRatingSection = (subscriberEmail: string, siteBase: string): string =
     `${siteBase}/api/digest-feedback?email=${encodedEmail}&rating=${rating}&context=daily_digest_email`;
 
   return `
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;${borderedBox("20px")}">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;${borderedBox("24px")}">
     <tr>
       <td style="padding:0;font-family:Arial,sans-serif;">
         <div style="font-size:22px;line-height:1.2;font-weight:800;color:${TEXT_PRIMARY};margin-bottom:8px;font-family:Arial,sans-serif;">That's it for today!</div>
         <p style="margin:0 0 18px 0;font-size:16px;line-height:1.6;color:${TEXT_SECONDARY};font-family:Arial,sans-serif;">Rate today's briefing so we can keep improving your daily security intelligence.</p>
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
           <tr>
-            <td style="padding:0 0 10px 0;"><a href="${feedbackLink(5)}" style="display:block;background:${ACCENT};border-radius:8px;padding:14px 16px;color:#ffffff;text-decoration:none;font-size:18px;font-weight:700;font-family:Arial,sans-serif;">★★★★★ Nailed it</a></td>
+            <td style="padding:0 0 10px 0;"><a href="${feedbackLink(5)}" style="display:block;background:${CARD_BG};border:1px solid ${BORDER_COLOR};border-radius:8px;padding:14px 16px;color:${TEXT_PRIMARY};text-decoration:none;font-size:18px;font-weight:700;font-family:Arial,sans-serif;">🛡️🛡️🛡️🛡️🛡️ Nailed it</a></td>
           </tr>
           <tr>
-            <td style="padding:0 0 10px 0;"><a href="${feedbackLink(3)}" style="display:block;background:${CARD_BG};border:1px solid ${BORDER_COLOR};border-radius:8px;padding:14px 16px;color:${TEXT_SECONDARY};text-decoration:none;font-size:18px;font-weight:700;font-family:Arial,sans-serif;">★★★ Average</a></td>
+            <td style="padding:0 0 10px 0;"><a href="${feedbackLink(3)}" style="display:block;background:${CARD_BG};border:1px solid ${BORDER_COLOR};border-radius:8px;padding:14px 16px;color:${TEXT_SECONDARY};text-decoration:none;font-size:18px;font-weight:700;font-family:Arial,sans-serif;">🛡️🛡️🛡️ Average</a></td>
           </tr>
           <tr>
-            <td style="padding:0;"><a href="${feedbackLink(1)}" style="display:block;background:${CARD_BG};border:1px solid ${BORDER_COLOR};border-radius:8px;padding:14px 16px;color:${TEXT_SECONDARY};text-decoration:none;font-size:18px;font-weight:700;font-family:Arial,sans-serif;">★ Needs work</a></td>
+            <td style="padding:0;"><a href="${feedbackLink(1)}" style="display:block;background:${CARD_BG};border:1px solid ${BORDER_COLOR};border-radius:8px;padding:14px 16px;color:${TEXT_SECONDARY};text-decoration:none;font-size:18px;font-weight:700;font-family:Arial,sans-serif;">🛡️ Needs work</a></td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>`;
+};
+
+const buildAuthorSection = (siteBase: string, authors: Array<{ name: string; image_url?: string | null }>): string => {
+  const authorItems = authors.map((author) => {
+    const img = author.image_url
+      ? `<img src="${author.image_url}" alt="${escapeHtml(author.name)}" width="40" height="40" style="display:block;width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid ${BORDER_COLOR};" />`
+      : `<div style="width:40px;height:40px;border-radius:50%;background:${ACCENT};display:flex;align-items:center;justify-content:center;color:#ffffff;font-size:16px;font-weight:700;">${author.name.charAt(0).toUpperCase()}</div>`;
+    return `<td style="padding:0 12px 0 0;text-align:center;">${img}<p style="margin:6px 0 0 0;font-size:13px;color:${TEXT_SECONDARY};font-family:Arial,sans-serif;">${escapeHtml(author.name)}</p></td>`;
+  }).join("");
+
+  return `
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;${borderedBox("24px")}">
+    <tr>
+      <td style="padding:0;font-family:Arial,sans-serif;">
+        <div style="font-size:13px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${TEXT_SECONDARY};margin-bottom:12px;font-family:Arial,sans-serif;">Curated by</div>
+        <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+          <tr>
+            ${authorItems}
           </tr>
         </table>
       </td>
@@ -353,7 +378,8 @@ const buildHtmlDigest = (
   subscriber: DigestSubscriber,
   siteUrl: string,
   newsletterTitle: string,
-  snippets: ArticleSnippet[]
+  snippets: ArticleSnippet[],
+  authors: Array<{ name: string; image_url?: string | null }> = []
 ): string => {
   const siteBase = toSiteBase(siteUrl);
   const date = new Date().toUTCString().slice(5, 16);
@@ -364,6 +390,7 @@ const buildHtmlDigest = (
   const latestDevelopmentCards = buildLatestDevelopmentCards(articles, siteBase);
   const ratingSection = buildRatingSection(subscriber.email, siteBase);
   const quickHits = buildQuickHitsSection();
+  const authorSection = authors.length > 0 ? buildAuthorSection(siteBase, authors) : "";
 
   return `<!doctype html>
 <html lang="en" xmlns:v="urn:schemas-microsoft-com:vml">
@@ -379,13 +406,13 @@ const buildHtmlDigest = (
     </style>
   </head>
   <body style="margin:0;padding:0;background-color:${DARK_BG};-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
-    <!-- outer wrapper -->
+    <!-- outer wrapper with thick border -->
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:${DARK_BG};padding:16px 0;">
       <tr>
         <td align="center" style="padding:0;">
 
-          <!-- main container -->
-          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width:640px;">
+          <!-- main container with outer border -->
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width:640px;background-color:${DARK_BG};border:2px solid ${BORDER_COLOR};border-radius:16px;padding:16px;">
 
             <!-- nav bar -->
             <tr>
@@ -414,7 +441,7 @@ const buildHtmlDigest = (
             <!-- greeting card -->
             <tr>
               <td style="padding:0 0 16px 0;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;${borderedBox("20px")}">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;${borderedBox("24px")}">
                   <tr>
                     <td style="padding:0;font-family:Arial,sans-serif;">
                       <p style="margin:0;font-size:26px;line-height:1.2;font-weight:800;color:${TEXT_PRIMARY};font-family:Arial,sans-serif;">Good morning, ${subscriberName}.</p>
@@ -428,7 +455,7 @@ const buildHtmlDigest = (
             <!-- briefing rundown card -->
             <tr>
               <td style="padding:0 0 16px 0;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;${borderedBox("20px")}">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;${borderedBox("24px")}">
                   <tr>
                     <td style="padding:0;font-family:Arial,sans-serif;">
                       <p style="margin:0 0 12px 0;font-size:18px;line-height:1.3;font-weight:700;color:${TEXT_PRIMARY};font-family:Arial,sans-serif;">📋 In today's security briefing:</p>
@@ -444,7 +471,7 @@ const buildHtmlDigest = (
             <!-- latest developments header card -->
             <tr>
               <td style="padding:0 0 16px 0;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;${borderedBox("16px 20px")}">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;${borderedBox("16px 24px")}">
                   <tr>
                     <td style="padding:0;font-family:Arial,sans-serif;">
                       <span style="font-size:13px;font-weight:800;color:${ACCENT};letter-spacing:0.12em;text-transform:uppercase;font-family:Arial,sans-serif;">🔥 Latest Developments</span>
@@ -477,10 +504,13 @@ const buildHtmlDigest = (
               </td>
             </tr>
 
+            <!-- author section -->
+            ${authorSection ? `<tr><td style="padding:16px 0 0 0;">${authorSection}</td></tr>` : ""}
+
             <!-- footer -->
             <tr>
               <td style="padding:16px 0 0 0;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;${borderedBox("20px", "text-align:center;")}">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;${borderedBox("24px", "text-align:center;")}">
                   <tr>
                     <td style="padding:0;font-family:Arial,sans-serif;">
                       <p style="margin:0;font-family:Arial,sans-serif;font-size:18px;font-weight:700;color:${TEXT_PRIMARY};">See you soon 👋</p>
@@ -586,9 +616,10 @@ export const sendDigest = async (
   newsletterTitle = "Daily Security Intelligence Brief",
   snippets: ArticleSnippet[] = []
 ): Promise<DigestSendResult> => {
-  const [allArticles, subscribers] = await Promise.all([
+  const [allArticles, subscribers, authors] = await Promise.all([
     getRecentArticles(env),
-    getSubscribers(env)
+    getSubscribers(env),
+    getAuthors(env)
   ]);
 
   const candidateArticles = allArticles as DigestArticle[];
@@ -653,7 +684,7 @@ export const sendDigest = async (
           from: fromEmail,
           to: [subscriber.email],
           subject: newsletterTitle,
-          html: buildHtmlDigest(digestArticles, subscriber as DigestSubscriber, env.NEXT_PUBLIC_SITE_URL, newsletterTitle, snippets),
+          html: buildHtmlDigest(digestArticles, subscriber as DigestSubscriber, env.NEXT_PUBLIC_SITE_URL, newsletterTitle, snippets, authors),
           text: buildTextDigest(digestArticles, subscriber as DigestSubscriber, env.NEXT_PUBLIC_SITE_URL)
         }))
       );
@@ -668,7 +699,7 @@ export const sendDigest = async (
             from: fromEmail,
             to: [subscriber.email],
             subject: newsletterTitle,
-            html: buildHtmlDigest(digestArticles, subscriber as DigestSubscriber, env.NEXT_PUBLIC_SITE_URL, newsletterTitle, snippets),
+            html: buildHtmlDigest(digestArticles, subscriber as DigestSubscriber, env.NEXT_PUBLIC_SITE_URL, newsletterTitle, snippets, authors),
             text: buildTextDigest(digestArticles, subscriber as DigestSubscriber, env.NEXT_PUBLIC_SITE_URL)
           });
 

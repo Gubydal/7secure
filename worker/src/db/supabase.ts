@@ -262,6 +262,32 @@ export const markDigestArticlesSent = async (env: WorkerEnv, slugs: string[]): P
   }
 };
 
+export const getAuthors = async (
+  env: WorkerEnv
+): Promise<Array<{ name: string; image_url?: string | null }>> => {
+  try {
+    const { data, error } = await getSupabaseAdmin(env)
+      .from("authors")
+      .select("name,image_url")
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("authors lookup failed:", error.message);
+      return [{ name: "7secure", image_url: null }];
+    }
+
+    const rows = (data as Array<{ name: string; image_url?: string | null }> | null) ?? [];
+    if (rows.length === 0) {
+      return [{ name: "7secure", image_url: null }];
+    }
+
+    return rows;
+  } catch (error) {
+    console.error("authors lookup error:", (error as Error).message);
+    return [{ name: "7secure", image_url: null }];
+  }
+};
+
 export const saveDailyBriefing = async (
   env: WorkerEnv,
   briefing: {
