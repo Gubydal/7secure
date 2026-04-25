@@ -226,8 +226,7 @@ const TEXT_SECONDARY = "#9ca3af";
 const ACCENT = "#3b82f6";
 const TITLE_BLUE = "#60a5fa";
 
-const borderedBox = (padding: string, extra = ""): string =>
-  `background-color:${CARD_BG};border:1px solid ${BORDER_COLOR};border-radius:16px;${padding ? `padding:${padding};` : ""}${extra}`;
+const sectionSpacer = `<tr><td style="padding:0;height:16px;font-size:0;line-height:0;">&nbsp;</td></tr>`;
 
 const buildDailyRundownList = (articles: DigestArticle[]): string =>
   articles
@@ -289,39 +288,33 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
         ? `<img src="${imageSrc}" alt="${title}" width="100%" style="display:block;width:100%;height:auto;max-height:280px;object-fit:cover;border-radius:8px;margin-bottom:20px;" />`
         : "";
 
-      return `
+      const divider = index > 0 ? `<tr><td style="padding:0;"><div style="height:1px;background:${BORDER_COLOR};margin:0 24px;"></div></td></tr>${sectionSpacer}` : "";
+
+      return `${divider}
       <tr>
-        <td style="padding:0;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;${borderedBox("24px", "margin-bottom:16px;")}">
-            <tr>
-              <td style="padding:0;font-family:Arial,sans-serif;color:${TEXT_PRIMARY};">
-                ${imageBlock}
-                <div style="font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:${ACCENT};margin-bottom:10px;font-family:Arial,sans-serif;">${category}</div>
-                <a href="${originalHref}" style="font-size:24px;line-height:1.2;font-weight:800;color:${TEXT_PRIMARY};text-decoration:none;display:block;font-family:Arial,sans-serif;">${title}</a>
-                ${keyPointsHtml}
-                ${descriptionHtml}
-                ${whyImportantHtml}
-                ${incidentOverviewHtml}
-                ${securityImplicationsHtml}
-                ${recommendedMitigationsHtml}
-                <p style="margin:20px 0 0 0;font-size:13px;line-height:1.5;color:${TEXT_SECONDARY};font-family:Arial,sans-serif;"><strong style="color:${TEXT_PRIMARY};">7secure</strong> · ${formatPublishDate(article.published_at)} · <a href="${newsletterHref}" style="color:${ACCENT};text-decoration:underline;font-weight:600;">Read full version →</a></p>
-              </td>
-            </tr>
-          </table>
+        <td style="padding:24px;font-family:Arial,sans-serif;color:${TEXT_PRIMARY};">
+          ${imageBlock}
+          <div style="font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:${ACCENT};margin-bottom:10px;font-family:Arial,sans-serif;">${category}</div>
+          <a href="${originalHref}" style="font-size:24px;line-height:1.2;font-weight:800;color:${TEXT_PRIMARY};text-decoration:none;display:block;font-family:Arial,sans-serif;">${title}</a>
+          ${keyPointsHtml}
+          ${descriptionHtml}
+          ${whyImportantHtml}
+          ${incidentOverviewHtml}
+          ${securityImplicationsHtml}
+          ${recommendedMitigationsHtml}
+          <p style="margin:20px 0 0 0;font-size:13px;line-height:1.5;color:${TEXT_SECONDARY};font-family:Arial,sans-serif;"><strong style="color:${TEXT_PRIMARY};">7secure</strong> · ${formatPublishDate(article.published_at)} · <a href="${newsletterHref}" style="color:${ACCENT};text-decoration:underline;font-weight:600;">Read full version →</a></p>
         </td>
       </tr>`;
     })
     .join("");
 
 const buildQuickHitsSection = (): string => `
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;${borderedBox("24px")}">
-    <tr>
-      <td style="padding:0;font-family:Arial,sans-serif;">
-        <div style="font-size:18px;font-weight:800;color:${TEXT_PRIMARY};margin-bottom:12px;font-family:Arial,sans-serif;">⚡ Quick Hits</div>
-        <div style="font-size:16px;line-height:1.6;color:${TEXT_SECONDARY};">Tool highlights and practice snapshots are being curated for the next briefing.</div>
-      </td>
-    </tr>
-  </table>`;
+  <tr>
+    <td style="padding:24px;font-family:Arial,sans-serif;">
+      <div style="font-size:18px;font-weight:800;color:${TEXT_PRIMARY};margin-bottom:12px;font-family:Arial,sans-serif;">⚡ Quick Hits</div>
+      <div style="font-size:16px;line-height:1.6;color:${TEXT_SECONDARY};">Tool highlights and practice snapshots are being curated for the next briefing.</div>
+    </td>
+  </tr>`;
 
 const buildRatingSection = (subscriberEmail: string, siteBase: string): string => {
   const encodedEmail = encodeURIComponent(subscriberEmail);
@@ -329,25 +322,23 @@ const buildRatingSection = (subscriberEmail: string, siteBase: string): string =
     `${siteBase}/api/digest-feedback?email=${encodedEmail}&rating=${rating}&context=daily_digest_email`;
 
   return `
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;${borderedBox("24px")}">
-    <tr>
-      <td style="padding:0;font-family:Arial,sans-serif;">
-        <div style="font-size:22px;line-height:1.2;font-weight:800;color:${TEXT_PRIMARY};margin-bottom:8px;font-family:Arial,sans-serif;">That's it for today!</div>
-        <p style="margin:0 0 18px 0;font-size:16px;line-height:1.6;color:${TEXT_SECONDARY};font-family:Arial,sans-serif;">Rate today's briefing so we can keep improving your daily security intelligence.</p>
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
-          <tr>
-            <td style="padding:0 0 10px 0;"><a href="${feedbackLink(5)}" style="display:block;background:${CARD_BG};border:1px solid ${BORDER_COLOR};border-radius:8px;padding:14px 16px;color:${TEXT_PRIMARY};text-decoration:none;font-size:18px;font-weight:700;font-family:Arial,sans-serif;">🛡️🛡️🛡️🛡️🛡️ Nailed it</a></td>
-          </tr>
-          <tr>
-            <td style="padding:0 0 10px 0;"><a href="${feedbackLink(3)}" style="display:block;background:${CARD_BG};border:1px solid ${BORDER_COLOR};border-radius:8px;padding:14px 16px;color:${TEXT_SECONDARY};text-decoration:none;font-size:18px;font-weight:700;font-family:Arial,sans-serif;">🛡️🛡️🛡️ Average</a></td>
-          </tr>
-          <tr>
-            <td style="padding:0;"><a href="${feedbackLink(1)}" style="display:block;background:${CARD_BG};border:1px solid ${BORDER_COLOR};border-radius:8px;padding:14px 16px;color:${TEXT_SECONDARY};text-decoration:none;font-size:18px;font-weight:700;font-family:Arial,sans-serif;">🛡️ Needs work</a></td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>`;
+  <tr>
+    <td style="padding:24px;font-family:Arial,sans-serif;">
+      <div style="font-size:22px;line-height:1.2;font-weight:800;color:${TEXT_PRIMARY};margin-bottom:8px;font-family:Arial,sans-serif;">That's it for today!</div>
+      <p style="margin:0 0 18px 0;font-size:16px;line-height:1.6;color:${TEXT_SECONDARY};font-family:Arial,sans-serif;">Rate today's briefing so we can keep improving your daily security intelligence.</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+        <tr>
+          <td style="padding:0 0 10px 0;"><a href="${feedbackLink(5)}" style="display:block;background:${CARD_BG};border:1px solid ${BORDER_COLOR};border-radius:8px;padding:14px 16px;color:${TEXT_PRIMARY};text-decoration:none;font-size:18px;font-weight:700;font-family:Arial,sans-serif;">🛡️🛡️🛡️🛡️🛡️ Nailed it</a></td>
+        </tr>
+        <tr>
+          <td style="padding:0 0 10px 0;"><a href="${feedbackLink(3)}" style="display:block;background:${CARD_BG};border:1px solid ${BORDER_COLOR};border-radius:8px;padding:14px 16px;color:${TEXT_SECONDARY};text-decoration:none;font-size:18px;font-weight:700;font-family:Arial,sans-serif;">🛡️🛡️🛡️ Average</a></td>
+        </tr>
+        <tr>
+          <td style="padding:0;"><a href="${feedbackLink(1)}" style="display:block;background:${CARD_BG};border:1px solid ${BORDER_COLOR};border-radius:8px;padding:14px 16px;color:${TEXT_SECONDARY};text-decoration:none;font-size:18px;font-weight:700;font-family:Arial,sans-serif;">🛡️ Needs work</a></td>
+        </tr>
+      </table>
+    </td>
+  </tr>`;
 };
 
 const buildAuthorSection = (siteBase: string, authors: Array<{ name: string; image_url?: string | null }>): string => {
@@ -359,18 +350,16 @@ const buildAuthorSection = (siteBase: string, authors: Array<{ name: string; ima
   }).join("");
 
   return `
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;${borderedBox("24px")}">
-    <tr>
-      <td style="padding:0;font-family:Arial,sans-serif;">
-        <div style="font-size:13px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${TEXT_SECONDARY};margin-bottom:12px;font-family:Arial,sans-serif;">Curated by</div>
-        <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
-          <tr>
-            ${authorItems}
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>`;
+  <tr>
+    <td style="padding:24px;font-family:Arial,sans-serif;">
+      <div style="font-size:13px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${TEXT_SECONDARY};margin-bottom:12px;font-family:Arial,sans-serif;">Curated by</div>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+        <tr>
+          ${authorItems}
+        </tr>
+      </table>
+    </td>
+  </tr>`;
 };
 
 const buildHtmlDigest = (
@@ -406,17 +395,17 @@ const buildHtmlDigest = (
     </style>
   </head>
   <body style="margin:0;padding:0;background-color:${DARK_BG};-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
-    <!-- outer wrapper with thick border -->
+    <!-- outer wrapper -->
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:${DARK_BG};padding:16px 0;">
       <tr>
         <td align="center" style="padding:0;">
 
-          <!-- main container with outer border -->
-          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width:640px;background-color:${DARK_BG};border:2px solid ${BORDER_COLOR};border-radius:16px;padding:16px;">
+          <!-- single bordered container -->
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width:640px;background-color:${DARK_BG};border:2px solid ${BORDER_COLOR};border-radius:16px;">
 
             <!-- nav bar -->
             <tr>
-              <td align="center" style="padding:0 0 14px 0;font-family:Arial,sans-serif;font-size:13px;color:${TEXT_SECONDARY};">
+              <td align="center" style="padding:16px 24px 14px 24px;font-family:Arial,sans-serif;font-size:13px;color:${TEXT_SECONDARY};">
                 <a href="${siteBase}" style="color:${TEXT_SECONDARY};text-decoration:underline;font-weight:600;">Read Online</a>
                 &nbsp;·&nbsp;
                 <a href="${siteBase}/subscribe" style="color:${TEXT_SECONDARY};text-decoration:underline;font-weight:600;">Sign Up</a>
@@ -425,106 +414,72 @@ const buildHtmlDigest = (
               </td>
             </tr>
 
-            <!-- cover image card -->
+            <!-- cover image -->
             <tr>
-              <td style="padding:0 0 16px 0;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;${borderedBox("0", "overflow:hidden;")}">
-                  <tr>
-                    <td style="padding:0;line-height:0;">
-                      <img src="${coverImage}" alt="7secure" width="100%" style="display:block;width:100%;height:auto;max-height:220px;object-fit:cover;" />
-                    </td>
-                  </tr>
-                </table>
+              <td style="padding:0 24px 16px 24px;line-height:0;">
+                <img src="${coverImage}" alt="7secure" width="100%" style="display:block;width:100%;height:auto;max-height:220px;object-fit:cover;border-radius:12px;" />
               </td>
             </tr>
 
-            <!-- greeting card -->
+            <!-- greeting -->
             <tr>
-              <td style="padding:0 0 16px 0;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;${borderedBox("24px")}">
-                  <tr>
-                    <td style="padding:0;font-family:Arial,sans-serif;">
-                      <p style="margin:0;font-size:26px;line-height:1.2;font-weight:800;color:${TEXT_PRIMARY};font-family:Arial,sans-serif;">Good morning, ${subscriberName}.</p>
-                      <p style="margin:10px 0 0 0;font-size:16px;line-height:1.6;color:${TEXT_SECONDARY};font-family:Arial,sans-serif;">${date} briefing: clear threat context, key developments, and quick actions worth prioritizing today.</p>
-                    </td>
-                  </tr>
-                </table>
+              <td style="padding:24px;font-family:Arial,sans-serif;">
+                <p style="margin:0;font-size:26px;line-height:1.2;font-weight:800;color:${TEXT_PRIMARY};font-family:Arial,sans-serif;">Good morning, ${subscriberName}.</p>
+                <p style="margin:10px 0 0 0;font-size:16px;line-height:1.6;color:${TEXT_SECONDARY};font-family:Arial,sans-serif;">${date} briefing: clear threat context, key developments, and quick actions worth prioritizing today.</p>
               </td>
             </tr>
 
-            <!-- briefing rundown card -->
+            ${sectionSpacer}
+
+            <!-- briefing rundown -->
             <tr>
-              <td style="padding:0 0 16px 0;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;${borderedBox("24px")}">
-                  <tr>
-                    <td style="padding:0;font-family:Arial,sans-serif;">
-                      <p style="margin:0 0 12px 0;font-size:18px;line-height:1.3;font-weight:700;color:${TEXT_PRIMARY};font-family:Arial,sans-serif;">📋 In today's security briefing:</p>
-                      <ul style="margin:0;padding:0;list-style:none;font-family:Arial,sans-serif;">
-                        ${dailyRundownList}
-                      </ul>
-                    </td>
-                  </tr>
-                </table>
+              <td style="padding:24px;font-family:Arial,sans-serif;">
+                <p style="margin:0 0 12px 0;font-size:18px;line-height:1.3;font-weight:700;color:${TEXT_PRIMARY};font-family:Arial,sans-serif;">📋 In today's security briefing:</p>
+                <ul style="margin:0;padding:0;list-style:none;font-family:Arial,sans-serif;">
+                  ${dailyRundownList}
+                </ul>
               </td>
             </tr>
 
-            <!-- latest developments header card -->
+            ${sectionSpacer}
+
+            <!-- latest developments header -->
             <tr>
-              <td style="padding:0 0 16px 0;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;${borderedBox("16px 24px")}">
-                  <tr>
-                    <td style="padding:0;font-family:Arial,sans-serif;">
-                      <span style="font-size:13px;font-weight:800;color:${ACCENT};letter-spacing:0.12em;text-transform:uppercase;font-family:Arial,sans-serif;">🔥 Latest Developments</span>
-                    </td>
-                  </tr>
-                </table>
+              <td style="padding:16px 24px;font-family:Arial,sans-serif;">
+                <span style="font-size:13px;font-weight:800;color:${ACCENT};letter-spacing:0.12em;text-transform:uppercase;font-family:Arial,sans-serif;">🔥 Latest Developments</span>
               </td>
             </tr>
 
-            <!-- article cards -->
-            <tr>
-              <td style="padding:0;">
-                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
-                  ${latestDevelopmentCards}
-                </table>
-              </td>
-            </tr>
+            <!-- article cards (no inner borders) -->
+            ${latestDevelopmentCards}
 
-            <!-- quick hits card -->
-            <tr>
-              <td style="padding:16px 0 0 0;">
-                ${quickHits}
-              </td>
-            </tr>
+            ${sectionSpacer}
 
-            <!-- rating card -->
-            <tr>
-              <td style="padding:16px 0 0 0;">
-                ${ratingSection}
-              </td>
-            </tr>
+            <!-- quick hits -->
+            ${quickHits}
+
+            ${sectionSpacer}
+
+            <!-- rating -->
+            ${ratingSection}
+
+            ${sectionSpacer}
 
             <!-- author section -->
-            ${authorSection ? `<tr><td style="padding:16px 0 0 0;">${authorSection}</td></tr>` : ""}
+            ${authorSection ? `${authorSection}${sectionSpacer}` : ""}
 
             <!-- footer -->
             <tr>
-              <td style="padding:16px 0 0 0;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;${borderedBox("24px", "text-align:center;")}">
-                  <tr>
-                    <td style="padding:0;font-family:Arial,sans-serif;">
-                      <p style="margin:0;font-family:Arial,sans-serif;font-size:18px;font-weight:700;color:${TEXT_PRIMARY};">See you soon 👋</p>
-                      <p style="margin:10px 0 0 0;font-family:Arial,sans-serif;font-size:13px;color:${TEXT_SECONDARY};">
-                        <a href="${unsubscribeUrl}" style="color:${TEXT_SECONDARY};text-decoration:underline;font-weight:600;">Unsubscribe</a>
-                      </p>
-                    </td>
-                  </tr>
-                </table>
+              <td style="padding:24px;text-align:center;font-family:Arial,sans-serif;">
+                <p style="margin:0;font-family:Arial,sans-serif;font-size:18px;font-weight:700;color:${TEXT_PRIMARY};">See you soon 👋</p>
+                <p style="margin:10px 0 0 0;font-family:Arial,sans-serif;font-size:13px;color:${TEXT_SECONDARY};">
+                  <a href="${unsubscribeUrl}" style="color:${TEXT_SECONDARY};text-decoration:underline;font-weight:600;">Unsubscribe</a>
+                </p>
               </td>
             </tr>
 
           </table>
-          <!-- /main container -->
+          <!-- /single bordered container -->
 
         </td>
       </tr>
