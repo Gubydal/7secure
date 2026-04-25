@@ -155,6 +155,34 @@ const hashString = (value: string): string => {
 
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+// ─── Severity / Attribution Extraction ──────────────────────────
+const extractSeverityFromSource = (sourceText: string): string => {
+  const text = sourceText.toLowerCase();
+  // Check for CVSS score
+  const cvssMatch = sourceText.match(/CVSS[\\s:-]*(\\d+\\.?\\d*)/i) || sourceText.match(/score[\\s:-]*(\\d+\\.?\\d*)/i);
+  if (cvssMatch) {
+    const score = parseFloat(cvssMatch[1]);
+    if (score >= 9.0) return 'Critical';
+    if (score >= 7.0) return 'High';
+    if (score >= 4.0) return 'Medium';
+    return 'Low';
+  }
+  // Keyword-based fallback
+  if (/critical|severe|emergency|urgent|nation-state|widespread/i.test(text)) return 'Critical';
+  if (/high|rce|zero-day|active.exploit|ransomware|data.breach/i.test(text)) return 'High';
+  if (/medium|moderate|patch.available|vulnerability/i.test(text)) return 'Medium';
+  if (/low|minor|informational/i.test(text)) return 'Low';
+  return 'Medium';
+};
+
+const extractAttributionFromSource = (sourceText: string): string => {
+  const actorMatch = sourceText.match(/\\b(?:APT\\d+|Lazarus|LockBit|Akira|Clop|FIN\\d+|Sandworm|Volt Typhoon|BlackCat|Royal|Maze|Conti|REvil|DarkSide|Nobelium|Cozy Bear|Fancy Bear|APT28|APT29|Charming Kitten|Phosphorus|MuddyWater|TA\\d+|UNC\\d+)\\b/i);
+  if (actorMatch) return actorMatch[0];
+  const groupMatch = sourceText.match(/\\b(?:threat actor|attackers|hackers|cybercriminals)\\s+(?:known as|identified as|linked to|attributed to|associated with)\\s+([A-Z][A-Za-z0-9\\s]+)/i);
+  if (groupMatch) return groupMatch[1].trim();
+  return 'Unknown';
+};
+
 const normalizeWhitespace = (value: string): string => value.replace(/\s+/g, " ").trim();
 
 // ─── Scraper Debris Patterns ────────────────────────────────────
@@ -975,7 +1003,92 @@ const applyTieredQualityGate = (
     };
   }
 
+  // Run structure validation on full articles
+  const validation = validateArticleStructure(article, item);
+  if (!validation.valid) {
+    console.warn(`VALIDATION FAIL: ${article.title} — ${validation.errors.join(', ')}`);
+    const shortContent = buildShortCardContent(content, item);
+    if (!shortContent) return null;
+    return {
+      ...article,
+      content: shortContent,
+      summary: article.summary || 'Brief security update.'
+    };
+  }
+
   return article;
+};
+
+// ─── Article Structure Validation ─────────────────────────────
+const validateArticleStructure = (article: NewsletterArticle, item: RawFeedItem): { valid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+  const content = article.content || '';
+
+  // Extract sections
+  const ktMatch = content.match(/##\s*Key\s*Takeaways?\s*\n([\s\S]*?)(?=\n##|$)/i);
+  const whMatch = content.match(/##\s*What\s*Happened\s*\n([\s\S]*?)(?=\n##|$)/i);
+  const wimMatch = content.match(/##\s*Why\s*It\s*Matters?\s*\n([\s\S]*?)(?=\n##|$)/i);
+
+  const ktText = ktMatch ? ktMatch[1].trim() : '';
+  const whText = whMatch ? whMatch[1].trim() : '';
+  const wimText = wimMatch ? wimMatch[1].trim() : '';
+
+  // 1. Check for duplicate bullets in Key Takeaways
+  const bullets = ktText.split('\n').map(l => l.trim()).filter(l => l.startsWith('-'));
+  const bulletTexts = bullets.map(b => normalizeForCompare(b.replace(/^-\s*/, '')));
+  const seenBullets = new Set<string>();
+  for (const bt of bulletTexts) {
+    if (seenBullets.has(bt)) {
+      errors.push('Duplicate bullet in Key Takeaways');
+      break;
+    }
+    seenBullets.add(bt);
+  }
+
+  // 2. Check Key Takeaways not duplicated in What Happened
+  for (const bullet of bulletTexts) {
+    if (bullet.length > 15 && normalizeForCompare(whText).includes(bullet)) {
+      errors.push('Key Takeaway duplicated in What Happened');
+      break;
+    }
+  }
+
+  // 3. Why It Matters must have real content
+  if (!wimText || wimText.length < 40 || wimText.includes('REMOVED: template text detected')) {
+    errors.push('Why It Matters missing or too short');
+  }
+
+  // 4. What Happened must be standalone (not merged into WIM)
+  if (!whText || whText.length < 30) {
+    errors.push('What Happened missing or too short');
+  }
+
+  // 5. What Happened must not be a copy of a Key Takeaway
+  for (const bullet of bulletTexts) {
+    if (bullet.length > 15 && tokenSimilarity(bullet, normalizeForCompare(whText)) > 0.85) {
+      errors.push('What Happened is copy of Key Takeaway');
+      break;
+    }
+  }
+
+  // 6. What Happened must have at least 2 sentences
+  const whSentences = splitSentences(whText).filter(s => s.length > 15);
+  if (whSentences.length < 2) {
+    errors.push('What Happened has fewer than 2 sentences');
+  }
+
+  // 7. Check severity/attribution are not default "Medium / Unknown"
+  if (content.includes('**Severity:** Medium') && content.includes('**Attribution:** Unknown')) {
+    // Only flag if source actually has identifiable signals
+    const sourceText = [item.title, item.summary, item.sourceSnippet || ''].join(' ');
+    const hasCve = /CVE-\d{4}-\d+/i.test(sourceText);
+    const hasActor = /\b(?:APT\d+|Lazarus|LockBit|Akira|Clop|FIN\d+|Sandworm|Volt Typhoon)\b/i.test(sourceText);
+    if (hasCve || hasActor) {
+      errors.push('Severity/Attribution defaulted despite source signals');
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
 };
 
 const buildShortCardContent = (content: string, item: RawFeedItem): string | null => {
@@ -1004,7 +1117,9 @@ const buildShortCardContent = (content: string, item: RawFeedItem): string | nul
   const ktBlock = bullets.length > 0 ? bullets.join('\n') : (cleanKt ? '- ' + cleanKt : '- Source reported a security update.');
   const whBlock = cleanWh || 'Source details are limited.';
 
-  return `**Severity:** Medium\n**Affected Sectors:** General\n**Threat Type:** ${item.category.replace(/-/g, ' ')}\n**Attribution:** Unknown\n\n## Key Takeaways\n${ktBlock}\n\n## What Happened\n${clampSnippet(whBlock, 280)}`;
+  const shortSeverity = extractSeverityFromSource(sourceText);
+  const shortAttribution = extractAttributionFromSource(sourceText);
+  return `**Severity:** ${shortSeverity}\n**Affected Sectors:** General\n**Threat Type:** ${item.category.replace(/-/g, ' ')}\n**Attribution:** ${shortAttribution}\n\n## Key Takeaways\n${ktBlock}\n\n## What Happened\n${clampSnippet(whBlock, 280)}`;
 };
 
 // ─── Fallback Content — No Template Text ────────────────────────
@@ -1057,7 +1172,10 @@ const buildStructuredContent = (
   const sourceSentences = splitSentences(sourceBase);
   const topicLabel = item.category.replace(/-/g, " ");
 
-  const metadataBlock = `**Severity:** Medium\n**Affected Sectors:** General\n**Threat Type:** ${topicLabel}\n**Attribution:** Unknown`;
+  const sourceText = [item.title, item.summary, item.sourceSnippet || ''].join(' ');
+  const severity = extractSeverityFromSource(sourceText);
+  const attribution = extractAttributionFromSource(sourceText);
+  const metadataBlock = `**Severity:** ${severity}\n**Affected Sectors:** General\n**Threat Type:** ${topicLabel}\n**Attribution:** ${attribution}`;
 
   // Generate original Why It Matters — never template text
   const originalWhyItMatters = generateOriginalWhyItMatters(item, isIncident);
