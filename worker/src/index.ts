@@ -1,7 +1,7 @@
 import { cleanItems } from "./bridge/cleaner";
 import { generateNewsletterTitle } from "./bridge/title-generator";
 import { generateSnippetOfTheWeek } from "./bridge/snippet-generator";
-import { writeArticles } from "./bridge/writer";
+import { writeArticles, generateThreatPulse } from "./bridge/writer";
 import { logDigest, saveArticles, getExistingUrls, getTrackedCategories, saveDailyBriefing } from "./db/supabase";
 import { sendDigest } from "./email/digest";
 import { fetchFeeds } from "./rss/fetcher";
@@ -36,12 +36,13 @@ export const runDailyPipeline = async (env: WorkerEnv): Promise<void> => {
       }
     }
 
-    // Generate AI newsletter title and snippet hooks from prepared articles
+    // Generate AI newsletter title, snippet hooks, and threat pulse from prepared articles
     let newsletterTitle = "Daily Security Intelligence Brief";
     let snippets: Awaited<ReturnType<typeof generateSnippetOfTheWeek>> = [];
+    let threatPulse = "";
 
     if (preparedArticles.length > 0) {
-      const [generatedTitle, generatedSnippets] = await Promise.all([
+      const [generatedTitle, generatedSnippets, generatedThreatPulse] = await Promise.all([
         generateNewsletterTitle(
           preparedArticles.map((a) => ({ title: a.title, summary: a.summary, category: a.category })),
           env
@@ -49,10 +50,12 @@ export const runDailyPipeline = async (env: WorkerEnv): Promise<void> => {
         generateSnippetOfTheWeek(
           preparedArticles.map((a) => ({ title: a.title, slug: a.slug, summary: a.summary })),
           env
-        )
+        ),
+        generateThreatPulse(preparedArticles, env)
       ]);
       newsletterTitle = generatedTitle;
       snippets = generatedSnippets;
+      threatPulse = generatedThreatPulse;
 
       await saveDailyBriefing(env, {
         newsletter_title: newsletterTitle,
@@ -61,7 +64,7 @@ export const runDailyPipeline = async (env: WorkerEnv): Promise<void> => {
       });
     }
 
-    const digestResult = await sendDigest(env, newsletterTitle, snippets);
+    const digestResult = await sendDigest(env, newsletterTitle, snippets, threatPulse);
     if (digestResult.status === "success") {
       console.log(
         `Digest accepted by Resend for ${digestResult.subscriberCount} subscribers using ${digestResult.articleCount} articles`

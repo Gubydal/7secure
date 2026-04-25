@@ -31,6 +31,7 @@ export interface NewsletterArticle {
   image_url?: string | null;
   is_featured?: boolean;
   is_incident?: boolean;
+  sufficient_data?: boolean;
 }
 
 export interface ArticleSnippet {

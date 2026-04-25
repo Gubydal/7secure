@@ -23,6 +23,7 @@ interface DigestArticle {
   published_at: string;
   original_url?: string;
   image_url?: string | null;
+  is_incident?: boolean;
 }
 
 interface DigestSubscriber {
@@ -33,19 +34,6 @@ interface DigestSubscriber {
 const ARTICLE_EMOJI_REGEX = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u200D]/gu;
 
 const stripEmojiInline = (value: string): string => value.replace(ARTICLE_EMOJI_REGEX, "").replace(/\s+/g, " ").trim();
-
-const stripMarkdown = (value: string): string =>
-  stripEmojiInline(
-    value
-      .replace(/```[\s\S]*?```/g, " ")
-      .replace(/`[^`]*`/g, " ")
-      .replace(/!\[[^\]]*\]\([^\)]*\)/g, " ")
-      .replace(/\[[^\]]*\]\([^\)]*\)/g, " ")
-      .replace(/^#{1,6}\s+/gm, "")
-      .replace(/[*_>~]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-  );
 
 const clamp = (value: string, limit: number): string =>
   value.length > limit ? `${value.slice(0, limit - 3).trimEnd()}...` : value;
@@ -62,155 +50,130 @@ const toSiteBase = (siteUrl: string): string => siteUrl.replace(/\/$/, "");
 
 const safeUrl = (value: string | null | undefined, fallback: string): string => {
   const candidate = (value || "").trim();
-  if (!candidate) {
-    return fallback;
-  }
-
-  try {
-    return new URL(candidate).toString();
-  } catch {
-    return fallback;
-  }
+  if (!candidate) return fallback;
+  try { return new URL(candidate).toString(); } catch { return fallback; }
 };
 
-const resolveImageUrl = (
-  imageUrl: string | null | undefined,
-  siteBase: string,
-  options?: { allowCover?: boolean }
-): string | null => {
+const resolveImageUrl = (imageUrl: string | null | undefined, siteBase: string): string | null => {
   const raw = (imageUrl || "").trim();
-  if (!raw) {
-    return null;
-  }
-
-  if (!options?.allowCover && /(^|\/)cover\.avif(?:$|\?)/i.test(raw)) {
-    return null;
-  }
-
-  if (/^https?:\/\//i.test(raw)) {
-    return raw;
-  }
-
-  if (raw.startsWith("/")) {
-    return `${siteBase}${raw}`;
-  }
-
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (raw.startsWith("/")) return `${siteBase}${raw}`;
   return null;
 };
 
 const displayNameFromSubscriber = (subscriber: DigestSubscriber): string => {
   const role = (subscriber.role || "").trim();
-  if (role) {
-    return role.split(/\s+/)[0];
-  }
-
+  if (role) return role.split(/\s+/)[0];
   const localPart = subscriber.email.split("@")[0] || "there";
   const cleaned = localPart.replace(/[^a-zA-Z0-9]+/g, " ").trim();
   const first = cleaned.split(/\s+/)[0] || "there";
   return first.charAt(0).toUpperCase() + first.slice(1);
 };
 
-const buildArticleScript = (
-  article: DigestArticle
-): { keyPoints: string; description: string; whyImportant: string; incidentOverview: string; securityImplications: string; recommendedMitigations: string } => {
-  const content = article.content || "";
-
-  const keyPointsMatch = content.match(/##\s*Key\s*(?:Points?|Takeaways?)\n([\s\S]*?)(?=\n##|$)/i);
-  const descriptionMatch = content.match(/##\s*Description\n([\s\S]*?)(?=\n##|$)/i);
-  const whyImportantMatch = content.match(/##\s*(?:Why\s+this\s+matters|Why\s+it'?s\s+important|Why\s+It\s+Matters?)\n([\s\S]*?)(?=\n##|$)/i);
-  const incidentOverviewMatch = content.match(/##\s*Incident\s*Overview\n([\s\S]*?)(?=\n##|$)/i);
-  const securityImplicationsMatch = content.match(/##\s*Security\s*Implications?\n([\s\S]*?)(?=\n##|$)/i);
-  const recommendedMitigationsMatch = content.match(/##\s*Recommended\s*Mitigations?\n([\s\S]*?)(?=\n##|$)/i);
-
-  if (!keyPointsMatch && !descriptionMatch && !whyImportantMatch && !incidentOverviewMatch) {
-    return {
-      keyPoints: "",
-      description: clamp(stripMarkdown(content), 300),
-      whyImportant: article.summary || "",
-      incidentOverview: "",
-      securityImplications: "",
-      recommendedMitigations: ""
-    };
+const extractSection = (content: string, patterns: RegExp[]): string => {
+  for (const pattern of patterns) {
+    const match = content.match(pattern);
+    if (match?.[1]) return match[1].trim();
   }
+  return "";
+};
 
-  return {
-    keyPoints: keyPointsMatch ? keyPointsMatch[1].trim() : "",
-    description: descriptionMatch ? descriptionMatch[1].trim() : "",
-    whyImportant: whyImportantMatch ? whyImportantMatch[1].trim() : "",
-    incidentOverview: incidentOverviewMatch ? incidentOverviewMatch[1].trim() : "",
-    securityImplications: securityImplicationsMatch ? securityImplicationsMatch[1].trim() : "",
-    recommendedMitigations: recommendedMitigationsMatch ? recommendedMitigationsMatch[1].trim() : ""
+const extractMetadata = (content: string) => {
+  const severity = content.match(/\*\*Severity:\*\*\s*(.+)/i)?.[1]?.trim() || "Medium";
+  const sectors = content.match(/\*\*Affected Sectors:\*\*\s*(.+)/i)?.[1]?.trim() || "General";
+  const threatType = content.match(/\*\*Threat Type:\*\*\s*(.+)/i)?.[1]?.trim() || "";
+  const attribution = content.match(/\*\*Attribution:\*\*\s*(.+)/i)?.[1]?.trim() || "Unknown";
+  return { severity, sectors, threatType, attribution };
+};
+
+const severityColor = (severity: string): string => {
+  const s = severity.toLowerCase();
+  if (s.includes("critical")) return "#ef4444";
+  if (s.includes("high")) return "#f97316";
+  if (s.includes("medium")) return "#eab308";
+  return "#22c55e";
+};
+
+const buildArticleBody = (content: string): string => {
+  const keyPoints = extractSection(content, [
+    /##\s*Key\s*Takeaways?\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+  const whatHappened = extractSection(content, [
+    /##\s*What\s*Happened\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+  const whyItMatters = extractSection(content, [
+    /##\s*Why\s*It\s*Matters?\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+  const securityImplications = extractSection(content, [
+    /##\s*Security\s*Implications?\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+  const recommendedMitigations = extractSection(content, [
+    /##\s*Recommended\s*Mitigations?\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+
+  const clean = (text: string) => {
+    const t = text.replace(/[\[\]]/g, "").trim();
+    return t.length > 5 ? escapeHtml(stripEmojiInline(t)) : "";
   };
+
+  const bulletsToHtml = (md: string): string => {
+    const items = md.split('\n').filter(l => l.trim().startsWith('-'));
+    if (!items.length) return md ? `<p style="margin:10px 0 0 0;font-size:16px;line-height:1.6;color:${TEXT_SECONDARY};">${escapeHtml(stripEmojiInline(md))}</p>` : "";
+    return `<ul style="margin:10px 0 0 0;padding:0;list-style:none;">${items.map(item => `<li style="margin-bottom:8px;padding-left:20px;position:relative;font-size:16px;line-height:1.6;color:${TEXT_SECONDARY};"><span style="position:absolute;left:0;color:${ACCENT};">→</span>${escapeHtml(item.replace(/^- /, '').trim())}</li>`).join('')}</ul>`;
+  };
+
+  const sectionHtml = (emoji: string, label: string, body: string, isBullets = false) => {
+    if (!body) return "";
+    const htmlBody = isBullets ? bulletsToHtml(body) : `<p style="margin:10px 0 0 0;font-size:16px;line-height:1.6;color:${TEXT_SECONDARY};">${clean(body)}</p>`;
+    return `<div style="margin:18px 0 0 0;"><strong style="font-size:14px;color:${TEXT_PRIMARY};font-weight:700;text-transform:uppercase;letter-spacing:0.08em;font-family:Arial,sans-serif;">${emoji} ${label}</strong>${htmlBody}</div>`;
+  };
+
+  return [
+    sectionHtml("🔑", "Key Takeaways", keyPoints, true),
+    sectionHtml("📖", "What Happened", whatHappened),
+    sectionHtml("💡", "Why It Matters", whyItMatters),
+    sectionHtml("🎯", "Security Implications", securityImplications),
+    sectionHtml("🛡️", "Recommended Mitigations", recommendedMitigations, true)
+  ].filter(Boolean).join("");
 };
 
 const humanizeCategory = (category: string): string => category.replace(/-/g, " ");
 
 const formatPublishDate = (value: string): string => {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "Recent";
-  }
-
+  if (Number.isNaN(date.getTime())) return "Recent";
   return date.toUTCString().slice(5, 16);
 };
 
 const serializeError = (error: unknown): string => {
-  if (!error) {
-    return "Unknown error";
-  }
-
-  if (typeof error === "string") {
-    return error;
-  }
-
-  if (error instanceof Error) {
-    return `${error.name}: ${error.message}`;
-  }
-
-  if (typeof error === "object") {
-    const maybe = error as { name?: unknown; message?: unknown };
-    const name = typeof maybe.name === "string" ? maybe.name : "error";
-    const message = typeof maybe.message === "string" ? maybe.message : "";
-
-    if (message) {
-      return `${name}: ${message}`;
-    }
-
-    try {
-      return JSON.stringify(error);
-    } catch {
-      return name;
-    }
-  }
-
-  return String(error);
+  if (!error) return "Unknown error";
+  if (typeof error === "string") return error;
+  if (error instanceof Error) return `${error.name}: ${error.message}`;
+  try { return JSON.stringify(error); } catch { return String(error); }
 };
 
 const pickDigestArticles = (articles: DigestArticle[]): DigestArticle[] => {
   const picks: DigestArticle[] = [];
   const byCategory = (category: string) =>
-    articles.filter((article) => article.category === category).slice(0, 2);
+    articles.filter((a) => a.category === category).slice(0, 2);
 
   picks.push(...byCategory("threat-intel"));
   picks.push(...byCategory("industry-news"));
   picks.push(...byCategory("vulnerabilities"));
 
   const aiOrResearch = articles
-    .filter((article) => ["ai-security", "research"].includes(article.category))
+    .filter((a) => ["ai-security", "research"].includes(a.category))
     .slice(0, 2);
   picks.push(...aiOrResearch);
 
   const unique = new Map<string, DigestArticle>();
-  for (const article of picks) {
-    unique.set(article.slug, article);
-  }
+  for (const article of picks) unique.set(article.slug, article);
 
   if (unique.size < 8) {
     for (const article of articles) {
       unique.set(article.slug, article);
-      if (unique.size >= 8) {
-        break;
-      }
+      if (unique.size >= 8) break;
     }
   }
 
@@ -219,7 +182,6 @@ const pickDigestArticles = (articles: DigestArticle[]): DigestArticle[] => {
 
 // ─── Design Tokens ──────────────────────────────────────────────
 const DARK_BG = "#0a0a0f";
-const CARD_BG = "#111118";
 const BORDER_COLOR = "#2a2a3a";
 const TEXT_PRIMARY = "#e2e2ea";
 const TEXT_SECONDARY = "#9ca3af";
@@ -243,49 +205,19 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
       const imageSrc = resolveImageUrl(article.image_url, siteBase);
       const category = escapeHtml(humanizeCategory(article.category).toUpperCase());
       const title = escapeHtml(stripEmojiInline(article.title));
-      const script = buildArticleScript(article);
-
-      const cleanScriptField = (text: string) => {
-        const cleaned = text.replace(/[\[\]]/g, "").replace(/\.\.\./g, "").trim();
-        return cleaned.length > 5 ? escapeHtml(stripEmojiInline(cleaned)) : "";
-      };
-
-      const markdownListToHtml = (mdList: string): string => {
-        const items = mdList.split('\n').filter(line => line.trim().startsWith('-'));
-        if (items.length === 0) return escapeHtml(mdList);
-        return `<ul style="margin:10px 0 0 0;padding:0;list-style:none;">` +
-          items.map(item => `<li style="margin-bottom:8px;padding-left:20px;position:relative;font-size:16px;line-height:1.6;color:${TEXT_SECONDARY};"><span style="position:absolute;left:0;color:${ACCENT};font-weight:700;">→</span>${escapeHtml(item.replace(/^- /, '').trim())}</li>`).join('') +
-          `</ul>`;
-      };
-
-      const isIncident = Boolean(script.incidentOverview);
-
-      const keyPointsHtml = script.keyPoints
-        ? `<div style="margin:20px 0 0 0;"><strong style="font-size:15px;color:${TEXT_PRIMARY};font-weight:700;text-transform:uppercase;letter-spacing:0.08em;font-family:Arial,sans-serif;">🔑 Key Takeaways</strong>${markdownListToHtml(script.keyPoints)}</div>`
-        : "";
-
-      const descriptionHtml = !isIncident && script.description
-        ? `<div style="margin:20px 0 0 0;"><strong style="font-size:15px;color:${TEXT_PRIMARY};font-weight:700;text-transform:uppercase;letter-spacing:0.08em;font-family:Arial,sans-serif;">📖 What Happened</strong><p style="margin:10px 0 0 0;font-size:17px;line-height:1.7;color:${TEXT_SECONDARY};font-family:Arial,sans-serif;">${cleanScriptField(script.description)}</p></div>`
-        : "";
-
-      const whyImportantHtml = !isIncident && script.whyImportant
-        ? `<div style="margin:20px 0 0 0;padding-top:18px;border-top:1px solid ${BORDER_COLOR};"><strong style="font-size:15px;color:${TEXT_PRIMARY};font-weight:700;text-transform:uppercase;letter-spacing:0.08em;font-family:Arial,sans-serif;">💡 Why It Matters</strong><p style="margin:10px 0 0 0;font-size:17px;line-height:1.7;color:${TEXT_SECONDARY};font-family:Arial,sans-serif;">${cleanScriptField(script.whyImportant)}</p></div>`
-        : "";
-
-      const incidentOverviewHtml = isIncident && script.incidentOverview
-        ? `<div style="margin:20px 0 0 0;"><strong style="font-size:15px;color:${TEXT_PRIMARY};font-weight:700;text-transform:uppercase;letter-spacing:0.08em;font-family:Arial,sans-serif;">⚠️ Incident Overview</strong><p style="margin:10px 0 0 0;font-size:17px;line-height:1.7;color:${TEXT_SECONDARY};font-family:Arial,sans-serif;">${cleanScriptField(script.incidentOverview)}</p></div>`
-        : "";
-
-      const securityImplicationsHtml = isIncident && script.securityImplications
-        ? `<div style="margin:20px 0 0 0;padding-top:18px;border-top:1px solid ${BORDER_COLOR};"><strong style="font-size:15px;color:${TEXT_PRIMARY};font-weight:700;text-transform:uppercase;letter-spacing:0.08em;font-family:Arial,sans-serif;">🎯 Security Implications</strong><p style="margin:10px 0 0 0;font-size:17px;line-height:1.7;color:${TEXT_SECONDARY};font-family:Arial,sans-serif;">${cleanScriptField(script.securityImplications)}</p></div>`
-        : "";
-
-      const recommendedMitigationsHtml = isIncident && script.recommendedMitigations
-        ? `<div style="margin:20px 0 0 0;padding-top:18px;border-top:1px solid ${BORDER_COLOR};"><strong style="font-size:15px;color:${TEXT_PRIMARY};font-weight:700;text-transform:uppercase;letter-spacing:0.08em;font-family:Arial,sans-serif;">🛡️ Recommended Mitigations</strong>${markdownListToHtml(script.recommendedMitigations)}</div>`
-        : "";
+      const meta = extractMetadata(article.content || "");
+      const bodyHtml = buildArticleBody(article.content || "");
 
       const imageBlock = imageSrc
-        ? `<img src="${imageSrc}" alt="${title}" width="100%" style="display:block;width:100%;height:auto;max-height:280px;object-fit:cover;border-radius:8px;margin-bottom:20px;" />`
+        ? `<img src="${imageSrc}" alt="${title}" width="100%" style="display:block;width:100%;height:auto;max-height:280px;object-fit:cover;border-radius:8px;margin-bottom:16px;" />`
+        : "";
+
+      const metadataBlock = meta.threatType
+        ? `<div style="margin:0 0 14px 0;">
+            <span style="display:inline-block;background:${severityColor(meta.severity)}20;color:${severityColor(meta.severity)};font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;margin-right:6px;border:1px solid ${severityColor(meta.severity)}40;">${escapeHtml(meta.severity)}</span>
+            <span style="display:inline-block;background:#1e293b;color:${TEXT_SECONDARY};font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;margin-right:6px;border:1px solid ${BORDER_COLOR};">${escapeHtml(meta.threatType)}</span>
+            <span style="display:inline-block;background:#1e293b;color:${TEXT_SECONDARY};font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;border:1px solid ${BORDER_COLOR};">${escapeHtml(meta.attribution)}</span>
+          </div>`
         : "";
 
       const divider = index > 0 ? `<tr><td style="padding:0;"><div style="height:1px;background:${BORDER_COLOR};margin:0 24px;"></div></td></tr>${sectionSpacer}` : "";
@@ -295,26 +227,14 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
         <td style="padding:24px;font-family:Arial,sans-serif;color:${TEXT_PRIMARY};">
           ${imageBlock}
           <div style="font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:${ACCENT};margin-bottom:10px;font-family:Arial,sans-serif;">${category}</div>
+          ${metadataBlock}
           <a href="${originalHref}" style="font-size:24px;line-height:1.2;font-weight:800;color:${TEXT_PRIMARY};text-decoration:none;display:block;font-family:Arial,sans-serif;">${title}</a>
-          ${keyPointsHtml}
-          ${descriptionHtml}
-          ${whyImportantHtml}
-          ${incidentOverviewHtml}
-          ${securityImplicationsHtml}
-          ${recommendedMitigationsHtml}
-          <p style="margin:20px 0 0 0;font-size:13px;line-height:1.5;color:${TEXT_SECONDARY};font-family:Arial,sans-serif;"><strong style="color:${TEXT_PRIMARY};">7secure</strong> · ${formatPublishDate(article.published_at)} · <a href="${newsletterHref}" style="color:${ACCENT};text-decoration:underline;font-weight:600;">Read full version →</a></p>
+          ${bodyHtml}
+          <p style="margin:18px 0 0 0;font-size:13px;line-height:1.5;color:${TEXT_SECONDARY};font-family:Arial,sans-serif;"><strong style="color:${TEXT_PRIMARY};">7secure</strong> · ${formatPublishDate(article.published_at)} · <a href="${newsletterHref}" style="color:${ACCENT};text-decoration:underline;font-weight:600;">Read full version →</a></p>
         </td>
       </tr>`;
     })
     .join("");
-
-const buildQuickHitsSection = (): string => `
-  <tr>
-    <td style="padding:24px;font-family:Arial,sans-serif;">
-      <div style="font-size:18px;font-weight:800;color:${TEXT_PRIMARY};margin-bottom:12px;font-family:Arial,sans-serif;">⚡ Quick Hits</div>
-      <div style="font-size:16px;line-height:1.6;color:${TEXT_SECONDARY};">Tool highlights and practice snapshots are being curated for the next briefing.</div>
-    </td>
-  </tr>`;
 
 const buildRatingSection = (subscriberEmail: string, siteBase: string): string => {
   const encodedEmail = encodeURIComponent(subscriberEmail);
@@ -328,20 +248,20 @@ const buildRatingSection = (subscriberEmail: string, siteBase: string): string =
       <p style="margin:0 0 18px 0;font-size:16px;line-height:1.6;color:${TEXT_SECONDARY};font-family:Arial,sans-serif;">Rate today's briefing so we can keep improving your daily security intelligence.</p>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
         <tr>
-          <td style="padding:0 0 10px 0;"><a href="${feedbackLink(5)}" style="display:block;background:${CARD_BG};border:1px solid ${BORDER_COLOR};border-radius:8px;padding:14px 16px;color:${TEXT_PRIMARY};text-decoration:none;font-size:18px;font-weight:700;font-family:Arial,sans-serif;">🛡️🛡️🛡️🛡️🛡️ Nailed it</a></td>
+          <td style="padding:0 0 10px 0;"><a href="${feedbackLink(5)}" style="display:block;background:#1e293b;border:1px solid ${BORDER_COLOR};border-radius:8px;padding:14px 16px;color:${TEXT_PRIMARY};text-decoration:none;font-size:18px;font-weight:700;font-family:Arial,sans-serif;">🛡️🛡️🛡️🛡️🛡️ Nailed it</a></td>
         </tr>
         <tr>
-          <td style="padding:0 0 10px 0;"><a href="${feedbackLink(3)}" style="display:block;background:${CARD_BG};border:1px solid ${BORDER_COLOR};border-radius:8px;padding:14px 16px;color:${TEXT_SECONDARY};text-decoration:none;font-size:18px;font-weight:700;font-family:Arial,sans-serif;">🛡️🛡️🛡️ Average</a></td>
+          <td style="padding:0 0 10px 0;"><a href="${feedbackLink(3)}" style="display:block;background:#1e293b;border:1px solid ${BORDER_COLOR};border-radius:8px;padding:14px 16px;color:${TEXT_SECONDARY};text-decoration:none;font-size:18px;font-weight:700;font-family:Arial,sans-serif;">🛡️🛡️🛡️ Average</a></td>
         </tr>
         <tr>
-          <td style="padding:0;"><a href="${feedbackLink(1)}" style="display:block;background:${CARD_BG};border:1px solid ${BORDER_COLOR};border-radius:8px;padding:14px 16px;color:${TEXT_SECONDARY};text-decoration:none;font-size:18px;font-weight:700;font-family:Arial,sans-serif;">🛡️ Needs work</a></td>
+          <td style="padding:0;"><a href="${feedbackLink(1)}" style="display:block;background:#1e293b;border:1px solid ${BORDER_COLOR};border-radius:8px;padding:14px 16px;color:${TEXT_SECONDARY};text-decoration:none;font-size:18px;font-weight:700;font-family:Arial,sans-serif;">🛡️ Needs work</a></td>
         </tr>
       </table>
     </td>
   </tr>`;
 };
 
-const buildAuthorSection = (siteBase: string, authors: Array<{ name: string; image_url?: string | null }>): string => {
+const buildAuthorSection = (authors: Array<{ name: string; image_url?: string | null }>): string => {
   const authorItems = authors.map((author) => {
     const img = author.image_url
       ? `<img src="${author.image_url}" alt="${escapeHtml(author.name)}" width="40" height="40" style="display:block;width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid ${BORDER_COLOR};" />`
@@ -368,7 +288,8 @@ const buildHtmlDigest = (
   siteUrl: string,
   newsletterTitle: string,
   snippets: ArticleSnippet[],
-  authors: Array<{ name: string; image_url?: string | null }> = []
+  authors: Array<{ name: string; image_url?: string | null }> = [],
+  threatPulse: string = ""
 ): string => {
   const siteBase = toSiteBase(siteUrl);
   const date = new Date().toUTCString().slice(5, 16);
@@ -378,8 +299,16 @@ const buildHtmlDigest = (
   const dailyRundownList = buildDailyRundownList(articles);
   const latestDevelopmentCards = buildLatestDevelopmentCards(articles, siteBase);
   const ratingSection = buildRatingSection(subscriber.email, siteBase);
-  const quickHits = buildQuickHitsSection();
-  const authorSection = authors.length > 0 ? buildAuthorSection(siteBase, authors) : "";
+  const authorSection = authors.length > 0 ? buildAuthorSection(authors) : "";
+
+  const threatPulseBlock = threatPulse
+    ? `<tr>
+        <td style="padding:24px;font-family:Arial,sans-serif;border-bottom:1px solid ${BORDER_COLOR};">
+          <div style="font-size:13px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};margin-bottom:10px;font-family:Arial,sans-serif;">📡 Today's Threat Pulse</div>
+          <p style="margin:0;font-size:16px;line-height:1.7;color:${TEXT_SECONDARY};font-family:Arial,sans-serif;font-style:italic;">${escapeHtml(threatPulse)}</p>
+        </td>
+      </tr>${sectionSpacer}`
+    : "";
 
   return `<!doctype html>
 <html lang="en" xmlns:v="urn:schemas-microsoft-com:vml">
@@ -395,15 +324,11 @@ const buildHtmlDigest = (
     </style>
   </head>
   <body style="margin:0;padding:0;background-color:${DARK_BG};-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
-    <!-- outer wrapper -->
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:${DARK_BG};padding:16px 0;">
       <tr>
         <td align="center" style="padding:0;">
-
-          <!-- single bordered container -->
           <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width:640px;background-color:${DARK_BG};border:2px solid ${BORDER_COLOR};border-radius:16px;">
 
-            <!-- nav bar -->
             <tr>
               <td align="center" style="padding:16px 24px 14px 24px;font-family:Arial,sans-serif;font-size:13px;color:${TEXT_SECONDARY};">
                 <a href="${siteBase}" style="color:${TEXT_SECONDARY};text-decoration:underline;font-weight:600;">Read Online</a>
@@ -414,14 +339,12 @@ const buildHtmlDigest = (
               </td>
             </tr>
 
-            <!-- cover image -->
             <tr>
               <td style="padding:0 24px 16px 24px;line-height:0;">
                 <img src="${coverImage}" alt="7secure" width="100%" style="display:block;width:100%;height:auto;max-height:220px;object-fit:cover;border-radius:12px;" />
               </td>
             </tr>
 
-            <!-- greeting -->
             <tr>
               <td style="padding:24px;font-family:Arial,sans-serif;">
                 <p style="margin:0;font-size:26px;line-height:1.2;font-weight:800;color:${TEXT_PRIMARY};font-family:Arial,sans-serif;">Good morning, ${subscriberName}.</p>
@@ -429,9 +352,8 @@ const buildHtmlDigest = (
               </td>
             </tr>
 
-            ${sectionSpacer}
+            ${threatPulseBlock}
 
-            <!-- briefing rundown -->
             <tr>
               <td style="padding:24px;font-family:Arial,sans-serif;">
                 <p style="margin:0 0 12px 0;font-size:18px;line-height:1.3;font-weight:700;color:${TEXT_PRIMARY};font-family:Arial,sans-serif;">📋 In today's security briefing:</p>
@@ -443,32 +365,22 @@ const buildHtmlDigest = (
 
             ${sectionSpacer}
 
-            <!-- latest developments header -->
             <tr>
               <td style="padding:16px 24px;font-family:Arial,sans-serif;">
                 <span style="font-size:13px;font-weight:800;color:${ACCENT};letter-spacing:0.12em;text-transform:uppercase;font-family:Arial,sans-serif;">🔥 Latest Developments</span>
               </td>
             </tr>
 
-            <!-- article cards (no inner borders) -->
             ${latestDevelopmentCards}
 
             ${sectionSpacer}
 
-            <!-- quick hits -->
-            ${quickHits}
-
-            ${sectionSpacer}
-
-            <!-- rating -->
             ${ratingSection}
 
             ${sectionSpacer}
 
-            <!-- author section -->
             ${authorSection ? `${authorSection}${sectionSpacer}` : ""}
 
-            <!-- footer -->
             <tr>
               <td style="padding:24px;text-align:center;font-family:Arial,sans-serif;">
                 <p style="margin:0;font-family:Arial,sans-serif;font-size:18px;font-weight:700;color:${TEXT_PRIMARY};">See you soon 👋</p>
@@ -479,8 +391,6 @@ const buildHtmlDigest = (
             </tr>
 
           </table>
-          <!-- /single bordered container -->
-
         </td>
       </tr>
     </table>
@@ -509,59 +419,23 @@ const buildTextDigest = (
     lines.push(`  ${link}`);
   }
 
-  lines.push(
-    ""
-  );
-
-  lines.push("LATEST DEVELOPMENTS:");
+  lines.push("", "LATEST DEVELOPMENTS:");
 
   for (const article of articles) {
     const originalLink = safeUrl(article.original_url, `${siteBase}/articles/${article.slug}`);
-    const script = buildArticleScript(article);
-    lines.push("");
-    lines.push(`${stripEmojiInline(article.title)}`);
+    lines.push("", stripEmojiInline(article.title));
     lines.push(`Category: ${humanizeCategory(article.category)}`);
-    lines.push(`Why this matters: ${clamp(stripEmojiInline(article.summary), 240)}`);
-    if (script.keyPoints) {
-      lines.push(`Key Points:`);
-      const items = script.keyPoints.split('\n').filter(line => line.trim().startsWith('-'));
-      if (items.length > 0) {
-        items.forEach(item => lines.push(`  ${item.trim()}`));
-      } else {
-        lines.push(`  ${script.keyPoints}`);
-      }
-    }
-
-    const cleanText = (text: string) => stripEmojiInline(text.replace(/[\[\]]/g, "").replace(/\.\.\./g, "").trim());
-
-    if (script.description) {
-      const desc = cleanText(script.description);
-      if (desc.length > 5) lines.push(`Description: ${desc}`);
-    }
-    if (script.whyImportant) {
-      const why = cleanText(script.whyImportant);
-      if (why.length > 5) lines.push(`Why this matters: ${why}`);
-    }
+    lines.push(`Summary: ${clamp(stripEmojiInline(article.summary), 240)}`);
     lines.push(`Original source: ${originalLink}`);
     lines.push(`7secure version: ${siteBase}/articles/${article.slug}`);
   }
 
-  lines.push("");
-  lines.push("QUICK HITS:");
-  lines.push("- Trending tools section is being curated.");
-  lines.push("- Security practices section is being prepared.");
-
   const encodedEmail = encodeURIComponent(subscriber.email);
-  lines.push("");
-  lines.push("Rate today's digest:");
+  lines.push("", "Rate today's digest:");
   lines.push(`- Nailed it: ${siteBase}/api/digest-feedback?email=${encodedEmail}&rating=5`);
   lines.push(`- Average: ${siteBase}/api/digest-feedback?email=${encodedEmail}&rating=3`);
   lines.push(`- Needs work: ${siteBase}/api/digest-feedback?email=${encodedEmail}&rating=1`);
-
-  lines.push(
-    "",
-    `Unsubscribe: ${siteBase}/unsubscribe?email=${encodedEmail}`
-  );
+  lines.push("", `Unsubscribe: ${siteBase}/unsubscribe?email=${encodedEmail}`);
 
   return lines.join("\n");
 };
@@ -569,7 +443,8 @@ const buildTextDigest = (
 export const sendDigest = async (
   env: WorkerEnv,
   newsletterTitle = "Daily Security Intelligence Brief",
-  snippets: ArticleSnippet[] = []
+  snippets: ArticleSnippet[] = [],
+  threatPulse: string = ""
 ): Promise<DigestSendResult> => {
   const [allArticles, subscribers, authors] = await Promise.all([
     getRecentArticles(env),
@@ -590,34 +465,20 @@ export const sendDigest = async (
   );
 
   if (!digestArticles.length || !subscribers.length) {
-    if (!digestArticles.length) {
-      console.warn("Digest skipped: no unsent articles available to send.");
-    }
-    if (!subscribers.length) {
-      console.warn("Digest skipped: no confirmed subscribers found.");
-    }
-    return {
-      articleCount: digestArticles.length,
-      subscriberCount: subscribers.length,
-      status: "success"
-    };
+    if (!digestArticles.length) console.warn("Digest skipped: no unsent articles available to send.");
+    if (!subscribers.length) console.warn("Digest skipped: no confirmed subscribers found.");
+    return { articleCount: digestArticles.length, subscriberCount: subscribers.length, status: "success" };
   }
 
   if (!env.RESEND_API_KEY) {
     console.error("Digest failed: RESEND_API_KEY is missing.");
-    return {
-      articleCount: digestArticles.length,
-      subscriberCount: subscribers.length,
-      status: "failed"
-    };
+    return { articleCount: digestArticles.length, subscriberCount: subscribers.length, status: "failed" };
   }
 
   const resend = new Resend(env.RESEND_API_KEY);
   const fromEmail = env.RESEND_FROM_EMAIL || "7secure <onboarding@resend.dev>";
   if (/onboarding@resend\.dev/i.test(fromEmail)) {
-    console.warn(
-      "RESEND_FROM_EMAIL is set to onboarding@resend.dev. Resend sandbox mode only delivers to your account email until a domain/sender is verified."
-    );
+    console.warn("RESEND_FROM_EMAIL is set to onboarding@resend.dev. Resend sandbox mode only delivers to your account email until a domain/sender is verified.");
   }
 
   const batches: Array<typeof subscribers> = [];
@@ -639,7 +500,7 @@ export const sendDigest = async (
           from: fromEmail,
           to: [subscriber.email],
           subject: newsletterTitle,
-          html: buildHtmlDigest(digestArticles, subscriber as DigestSubscriber, env.NEXT_PUBLIC_SITE_URL, newsletterTitle, snippets, authors),
+          html: buildHtmlDigest(digestArticles, subscriber as DigestSubscriber, env.NEXT_PUBLIC_SITE_URL, newsletterTitle, snippets, authors, threatPulse),
           text: buildTextDigest(digestArticles, subscriber as DigestSubscriber, env.NEXT_PUBLIC_SITE_URL)
         }))
       );
@@ -654,60 +515,40 @@ export const sendDigest = async (
             from: fromEmail,
             to: [subscriber.email],
             subject: newsletterTitle,
-            html: buildHtmlDigest(digestArticles, subscriber as DigestSubscriber, env.NEXT_PUBLIC_SITE_URL, newsletterTitle, snippets, authors),
+            html: buildHtmlDigest(digestArticles, subscriber as DigestSubscriber, env.NEXT_PUBLIC_SITE_URL, newsletterTitle, snippets, authors, threatPulse),
             text: buildTextDigest(digestArticles, subscriber as DigestSubscriber, env.NEXT_PUBLIC_SITE_URL)
           });
 
           if (single.error) {
-            console.error(
-              `Resend single-send fallback failed for ${subscriber.email}: ${serializeError(single.error)}`
-            );
+            console.error(`Resend single-send fallback failed for ${subscriber.email}: ${serializeError(single.error)}`);
           } else {
             fallbackDelivered += 1;
           }
         }
 
         deliveredCount += fallbackDelivered;
-
-        console.log(
-          `Resend fallback delivered ${fallbackDelivered}/${batch.length} recipients for batch ${batchLabel}`
-        );
+        console.log(`Resend fallback delivered ${fallbackDelivered}/${batch.length} recipients for batch ${batchLabel}`);
       } else {
         const accepted = response.data?.data?.length ?? 0;
         deliveredCount += accepted;
         console.log(`Resend batch ${batchLabel} accepted ${accepted}/${batch.length} messages`);
         if (accepted < batch.length) {
           hadErrors = true;
-          console.error(
-            `Resend batch ${batchLabel} accepted fewer messages than requested. Requested=${batch.length}, accepted=${accepted}`
-          );
+          console.error(`Resend batch ${batchLabel} accepted fewer messages than requested. Requested=${batch.length}, accepted=${accepted}`);
         }
       }
     }
 
     if (deliveredCount > 0) {
-      await markDigestArticlesSent(
-        env,
-        digestArticles.map((article) => article.slug)
-      );
-      console.log(
-        `Marked ${digestArticles.length} digest articles as sent to prevent duplicate delivery.`
-      );
+      await markDigestArticlesSent(env, digestArticles.map((article) => article.slug));
+      console.log(`Marked ${digestArticles.length} digest articles as sent to prevent duplicate delivery.`);
     } else {
       console.warn("No digest messages were accepted; sent-article history was not updated.");
     }
 
-    return {
-      articleCount: digestArticles.length,
-      subscriberCount: subscribers.length,
-      status: hadErrors ? "failed" : "success"
-    };
+    return { articleCount: digestArticles.length, subscriberCount: subscribers.length, status: hadErrors ? "failed" : "success" };
   } catch (error) {
     console.error(`Fatal error during digest sending: ${serializeError(error)}`);
-    return {
-      articleCount: digestArticles.length,
-      subscriberCount: subscribers.length,
-      status: "failed"
-    };
+    return { articleCount: digestArticles.length, subscriberCount: subscribers.length, status: "failed" };
   }
 };

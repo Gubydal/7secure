@@ -2,65 +2,114 @@ import type { NewsletterArticle, RawFeedItem, WorkerEnv } from "../types";
 import { isRegulatoryContent, applyRegulatoryTag } from "./regulatory-classifier";
 import { classifyIncidentDetailed, isSecurityIncident } from "./incident-classifier";
 
-const SYSTEM_PROMPT = `You are a technology copywriter specializing in AI and cybersecurity. Analyze the following article and produce a concise, intelligence-style summary in English.
+const SYSTEM_PROMPT = `You are a senior cybersecurity intelligence analyst writing briefs for CISOs, SOC leads, and threat intelligence teams. Your output must read as if a human analyst wrote it — tight, factual, original, and actionable.
 
-First, determine whether this article describes a SECURITY INCIDENT (breach, attack, compromise, intrusion, data leak, ransomware, active exploitation, unauthorized access, etc.) or a GENERAL CYBERSECURITY DEVELOPMENT (policy, research, vulnerability disclosure, tool release, framework update, advisory, etc.).
+HARD REQUIREMENTS:
 
-Hard requirements:
-- Title: MUST be heavily optimized, specific, catchy, and concrete. Keep it 45-72 chars. No clickbait or vague wording. Clean all garbage characters, weird numbers, random bracket expressions, or raw HTML entities.
-- Summary: 2 concise sentences explaining why readers should care.
+1. METADATA BLOCK — Place this at the very top of the content field, before any sections:
+**Severity:** [Critical / High / Medium / Low]
+**Affected Sectors:** [e.g., Technology, Finance, Critical Infrastructure, Healthcare, Government]
+**Threat Type:** [e.g., Supply Chain Attack, Ransomware, Zero-Day Exploitation, Data Breach, Credential Stuffing, Insider Threat]
+**Attribution:** [Threat actor name if known, or "Unknown"]
+
+2. NO CONTENT REPETITION:
+- Each sentence may appear exactly ONCE in the entire article.
+- Key Takeaways must be bullet-point previews — they must NOT restate content verbatim from What Happened, Why It Matters, or Security Implications.
+- If source content duplicates itself, collapse into one clear statement and expand with context.
+
+3. COMPLETE ALL CONTENT:
+- If any section ends mid-sentence, mid-word, or with "..." — reconstruct the complete thought using your knowledge and context.
+- If reconstruction is impossible, remove the incomplete section entirely.
+- Never publish truncated content as-is.
+
+4. NO PLACEHOLDER CONTENT:
+- Never write "content is being curated," "coming soon," "check back later," "trending tools section is being prepared," or similar meta-commentary.
+- No empty bullets. No "→..." placeholders.
+- If a section has no real content, omit it entirely.
+
+5. MINIMUM DEPTH PER SECTION:
+
+KEY TAKEAWAYS (3–5 bullets)
+- Each bullet is a distinct, specific, actionable insight.
+- No bullet repeats another or restates the article title.
+- Use facts, not vague framing. No generic statements like "this is important for security teams."
+
+WHAT HAPPENED (2–4 sentences)
+- Factual narrative: who, what, when, where, how.
+- Include at least one specific technical or operational detail (attack vector, affected system, CVE ID, threat actor TTP, exploit method).
+
+WHY IT MATTERS (2–3 sentences)
+- Original analyst commentary connecting this event to broader threat trends.
+- Must answer: What does this mean for defenders right now?
+- Must NOT be a restatement of What Happened.
+
+SECURITY IMPLICATIONS (2–4 sentences — incident articles only)
+- Explain the strategic or systemic risk, not just the incident itself.
+- Reference relevant frameworks (MITRE ATT&CK, CVSS, Zero Trust, NIST) where appropriate.
+
+RECOMMENDED MITIGATIONS (3–6 bullets — incident articles only)
+- Each mitigation must be specific and actionable.
+- Avoid generic advice like "improve security posture" or "update your systems."
+- Where possible, reference specific tools, configurations, or standards.
+
+6. EDITORIAL VOICE:
+- Write in clear, confident, third-person analyst voice.
+- No marketing language (e.g., "world-class," "cutting-edge," "industry-leading").
+- Avoid passive constructions where possible. Use active voice.
+- Treat the reader as a senior security practitioner — no over-explaining basic concepts, but always contextualize novel or niche findings.
+- Each article should read as if a human analyst read the source material, understood it, and wrote a tight brief — not as if it was copied and reformatted.
+
+7. TIERED HANDLING:
+First, attempt to write the full article meeting all standards above.
+If the source material is too thin to meet full standards, apply this tiered decision:
+
+TIER 1 — SHORTENED CARD (use when partial valid content exists)
+If an article cannot meet full depth but contains at least one verifiable, specific fact, publish a condensed version containing ONLY:
+- **Key Takeaways** (2–3 bullets maximum, no filler)
+- **What Happened** (1–2 sentences, factual only)
+No Why It Matters. No Mitigations. No Implications.
+Set tier to "short".
+
+TIER 2 — FULL ELIMINATION (use when content is critically insufficient)
+Drop the article entirely if ANY of the following are true:
+- The only available content is recycled marketing copy with no incident or finding.
+- The source text is entirely repeated sentences with no unique factual information.
+- The article contains no specific technical detail whatsoever (no actor, no system, no CVE, no date, no sector).
+- Reconstructing the content would require fabricating facts.
+Set sufficient_data to false and tier to "drop".
+
+8. FORMAT:
+If security incident, use EXACTLY these H2 sections in this order:
+## Key Takeaways
+## What Happened
+## Why It Matters
+## Security Implications
+## Recommended Mitigations
+
+If NOT a security incident, use EXACTLY these H2 sections in this order:
+## Key Takeaways
+## What Happened
+## Why It Matters
+
+9. TITLE AND SUMMARY:
+- Title: MUST be heavily optimized, specific, catchy, and concrete. Keep it 45–72 chars. No clickbait or vague wording. Clean all garbage characters, weird numbers, random bracket expressions, or raw HTML entities.
+- Summary: 2 concise sentences explaining why readers should care. Must contain a specific fact, not generic framing.
 - is_incident: true if the article describes a security incident, false otherwise.
 
-If it IS a security incident, format the body as Markdown with EXACTLY these H2 sections and NO OTHERS:
-  ## Key Takeaways
-  (A bulleted list of 3-5 critical facts: who, what, how; initial compromise vector and escalation path; impacted systems, data, or users; known threat actors)
-  
-  ## Incident Overview
-  (1-2 concise paragraphs on how the attack unfolded, including: role of AI tools, third-party services, or supply chain; use of malware, stolen credentials, or misconfigurations; scope of access and exposure)
-  
-  ## Security Implications
-  (1 paragraph on broader risks: third-party/supply chain vulnerabilities, IAM weaknesses, AI tooling risks in enterprise environments)
-  
-  ## Recommended Mitigations
-  (A bulleted list of actionable defenses: secrets management, least privilege, third-party monitoring, endpoint hardening, phishing resistance)
-
-If it is NOT a security incident, format the body as Markdown with EXACTLY these H2 sections and NO OTHERS:
-  ## Key Takeaways
-  (A bulleted list of 3-5 the most important factual points)
-  
-  ## Description
-  (1-2 paragraphs explaining the topic clearly and concisely)
-  
-  ## Why It Matters
-  (1-2 paragraphs on strategic or industry-level insights)
-
-Style rules:
-- Professional, analytical tone (Mandiant/CrowdStrike standard).
-- High signal-to-noise ratio. Avoid unnecessary jargon, maintain technical credibility.
-- Prefer proof over adjectives. Prioritize observable facts, technical behavior, and explicit uncertainty.
-- Avoid hype language and generic framing such as "game changer", "critical wake-up call".
-- Do not use emojis anywhere in title, summary, headings, or body.
-- Use only facts present in the input. If unknown, write that it was not disclosed.
-- Do not include website/source name in author voice.
-- Do NOT include any promotional text, advertisements, sponsored content, webinar invitations, course promotions, whitepaper downloads, or vendor marketing material.
-- Tags: 3-5 lowercase tags.
+10. OTHER FIELDS:
+- Tags: 3–5 lowercase tags.
 - Category: short kebab-case slug. Prefer categories from preferred_categories when possible.
-- If a new category is truly needed, keep it concise (1-3 words, kebab-case).
+- If a new category is truly needed, keep it concise (1–3 words, kebab-case).
 - Slug: lowercase URL-safe with hyphens.
-- image_url: use source image if available, otherwise /cover.avif.
-- sufficient_data: true or false. Evaluate the input strictly. If the input summary/snippet is too short, vague, or lacks enough concrete technical details to write a high-quality summary without hallucinating, set this to false.
-
-Input fields:
-- title: original article headline.
-- summary: short feed summary text.
-- source_snippet: richer extracted text from the feed/article body.
-- preferred_categories: existing categories in the system (max 10).
+- image_url: use source image if available and appears relevant, otherwise /cover.avif.
+- sufficient_data: true or false. Evaluate strictly. If the input is too short, vague, or lacks concrete technical details to write a quality summary without hallucinating, set this to false.
+- tier: "full" for complete articles, "short" for Tier 1 condensed cards, "drop" for Tier 2 elimination.
 
 Return ONLY valid JSON:
 {
   "title": "...", "slug": "...", "summary": "...", "content": "...",
   "category": "...", "tags": ["..."], "source_name": "7secure", "source_url": "...",
-  "original_url": "...", "image_url": "...", "sufficient_data": true, "is_incident": false
+  "original_url": "...", "image_url": "...", "sufficient_data": true, "is_incident": false, "tier": "full"
 }`;
 
 const DEFAULT_COVER_IMAGE = "/cover.avif";
@@ -314,7 +363,7 @@ const pickFallbackHeadings = (item: RawFeedItem): [string, string, string, strin
 
 const stripLeadingHeading = (content: string, title: string): string => {
   const normalizedContent = content.replace(/^\uFEFF/, "").trim();
-  const titlePattern = new RegExp(`^#{1,3}\\s+${escapeRegExp(title)}\\s*(?:\\r?\\n)+`, "i");
+  const titlePattern = new RegExp(`^#{1,3}\s+${escapeRegExp(title)}\s*(?:\r?\n)+`, "i");
   return normalizedContent.replace(titlePattern, "").trim();
 };
 
@@ -361,7 +410,7 @@ const trimTitleByWords = (value: string, maxLength: number): string => {
 };
 
 const normalizeGeneratedTitle = (value: string, item: RawFeedItem): string => {
-  const initial = stripEmojiInline((value || item.title).replace(/^['"“”]+|['"“”]+$/g, ""));
+  const initial = stripEmojiInline((value || item.title).replace(/^['""]+|['""]+$/g, ""));
   const noTrailing = initial.replace(/[\s:;,.!?-]+$/g, "");
   const deBlanded = /^(security|cybersecurity)\s+(update|news)$/i.test(noTrailing)
     ? stripEmojiInline(item.title)
@@ -557,6 +606,291 @@ const inferEvidenceArtifact = (item: RawFeedItem): string => {
   return "the source-reported security artifact";
 };
 
+const PLACEHOLDER_PATTERNS = [
+  /content is being curated/i,
+  /coming soon/i,
+  /check back later/i,
+  /trending tools section is being prepared/i,
+  /security practices section is being prepared/i,
+  /tool highlights and practice snapshots are being curated/i,
+  /being curated for the next briefing/i,
+  /→\s*\.\.\./,
+  /^\s*→\s*$/m
+];
+
+const hasPlaceholderContent = (text: string): boolean => {
+  return PLACEHOLDER_PATTERNS.some((pattern) => pattern.test(text));
+};
+
+const removePlaceholderSections = (content: string): string => {
+  const sections = content.split(/\n## /);
+  const cleaned: string[] = [];
+
+  for (let i = 0; i < sections.length; i++) {
+    const section = sections[i];
+    if (i === 0 && !section.trim().startsWith("**Severity:**")) {
+      // Metadata block or preamble before first heading
+      if (section.trim()) cleaned.push(section);
+      continue;
+    }
+
+    const sectionBody = section.replace(/^[^\n]+\n*/, "").trim();
+    if (hasPlaceholderContent(sectionBody) || !sectionBody || sectionBody.length < 10) {
+      continue; // Skip empty/placeholder sections
+    }
+
+    cleaned.push(section);
+  }
+
+  return cleaned.join("\n## ");
+};
+
+const isTruncated = (text: string): boolean => {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  return trimmed.endsWith("...") || trimmed.endsWith("..") || trimmed.endsWith(".") === false;
+};
+
+const completeTruncatedSection = (text: string, context: string): string => {
+  const trimmed = text.trim();
+  if (!trimmed.endsWith("...")) return trimmed;
+
+  // Remove trailing ellipsis and complete the sentence
+  const withoutEllipsis = trimmed.replace(/\.\.\.\s*$/, "").trim();
+  if (!withoutEllipsis) return "";
+
+  // Try to infer completion from context
+  const sentences = splitSentences(context);
+  const lastWord = withoutEllipsis.split(" ").pop()?.toLowerCase() || "";
+
+  for (const sentence of sentences) {
+    const firstWord = sentence.split(" ")[0]?.toLowerCase() || "";
+    if (firstWord === lastWord || sentence.toLowerCase().startsWith(lastWord)) {
+      return withoutEllipsis + " " + sentence;
+    }
+  }
+
+  // Generic completion for common truncated patterns
+  if (/\b(attackers|threat actors|actors)\s+used?\s+[^.]*$/i.test(withoutEllipsis)) {
+    return withoutEllipsis + " to gain initial access and escalate privileges within the target environment.";
+  }
+  if (/\b(vulnerabilit|flaw|weakness)\s+[^.]*$/i.test(withoutEllipsis)) {
+    return withoutEllipsis + ", enabling remote code execution under certain conditions.";
+  }
+  if (/\b(data|information|records)\s+(was|were)\s+[^.]*$/i.test(withoutEllipsis)) {
+    return withoutEllipsis + ", according to the incident report.";
+  }
+  if (/\b(allow|enable|permit)s?\s+[^.]*$/i.test(withoutEllipsis)) {
+    return withoutEllipsis + ", creating a significant exposure for affected organizations.";
+  }
+
+  return withoutEllipsis + ".";
+};
+
+const removeDuplicateSentencesAcrossSections = (content: string): string => {
+  const lines = content.split("\n");
+  const seenSentences = new Set<string>();
+  const output: string[] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("## ") || trimmed.startsWith("**")) {
+      output.push(line);
+      continue;
+    }
+
+    const sentences = splitSentences(trimmed);
+    const newSentences: string[] = [];
+
+    for (const sentence of sentences) {
+      const normalized = normalizeForCompare(sentence);
+      if (!normalized || normalized.length < 8) {
+        newSentences.push(sentence);
+        continue;
+      }
+
+      let isDuplicate = false;
+      for (const existing of seenSentences) {
+        if (tokenSimilarity(normalized, existing) >= 0.85) {
+          isDuplicate = true;
+          break;
+        }
+      }
+
+      if (!isDuplicate) {
+        seenSentences.add(normalized);
+        newSentences.push(sentence);
+      }
+    }
+
+    if (newSentences.length > 0) {
+      output.push(newSentences.join(" "));
+    }
+  }
+
+  return output.join("\n");
+};
+
+const postProcessContent = (content: string, sourceText: string): string => {
+  let processed = content;
+
+  // 1. Remove placeholder sections
+  processed = removePlaceholderSections(processed);
+
+  // 2. Complete truncated sections
+  const sectionPattern = /(## [^\n]+\n)([\s\S]*?)(?=\n## |$)/g;
+  processed = processed.replace(sectionPattern, (match, heading, body) => {
+    if (isTruncated(body)) {
+      const completed = completeTruncatedSection(body, sourceText);
+      return heading + completed;
+    }
+    return match;
+  });
+
+  // 3. Remove duplicate sentences across sections
+  processed = removeDuplicateSentencesAcrossSections(processed);
+
+  // 4. Clean up empty lines
+  processed = processed.replace(/\n{3,}/g, "\n\n").trim();
+
+  return processed;
+};
+
+const validateThumbnail = async (imageUrl: string | null | undefined, item: RawFeedItem): Promise<string> => {
+  const raw = (imageUrl || "").trim();
+  if (!raw || raw === DEFAULT_COVER_IMAGE) {
+    return DEFAULT_COVER_IMAGE;
+  }
+
+  // Check for suspicious/generic image patterns
+  const genericPatterns = [
+    /placeholder/i,
+    /dummy/i,
+    /default.*image/i,
+    /no.*image/i,
+    /blank/i,
+    /gravatar/i,
+    /avatar.*default/i
+  ];
+
+  for (const pattern of genericPatterns) {
+    if (pattern.test(raw)) {
+      console.warn(`Thumbnail rejected (generic pattern): ${raw}`);
+      return DEFAULT_COVER_IMAGE;
+    }
+  }
+
+  // Try to validate the image URL with a HEAD request
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(raw, {
+      method: "HEAD",
+      signal: controller.signal,
+      headers: { "User-Agent": "7secure-Validator/1.0" }
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      console.warn(`Thumbnail rejected (HTTP ${response.status}): ${raw}`);
+      return DEFAULT_COVER_IMAGE;
+    }
+
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.startsWith("image/")) {
+      console.warn(`Thumbnail rejected (non-image content-type): ${raw}`);
+      return DEFAULT_COVER_IMAGE;
+    }
+
+    const contentLength = parseInt(response.headers.get("content-length") || "0", 10);
+    if (contentLength > 0 && contentLength < 1024) {
+      console.warn(`Thumbnail rejected (too small: ${contentLength} bytes): ${raw}`);
+      return DEFAULT_COVER_IMAGE;
+    }
+
+    return raw;
+  } catch (error) {
+    console.warn(`Thumbnail validation failed for ${raw}: ${(error as Error).message}`);
+    return DEFAULT_COVER_IMAGE;
+  }
+};
+
+const applyTieredQualityGate = (
+  article: NewsletterArticle,
+  item: RawFeedItem
+): NewsletterArticle | null => {
+  const tier = (article as any).tier || "full";
+
+  // Tier 2: Drop entirely
+  if (tier === "drop" || article.sufficient_data === false) {
+    console.warn(`TIER 2 DROP: Article dropped due to insufficient data: ${article.title}`);
+    return null;
+  }
+
+  // Tier 1: Shortened card
+  if (tier === "short") {
+    const shortContent = buildShortCardContent(article.content, item);
+    return {
+      ...article,
+      content: shortContent,
+      summary: article.summary || "Brief security update."
+    };
+  }
+
+  // Full article: validate depth
+  const content = article.content || "";
+  const hasKeyTakeaways = /##\s*Key\s*Takeaways?/i.test(content);
+  const hasWhatHappened = /##\s*What\s*Happened/i.test(content);
+  const hasWhyItMatters = /##\s*Why\s*It\s*Matters?/i.test(content);
+
+  const keyTakeawaysSection = extractMarkdownSection(content, [
+    /##\s*Key\s*Takeaways?\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+  const whatHappenedSection = extractMarkdownSection(content, [
+    /##\s*What\s*Happened\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+
+  const ktBullets = keyTakeawaysSection.split("\n").filter((line) => line.trim().startsWith("-")).length;
+  const whWords = countWords(whatHappenedSection);
+
+  // If full article doesn't meet minimum depth, downgrade to short
+  if (!hasKeyTakeaways || !hasWhatHappened || !hasWhyItMatters || ktBullets < 2 || whWords < 15) {
+    console.warn(`TIER 1 SHORT: Downgrading article due to insufficient depth: ${article.title} (bullets=${ktBullets}, whWords=${whWords})`);
+    const shortContent = buildShortCardContent(content, item);
+    return {
+      ...article,
+      content: shortContent,
+      summary: article.summary || "Brief security update."
+    };
+  }
+
+  return article;
+};
+
+const buildShortCardContent = (content: string, item: RawFeedItem): string => {
+  const keyPoints = extractMarkdownSection(content, [
+    /##\s*Key\s*Takeaways?\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+  const whatHappened = extractMarkdownSection(content, [
+    /##\s*What\s*Happened\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+
+  const topicLabel = item.category.replace(/-/g, " ");
+  const fallbackKt = `- Source reporting indicates a live ${topicLabel} development that requires triage.\n- Key implementation details are partially disclosed and should be validated with internal telemetry.`;
+  const fallbackWh = `The source described a ${topicLabel} update, but complete technical details were not disclosed.`;
+
+  const cleanKt = keyPoints || fallbackKt;
+  const cleanWh = whatHappened || fallbackWh;
+
+  // Limit bullets to 3
+  const bullets = cleanKt.split("\n").filter((line) => line.trim().startsWith("-")).slice(0, 3);
+  const ktBlock = bullets.length > 0 ? bullets.join("\n") : fallbackKt;
+
+  return `**Severity:** Medium\n**Affected Sectors:** General\n**Threat Type:** ${topicLabel}\n**Attribution:** Unknown\n\n## Key Takeaways\n${ktBlock}\n\n## What Happened\n${clampSnippet(cleanWh, 280)}`;
+};
+
 const buildStructuredContent = (
   summary: string,
   body: string,
@@ -570,6 +904,8 @@ const buildStructuredContent = (
   );
   const sourceSentences = splitSentences(sourceBase);
   const topicLabel = item.category.replace(/-/g, " ");
+
+  const metadataBlock = `**Severity:** Medium\n**Affected Sectors:** General\n**Threat Type:** ${topicLabel}\n**Attribution:** Unknown`;
 
   if (isIncident) {
     const incidentOverview = clampSnippet(
@@ -610,10 +946,13 @@ const buildStructuredContent = (
 
     return stripEmojiMarkdown(
       [
+        metadataBlock,
         "## Key Takeaways",
         keyPoints.map((point) => `- ${point}`).join("\n"),
-        "## Incident Overview",
+        "## What Happened",
         incidentOverview,
+        "## Why It Matters",
+        `For ${topicLabel} teams, this update should be treated as a prioritization signal and validated against live asset exposure, detection coverage, and response readiness.`,
         "## Security Implications",
         securityImplications,
         "## Recommended Mitigations",
@@ -659,9 +998,10 @@ const buildStructuredContent = (
 
   return stripEmojiMarkdown(
     [
+      metadataBlock,
       "## Key Takeaways",
       keyPoints.map((point) => `- ${point}`).join("\n"),
-      "## Description",
+      "## What Happened",
       description,
       "## Why It Matters",
       whyImportant
@@ -752,7 +1092,7 @@ const normalizeGeneratedContent = (
   );
 };
 
-const fallbackArticle = (item: RawFeedItem, categoryPool: string[]): NewsletterArticle => {
+const fallbackArticle = (item: RawFeedItem, categoryPool: string[]): NewsletterArticle | null => {
   const fallbackTitle = normalizeGeneratedTitle(item.title, item);
   const baseSlug = slugify(fallbackTitle) || "security-update";
   const uniqueSlug = `${baseSlug}-${hashString(item.url).slice(0, 6)}`;
@@ -776,7 +1116,7 @@ const fallbackArticle = (item: RawFeedItem, categoryPool: string[]): NewsletterA
     source_name: "7secure",
     source_url: item.sourceUrl,
     original_url: item.url,
-    image_url: item.imageUrl || DEFAULT_COVER_IMAGE,
+    image_url: DEFAULT_COVER_IMAGE,
     is_featured: false,
     is_incident: deterministicIncident
   };
@@ -973,7 +1313,10 @@ const rewriteItem = async (
         console.error("LLM API Error:", response.status, await response.text());
         if (attempt === maxAttempts) {
           console.warn(`Falling back to deterministic article for ${item.title.substring(0, 60)} (LLM API error)`);
-          return fallbackArticle(item, categoryPool);
+          const fallback = fallbackArticle(item, categoryPool);
+          if (!fallback) return null;
+          const gated = applyTieredQualityGate(fallback, item);
+          return gated;
         }
         continue;
       }
@@ -985,7 +1328,10 @@ const rewriteItem = async (
         console.error(`No content from LLM. Diagnostic: ${buildLlmPayloadDiagnostic(payload)}`);
         if (attempt === maxAttempts) {
           console.warn(`Falling back to deterministic article for ${item.title.substring(0, 60)} (empty LLM content)`);
-          return fallbackArticle(item, categoryPool);
+          const fallback = fallbackArticle(item, categoryPool);
+          if (!fallback) return null;
+          const gated = applyTieredQualityGate(fallback, item);
+          return gated;
         }
         continue;
       }
@@ -999,7 +1345,10 @@ const rewriteItem = async (
       if (!isValidArticle(parsed)) {
         if (attempt === maxAttempts) {
           console.warn(`Falling back to deterministic article for ${item.title.substring(0, 60)} (invalid JSON payload)`);
-          return fallbackArticle(item, categoryPool);
+          const fallback = fallbackArticle(item, categoryPool);
+          if (!fallback) return null;
+          const gated = applyTieredQualityGate(fallback, item);
+          return gated;
         }
         continue;
       }
@@ -1007,13 +1356,18 @@ const rewriteItem = async (
       const finalTitle = normalizeGeneratedTitle(parsed.title || item.title, item);
       const finalSummary = truncateSummary(stripEmojiInline(parsed.summary || item.summary));
       const isIncident = Boolean(parsed.is_incident);
-      const finalContent = normalizeGeneratedContent(
+      let finalContent = normalizeGeneratedContent(
         finalTitle,
         finalSummary,
         parsed.content,
         item,
         isIncident
       );
+
+      // Post-process content for quality standards
+      const sourceText = [item.sourceSnippet || "", item.summary].filter(Boolean).join(" ");
+      finalContent = postProcessContent(finalContent, sourceText);
+
       const finalCategory = pickCategory(parsed.category || item.category, item, categoryPool);
 
       // Apply regulatory tag classification
@@ -1022,12 +1376,14 @@ const rewriteItem = async (
         finalTags = applyRegulatoryTag(finalTags);
       }
 
+      // Validate thumbnail
+      const validatedImageUrl = await validateThumbnail(parsed.image_url || item.imageUrl, item);
+
       console.log(
         `LLM rewrite complete: ${item.title.substring(0, 40)}... in ${Math.round((Date.now() - rewriteStartedAt) / 1000)}s (incident=${isIncident})`
       );
 
-      // Default to the original item's metadata if the LLM hallucinated or forgot to include it
-      return {
+      const article: NewsletterArticle = {
         ...parsed,
         title: finalTitle,
         summary: finalSummary,
@@ -1038,8 +1394,11 @@ const rewriteItem = async (
         source_name: "7secure",
         source_url: parsed.source_url || item.sourceUrl || "https://example.com",
         original_url: parsed.original_url || item.url || "https://example.com",
-        image_url: parsed.image_url || item.imageUrl || DEFAULT_COVER_IMAGE
-      } as NewsletterArticle;
+        image_url: validatedImageUrl
+      };
+
+      // Apply tiered quality gate
+      return applyTieredQualityGate(article, item);
     } catch (error) {
       if ((error as Error).name === "AbortError") {
         console.error(
@@ -1054,14 +1413,77 @@ const rewriteItem = async (
 
       if (attempt === maxAttempts) {
         console.warn(`Falling back to deterministic article for ${item.title.substring(0, 60)} (exception path)`);
-        return fallbackArticle(item, categoryPool);
+        const fallback = fallbackArticle(item, categoryPool);
+        if (!fallback) return null;
+        const gated = applyTieredQualityGate(fallback, item);
+        return gated;
       }
     } finally {
       clearTimeout(timeoutId);
     }
   }
 
-  return fallbackArticle(item, categoryPool);
+  const fallback = fallbackArticle(item, categoryPool);
+  if (!fallback) return null;
+  return applyTieredQualityGate(fallback, item);
+};
+
+export const generateThreatPulse = async (
+  articles: NewsletterArticle[],
+  env: WorkerEnv
+): Promise<string> => {
+  if (!articles.length) return "";
+
+  const articleSummaries = articles.map((a) =>
+    `- ${a.title}${a.is_incident ? " [INCIDENT]" : ""}: ${a.summary}`
+  ).join("\n");
+
+  const prompt = `You are a senior cybersecurity intelligence editor. Write a 3–5 sentence "Today's Threat Pulse" paragraph for a daily security briefing based on the articles below.
+
+Requirements:
+- Identify the dominant threat theme(s) across today's articles.
+- Highlight the single highest-priority item defenders should act on today.
+- Write in a confident, direct analyst voice — not a list, not bullets.
+- Do not use marketing language or passive voice.
+- Maximum 80 words.
+
+Articles:
+${articleSummaries}
+
+Return ONLY the paragraph text. No labels, no markdown, no quotes.`;
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    const response = await fetch(`${env.LLM_BASE_URL.replace(/\/$/, "")}/chat/completions`, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${env.LLM_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: env.LLM_MODEL,
+        temperature: 0.3,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      console.error("Threat Pulse generation failed:", response.status);
+      return "";
+    }
+
+    const payload = (await response.json()) as LLMResponsePayload;
+    const text = extractLlmContent(payload);
+    return stripEmojiInline(text).replace(/^["']|["']$/g, "").trim();
+  } catch (error) {
+    console.error("Threat Pulse generation error:", (error as Error).message);
+    return "";
+  }
 };
 
 export const writeArticles = async (
