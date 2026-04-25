@@ -30,6 +30,21 @@ export interface NewsletterArticle {
   original_url: string;
   image_url?: string | null;
   is_featured?: boolean;
+  is_incident?: boolean;
+}
+
+export interface ArticleSnippet {
+  title: string;
+  slug: string;
+  hook: string;
+}
+
+export interface DailyBriefing {
+  id?: string;
+  briefing_date: string;
+  newsletter_title: string;
+  snippets: ArticleSnippet[];
+  article_slugs: string[];
 }
 
 export interface WorkerEnv {

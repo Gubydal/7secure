@@ -1,24 +1,41 @@
 import type { NewsletterArticle, RawFeedItem, WorkerEnv } from "../types";
+import { isRegulatoryContent, applyRegulatoryTag } from "./regulatory-classifier";
 
-const SYSTEM_PROMPT = `You are a cybersecurity journalist for 7secure.
-Rewrite the provided feed item into a publication-ready analysis article.
+const SYSTEM_PROMPT = `You are a technology copywriter specializing in AI and cybersecurity. Analyze the following article and produce a concise, intelligence-style summary in English.
+
+First, determine whether this article describes a SECURITY INCIDENT (breach, attack, compromise, intrusion, data leak, ransomware, active exploitation, unauthorized access, etc.) or a GENERAL CYBERSECURITY DEVELOPMENT (policy, research, vulnerability disclosure, tool release, framework update, advisory, etc.).
 
 Hard requirements:
-- Title: MUST be heavily optimized, specific, catchy, and concrete. Keep it 45-72 chars. No clickbait or vague wording.
-- Data Cleaning: You MUST completely remove any garbage characters, weird numbers, random bracket expressions, or raw HTML entities (like &#x5b; or &#x5d;) from both the title and the content. Make it perfectly readable.
-- Summary: 2 concise sentences explaining why readers should care (this is rendered as "Why this matters").
-- Title: Act as a senior cybersecurity editor and B2B marketing strategist writing for CISOs, IT Directors, and Compliance Officers. Generate a single, high-impact title. Do not summarize literally. Synthesize the shared strategic theme or risk signal. Emphasize impact, consequence, or decision relevance. Avoid words like 'newsletter', 'digest', or 'roundup'. Maximum 14 words. Use strong executive language (risk, exposure, resilience, intelligence, control, trust).
+- Title: MUST be heavily optimized, specific, catchy, and concrete. Keep it 45-72 chars. No clickbait or vague wording. Clean all garbage characters, weird numbers, random bracket expressions, or raw HTML entities.
 - Summary: 2 concise sentences explaining why readers should care.
-- Content: You MUST format the body as Markdown with EXACTLY these three H2 sections and NO OTHERS:
-  ## Key Points
-  (A bulleted list of 2-4 the most important factual points)
+- is_incident: true if the article describes a security incident, false otherwise.
+
+If it IS a security incident, format the body as Markdown with EXACTLY these H2 sections and NO OTHERS:
+  ## Key Takeaways
+  (A bulleted list of 3-5 critical facts: who, what, how; initial compromise vector and escalation path; impacted systems, data, or users; known threat actors)
+  
+  ## Incident Overview
+  (1-2 concise paragraphs on how the attack unfolded, including: role of AI tools, third-party services, or supply chain; use of malware, stolen credentials, or misconfigurations; scope of access and exposure)
+  
+  ## Security Implications
+  (1 paragraph on broader risks: third-party/supply chain vulnerabilities, IAM weaknesses, AI tooling risks in enterprise environments)
+  
+  ## Recommended Mitigations
+  (A bulleted list of actionable defenses: secrets management, least privilege, third-party monitoring, endpoint hardening, phishing resistance)
+
+If it is NOT a security incident, format the body as Markdown with EXACTLY these H2 sections and NO OTHERS:
+  ## Key Takeaways
+  (A bulleted list of 3-5 the most important factual points)
   
   ## Description
-  (1-2 paragraphs detailing the issue, mechanics, or news)
+  (1-2 paragraphs explaining the topic clearly and concisely)
   
-  ## Why it's important
-  (1-2 paragraphs on the strategic impact, consequence, or decision relevance)
-- Do NOT include any other headings. Do NOT include generic advice.
+  ## Why It Matters
+  (1-2 paragraphs on strategic or industry-level insights)
+
+Style rules:
+- Professional, analytical tone (Mandiant/CrowdStrike standard).
+- High signal-to-noise ratio. Avoid unnecessary jargon, maintain technical credibility.
 - Prefer proof over adjectives. Prioritize observable facts, technical behavior, and explicit uncertainty.
 - Avoid hype language and generic framing such as "game changer", "critical wake-up call".
 - Do not use emojis anywhere in title, summary, headings, or body.
@@ -29,18 +46,19 @@ Hard requirements:
 - If a new category is truly needed, keep it concise (1-3 words, kebab-case).
 - Slug: lowercase URL-safe with hyphens.
 - image_url: use source image if available, otherwise /cover.avif.
-- sufficient_data: true or false. Evaluate the input strictly. If the input summary/snippet is too short, vague, or lacks enough concrete technical details to write a high-quality 600+ word article without hallucinating, set this to false.
+- sufficient_data: true or false. Evaluate the input strictly. If the input summary/snippet is too short, vague, or lacks enough concrete technical details to write a high-quality summary without hallucinating, set this to false.
 
 Input fields:
+- title: original article headline.
 - summary: short feed summary text.
 - source_snippet: richer extracted text from the feed/article body.
 - preferred_categories: existing categories in the system (max 10).
 
 Return ONLY valid JSON:
 {
-  'title': '...', 'slug': '...', 'summary': '...', 'content': '...',
-  'category': '...', 'tags': ['...'], 'source_name': '7secure', 'source_url': '...',
-  'original_url': '...', 'image_url': '...', 'sufficient_data': true
+  "title": "...", "slug": "...", "summary": "...", "content": "...",
+  "category": "...", "tags": ["..."], "source_name": "7secure", "source_url": "...",
+  "original_url": "...", "image_url": "...", "sufficient_data": true, "is_incident": false
 }`;
 
 const DEFAULT_COVER_IMAGE = "/cover.avif";
@@ -373,6 +391,99 @@ const pickSentenceRange = (
   return value.length > maxLength ? `${value.slice(0, maxLength - 3).trimEnd()}...` : value;
 };
 
+const toPlainText = (value: string): string =>
+  normalizeWhitespace(
+    value
+      .replace(/```[\s\S]*?```/g, " ")
+      .replace(/`[^`]*`/g, " ")
+      .replace(/!\[[^\]]*\]\([^\)]*\)/g, " ")
+      .replace(/\[[^\]]*\]\([^\)]*\)/g, " ")
+      .replace(/^#{1,6}\s+/gm, " ")
+      .replace(/[*_>~]/g, " ")
+      .replace(/\s+/g, " ")
+  );
+
+const clampSnippet = (value: string, maxLength: number): string => {
+  const cleaned = normalizeWhitespace(value);
+  if (!cleaned) {
+    return "";
+  }
+  return cleaned.length > maxLength
+    ? `${cleaned.slice(0, maxLength - 3).trimEnd()}...`
+    : cleaned;
+};
+
+const extractMarkdownSection = (content: string, patterns: RegExp[]): string => {
+  for (const pattern of patterns) {
+    const match = content.match(pattern);
+    if (match?.[1]) {
+      return match[1].trim();
+    }
+  }
+  return "";
+};
+
+const extractMarkdownSections = (content: string, patterns: RegExp[]): string[] => {
+  const blocks: string[] = [];
+  for (const pattern of patterns) {
+    const match = content.match(pattern);
+    const value = match?.[1]?.trim();
+    if (value) {
+      blocks.push(value);
+    }
+  }
+  return blocks;
+};
+
+const normalizeKeyPoints = (
+  keyPointsSection: string,
+  sourceText: string,
+  topicLabel: string
+): string[] => {
+  const bulletLines = keyPointsSection
+    .split("\n")
+    .map((line) => line.trim().replace(/^[-*]\s+/, ""))
+    .filter(Boolean);
+
+  const sentenceSeed = [
+    ...splitSentences(toPlainText(keyPointsSection)),
+    ...splitSentences(toPlainText(sourceText))
+  ];
+
+  const seeded = bulletLines.length > 0 ? bulletLines : sentenceSeed;
+  const unique: string[] = [];
+
+  for (const sentence of seeded) {
+    const cleaned = clampSnippet(sentence, 180);
+    if (!cleaned || unique.some((existing) => tokenSimilarity(existing, cleaned) >= 0.9)) {
+      continue;
+    }
+    unique.push(cleaned);
+    if (unique.length >= 4) {
+      break;
+    }
+  }
+
+  if (unique.length >= 2) {
+    return unique;
+  }
+
+  const fallback = [
+    `Source reporting indicates a live ${topicLabel} development that requires triage.`,
+    "Key implementation details are partially disclosed and should be validated with internal telemetry.",
+    "Teams should align ownership, exposure assessment, and near-term mitigation sequencing."
+  ];
+
+  for (const line of fallback) {
+    if (unique.length >= 3) {
+      break;
+    }
+    unique.push(line);
+  }
+
+  return unique;
+};
+
 const inferEvidenceArtifact = (item: RawFeedItem): string => {
   const signal = `${item.title} ${item.summary} ${item.sourceSnippet || ""}`;
   const cve = signal.match(/CVE-\d{4}-\d{4,7}/i);
@@ -401,107 +512,196 @@ const inferEvidenceArtifact = (item: RawFeedItem): string => {
 const buildStructuredContent = (
   summary: string,
   body: string,
-  item: RawFeedItem
+  item: RawFeedItem,
+  sections?: { keyPoints?: string; description?: string; whyImportant?: string; incidentOverview?: string; securityImplications?: string; recommendedMitigations?: string },
+  isIncident = false
 ): string => {
   const cleanedSummary = stripEmojiInline(summary) || "Security teams should review this update for potential operational impact.";
-  const sourceBase = normalizeWhitespace(body || item.sourceSnippet || cleanedSummary);
+  const sourceBase = normalizeWhitespace(
+    [body, item.sourceSnippet || "", cleanedSummary].filter(Boolean).join(" ")
+  );
   const sourceSentences = splitSentences(sourceBase);
-  const evidenceArtifact = inferEvidenceArtifact(item);
   const topicLabel = item.category.replace(/-/g, " ");
 
-  const evidenceSnapshot = pickSentenceRange(
-    sourceSentences,
-    0,
-    4,
-    sourceBase || "The source described a security update, but complete technical details were not disclosed.",
-    640
+  if (isIncident) {
+    const incidentOverview = clampSnippet(
+      toPlainText(
+        sections?.incidentOverview ||
+          pickSentenceRange(
+            sourceSentences,
+            0,
+            5,
+            sourceBase || "The source described a security incident, but complete technical details were not disclosed.",
+            760
+          )
+      ),
+      760
+    );
+
+    const securityImplications = clampSnippet(
+      toPlainText(
+        sections?.securityImplications ||
+          pickSentenceRange(
+            sourceSentences,
+            5,
+            10,
+            `For ${topicLabel} teams, this incident signals potential supply chain, IAM, or third-party exposure that should be validated against internal telemetry.`,
+            760
+          )
+      ),
+      760
+    );
+
+    const keyPoints = normalizeKeyPoints(
+      sections?.keyPoints || "",
+      [incidentOverview, securityImplications, sourceBase].filter(Boolean).join(" "),
+      topicLabel
+    );
+
+    const mitigations = sections?.recommendedMitigations || "- Validate exposure through internal telemetry and detection coverage.\n- Review third-party access and supply chain dependencies.\n- Enforce least-privilege and secrets rotation.";
+
+    return stripEmojiMarkdown(
+      [
+        "## Key Takeaways",
+        keyPoints.map((point) => `- ${point}`).join("\n"),
+        "## Incident Overview",
+        incidentOverview,
+        "## Security Implications",
+        securityImplications,
+        "## Recommended Mitigations",
+        mitigations
+      ].join("\n\n")
+    );
+  }
+
+  const description = clampSnippet(
+    toPlainText(
+      sections?.description ||
+        pickSentenceRange(
+          sourceSentences,
+          0,
+          5,
+          sourceBase ||
+            "The source described a security update, but complete technical details were not disclosed.",
+          760
+        )
+    ),
+    760
   );
 
-  const attackMechanics = pickSentenceRange(
-    sourceSentences,
-    4,
-    8,
-    "Technical specifics remain limited in the available source text, so teams should validate exposure against their own environment and controls.",
-    700
+  const whyImportant = clampSnippet(
+    toPlainText(
+      sections?.whyImportant ||
+        pickSentenceRange(
+          sourceSentences,
+          5,
+          10,
+          `For ${topicLabel} teams, this update should be treated as a prioritization signal and validated against live asset exposure, detection coverage, and response readiness.`,
+          760
+        )
+    ),
+    760
   );
 
-  const exposureBlastRadius = pickSentenceRange(
-    sourceSentences,
-    8,
-    13,
-    "Operationally, this requires a rapid assessment of affected systems, communications to owners, and verification that existing detections still cover the described behavior.",
-    700
+  const keyPoints = normalizeKeyPoints(
+    sections?.keyPoints || "",
+    [description, whyImportant, sourceBase].filter(Boolean).join(" "),
+    topicLabel
   );
 
-  const remediationSteps = pickSentenceRange(
-    sourceSentences,
-    13,
-    18,
-    `For ${topicLabel}-related issues, organizations should identify affected assets by version and deployment context, then apply vendor-specific patches or mitigations in order of exposure severity.`,
-    720
+  return stripEmojiMarkdown(
+    [
+      "## Key Takeaways",
+      keyPoints.map((point) => `- ${point}`).join("\n"),
+      "## Description",
+      description,
+      "## Why It Matters",
+      whyImportant
+    ].join("\n\n")
   );
-
-  const detectionValidation = pickSentenceRange(
-    sourceSentences,
-    18,
-    22,
-    `Detection should focus on behaviors and indicators specific to ${evidenceArtifact}, confirmed against production telemetry rather than relying on signature-only coverage.`,
-    700
-  );
-
-  const watchNext = pickSentenceRange(
-    sourceSentences,
-    22,
-    24,
-    "Some implementation-specific details are still not disclosed, so teams should confirm assumptions with internal telemetry, vendor guidance, and environment-specific testing.",
-    720
-  );
-
-  return stripEmojiMarkdown([
-    `## Evidence snapshot: ${evidenceArtifact}`,
-    evidenceSnapshot,
-    `## How ${evidenceArtifact} works technically`,
-    attackMechanics,
-    `## Who is exposed and blast radius for ${topicLabel}`,
-    exposureBlastRadius,
-    `## Remediation steps for ${evidenceArtifact}`,
-    remediationSteps,
-    `## Detection and validation for this ${topicLabel} issue`,
-    detectionValidation,
-    `## Forward outlook on ${evidenceArtifact}`,
-    watchNext,
-    "## Source trail",
-    `Original reporting: [Open source article](${item.url}).`,
-    "If implementation-specific details were not disclosed in the source, treat them as unknown and validate with telemetry, advisories, and environment-specific testing."
-  ].join("\n\n"));
 };
 
 const normalizeGeneratedContent = (
   title: string,
   summary: string,
   content: string,
-  item: RawFeedItem
+  item: RawFeedItem,
+  isIncident = false
 ): string => {
   const cleanedContent = stripEmojiMarkdown(
     dedupeOpeningSummary(summary, stripLeadingHeading(content, title))
   );
   if (!cleanedContent) {
-    return buildStructuredContent(summary, item.sourceSnippet || summary, item);
+    return buildStructuredContent(summary, item.sourceSnippet || summary, item, undefined, isIncident);
   }
 
-  const qualityAdjusted = enforceHeadingQuality(cleanedContent, item);
-  const sectionAligned = ensureSectionBodies(qualityAdjusted.content, item);
-  const words = countWords(sectionAligned);
+  // Try new intelligence-style sections first
+  const keyTakeaways = extractMarkdownSection(cleanedContent, [
+    /##\s*Key\s*Takeaways?\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+  const keyPoints = extractMarkdownSection(cleanedContent, [
+    /##\s*Key\s*Points?\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+  const incidentOverview = extractMarkdownSection(cleanedContent, [
+    /##\s*Incident\s*Overview\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+  const securityImplications = extractMarkdownSection(cleanedContent, [
+    /##\s*Security\s*Implications?\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+  const recommendedMitigations = extractMarkdownSection(cleanedContent, [
+    /##\s*Recommended\s*Mitigations?\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+  const description = extractMarkdownSection(cleanedContent, [
+    /##\s*Description\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+  const whyItMatters = extractMarkdownSection(cleanedContent, [
+    /##\s*Why\s+It\s+Matters?\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+  const whyImportant = extractMarkdownSection(cleanedContent, [
+    /##\s*(?:Why\s+this\s+matters|Why\s+it'?s\s+important)\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
 
-  if (qualityAdjusted.headingCount >= 6 && words >= 620) {
-    return stripEmojiMarkdown(sectionAligned);
+  // Detect if content has incident-style sections
+  const hasIncidentSections = incidentOverview || securityImplications || recommendedMitigations;
+  const resolvedIsIncident = isIncident || Boolean(hasIncidentSections);
+
+  if (resolvedIsIncident) {
+    return buildStructuredContent(
+      summary,
+      [item.sourceSnippet || "", cleanedContent].join("\n\n"),
+      item,
+      {
+        keyPoints: keyTakeaways || keyPoints,
+        incidentOverview,
+        securityImplications,
+        recommendedMitigations
+      },
+      true
+    );
   }
 
-  return stripEmojiMarkdown(buildStructuredContent(
+  const legacyDescriptionBlocks = extractMarkdownSections(cleanedContent, [
+    /##\s*Evidence snapshot[^\n]*\n([\s\S]*?)(?=\n##|$)/i,
+    /##\s*How\s+[^\n]*works\s+technically[^\n]*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+  const legacyWhyBlocks = extractMarkdownSections(cleanedContent, [
+    /##\s*Who\s+is\s+exposed\s+and\s+blast\s+radius[^\n]*\n([\s\S]*?)(?=\n##|$)/i,
+    /##\s*Remediation\s+steps[^\n]*\n([\s\S]*?)(?=\n##|$)/i,
+    /##\s*Detection\s+and\s+validation[^\n]*\n([\s\S]*?)(?=\n##|$)/i,
+    /##\s*Forward\s+outlook[^\n]*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+
+  return buildStructuredContent(
     summary,
-    [item.sourceSnippet || "", sectionAligned].join("\n\n"),
-    item
-  ));
+    [item.sourceSnippet || "", cleanedContent].join("\n\n"),
+    item,
+    {
+      keyPoints: keyTakeaways || keyPoints,
+      description: description || legacyDescriptionBlocks.join("\n\n"),
+      whyImportant: whyItMatters || whyImportant || legacyWhyBlocks.join("\n\n") || summary
+    },
+    false
+  );
 };
 
 const fallbackArticle = (item: RawFeedItem, categoryPool: string[]): NewsletterArticle => {
@@ -750,16 +950,24 @@ const rewriteItem = async (
 
       const finalTitle = normalizeGeneratedTitle(parsed.title || item.title, item);
       const finalSummary = truncateSummary(stripEmojiInline(parsed.summary || item.summary));
+      const isIncident = Boolean(parsed.is_incident);
       const finalContent = normalizeGeneratedContent(
         finalTitle,
         finalSummary,
         parsed.content,
-        item
+        item,
+        isIncident
       );
       const finalCategory = pickCategory(parsed.category || item.category, item, categoryPool);
 
+      // Apply regulatory tag classification
+      let finalTags = Array.isArray(parsed.tags) ? parsed.tags : [finalCategory, "daily-brief"];
+      if (isRegulatoryContent(item)) {
+        finalTags = applyRegulatoryTag(finalTags);
+      }
+
       console.log(
-        `LLM rewrite complete: ${item.title.substring(0, 40)}... in ${Math.round((Date.now() - rewriteStartedAt) / 1000)}s`
+        `LLM rewrite complete: ${item.title.substring(0, 40)}... in ${Math.round((Date.now() - rewriteStartedAt) / 1000)}s (incident=${isIncident})`
       );
 
       // Default to the original item's metadata if the LLM hallucinated or forgot to include it
@@ -769,6 +977,8 @@ const rewriteItem = async (
         summary: finalSummary,
         content: finalContent,
         category: finalCategory,
+        tags: finalTags,
+        is_incident: isIncident,
         source_name: "7secure",
         source_url: parsed.source_url || item.sourceUrl || "https://example.com",
         original_url: parsed.original_url || item.url || "https://example.com",

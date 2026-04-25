@@ -1,6 +1,8 @@
 import { cleanItems } from "./bridge/cleaner";
+import { generateNewsletterTitle } from "./bridge/title-generator";
+import { generateSnippetOfTheWeek } from "./bridge/snippet-generator";
 import { writeArticles } from "./bridge/writer";
-import { logDigest, saveArticles, getExistingUrls, getTrackedCategories } from "./db/supabase";
+import { logDigest, saveArticles, getExistingUrls, getTrackedCategories, saveDailyBriefing } from "./db/supabase";
 import { sendDigest } from "./email/digest";
 import { fetchFeeds } from "./rss/fetcher";
 import type { WorkerEnv } from "./types";
@@ -34,7 +36,32 @@ export const runDailyPipeline = async (env: WorkerEnv): Promise<void> => {
       }
     }
 
-    const digestResult = await sendDigest(env);
+    // Generate AI newsletter title and snippet hooks from prepared articles
+    let newsletterTitle = "Daily Security Intelligence Brief";
+    let snippets: Awaited<ReturnType<typeof generateSnippetOfTheWeek>> = [];
+
+    if (preparedArticles.length > 0) {
+      const [generatedTitle, generatedSnippets] = await Promise.all([
+        generateNewsletterTitle(
+          preparedArticles.map((a) => ({ title: a.title, summary: a.summary, category: a.category })),
+          env
+        ),
+        generateSnippetOfTheWeek(
+          preparedArticles.map((a) => ({ title: a.title, slug: a.slug, summary: a.summary })),
+          env
+        )
+      ]);
+      newsletterTitle = generatedTitle;
+      snippets = generatedSnippets;
+
+      await saveDailyBriefing(env, {
+        newsletter_title: newsletterTitle,
+        snippets,
+        article_slugs: preparedArticles.map((a) => a.slug)
+      });
+    }
+
+    const digestResult = await sendDigest(env, newsletterTitle, snippets);
     if (digestResult.status === "success") {
       console.log(
         `Digest accepted by Resend for ${digestResult.subscriberCount} subscribers using ${digestResult.articleCount} articles`

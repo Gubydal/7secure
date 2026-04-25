@@ -76,6 +76,240 @@ const removeRepeatedSummaryInBody = (content: string, summary: string): string =
   return cleaned.join("\n\n").trim();
 };
 
+const splitSentences = (value: string): string[] => {
+  const sentences = value.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [];
+  return sentences.map((sentence) => sentence.replace(/\s+/g, " ").trim()).filter(Boolean);
+};
+
+const toPlainText = (value: string): string =>
+  value
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`[^`]*`/g, " ")
+    .replace(/!\[[^\]]*\]\([^\)]*\)/g, " ")
+    .replace(/\[[^\]]*\]\([^\)]*\)/g, " ")
+    .replace(/^#{1,6}\s+/gm, " ")
+    .replace(/[*_>~]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const clampText = (value: string, limit: number): string =>
+  value.length > limit ? `${value.slice(0, limit - 3).trimEnd()}...` : value;
+
+const extractMarkdownSection = (content: string, patterns: RegExp[]): string => {
+  for (const pattern of patterns) {
+    const match = content.match(pattern);
+    if (match?.[1]) {
+      return match[1].trim();
+    }
+  }
+  return "";
+};
+
+const extractMarkdownSections = (content: string, patterns: RegExp[]): string[] => {
+  const blocks: string[] = [];
+  for (const pattern of patterns) {
+    const match = content.match(pattern);
+    const value = match?.[1]?.trim();
+    if (value) {
+      blocks.push(value);
+    }
+  }
+  return blocks;
+};
+
+const buildKeyPoints = (keyPointsSection: string, sourceText: string, category: string): string[] => {
+  const rawBullets = keyPointsSection
+    .split("\n")
+    .map((line) => line.trim().replace(/^[-*]\s+/, ""))
+    .filter(Boolean);
+
+  const sentenceSeed = [
+    ...splitSentences(toPlainText(keyPointsSection)),
+    ...splitSentences(toPlainText(sourceText))
+  ];
+
+  const seeded = rawBullets.length > 0 ? rawBullets : sentenceSeed;
+  const unique: string[] = [];
+
+  for (const sentence of seeded) {
+    const cleaned = clampText(sentence.replace(/\s+/g, " ").trim(), 180);
+    if (!cleaned || unique.some((existing) => tokenSimilarity(existing, cleaned) >= 0.9)) {
+      continue;
+    }
+    unique.push(cleaned);
+    if (unique.length >= 4) {
+      break;
+    }
+  }
+
+  if (unique.length >= 2) {
+    return unique;
+  }
+
+  const topicLabel = category.replace(/-/g, " ");
+  return [
+    `Source reporting indicates a live ${topicLabel} development that requires triage.`,
+    "Key implementation details are partially disclosed and should be validated with internal telemetry.",
+    "Teams should align ownership, exposure assessment, and mitigation sequencing."
+  ];
+};
+
+const pickSentenceRange = (
+  sentences: string[],
+  start: number,
+  end: number,
+  fallback: string,
+  maxLength = 700
+): string => {
+  const value = (sentences.slice(start, end).join(" ") || fallback).trim();
+  return value.length > maxLength ? `${value.slice(0, maxLength - 3).trimEnd()}...` : value;
+};
+
+const normalizeArticleSections = (content: string, summary: string, category: string): string => {
+  const cleaned = stripLeadingHeading(content);
+
+  // Try new intelligence-style sections first
+  const keyTakeaways = extractMarkdownSection(cleaned, [
+    /##\s*Key\s*Takeaways?\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+  const keyPoints = extractMarkdownSection(cleaned, [
+    /##\s*Key\s*Points?\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+  const incidentOverview = extractMarkdownSection(cleaned, [
+    /##\s*Incident\s*Overview\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+  const securityImplications = extractMarkdownSection(cleaned, [
+    /##\s*Security\s*Implications?\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+  const recommendedMitigations = extractMarkdownSection(cleaned, [
+    /##\s*Recommended\s*Mitigations?\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+  const description = extractMarkdownSection(cleaned, [
+    /##\s*Description\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+  const whyItMatters = extractMarkdownSection(cleaned, [
+    /##\s*Why\s+It\s+Matters?\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+  const whyImportant = extractMarkdownSection(cleaned, [
+    /##\s*(?:Why\s+this\s+matters|Why\s+it'?s\s+important)\s*\n([\s\S]*?)(?=\n##|$)/i
+  ]);
+
+  const hasIncidentSections = incidentOverview || securityImplications || recommendedMitigations;
+
+  if (hasIncidentSections) {
+    const sourceText = toPlainText([summary, cleaned].filter(Boolean).join("\n\n"));
+    const sourceSentences = splitSentences(sourceText);
+
+    const normalizedOverview = clampText(
+      toPlainText(
+        incidentOverview ||
+          pickSentenceRange(
+            sourceSentences,
+            0,
+            5,
+            "The source described a security incident, but complete technical details were not disclosed.",
+            760
+          )
+      ),
+      760
+    );
+
+    const normalizedImplications = clampText(
+      toPlainText(
+        securityImplications ||
+          pickSentenceRange(
+            sourceSentences,
+            5,
+            10,
+            `For ${category.replace(/-/g, " ")} teams, this incident signals potential supply chain, IAM, or third-party exposure that should be validated against internal telemetry.`,
+            760
+          )
+      ),
+      760
+    );
+
+    const normalizedKeyPoints = buildKeyPoints(
+      keyTakeaways || keyPoints,
+      [normalizedOverview, normalizedImplications, sourceText].filter(Boolean).join(" "),
+      category
+    );
+
+    const normalizedMitigations = recommendedMitigations || "- Validate exposure through internal telemetry and detection coverage.\n- Review third-party access and supply chain dependencies.\n- Enforce least-privilege and secrets rotation.";
+
+    return [
+      "## Key Takeaways",
+      normalizedKeyPoints.map((point) => `- ${point}`).join("\n"),
+      "## Incident Overview",
+      normalizedOverview,
+      "## Security Implications",
+      normalizedImplications,
+      "## Recommended Mitigations",
+      normalizedMitigations
+    ].join("\n\n");
+  }
+
+  const legacyDescription = extractMarkdownSections(cleaned, [
+    /##\s*Evidence snapshot[^\n]*\n([\s\S]*?)(?=\n##|$)/i,
+    /##\s*How\s+[^\n]*works\s+technically[^\n]*\n([\s\S]*?)(?=\n##|$)/i
+  ]).join("\n\n");
+
+  const legacyWhy = extractMarkdownSections(cleaned, [
+    /##\s*Who\s+is\s+exposed\s+and\s+blast\s+radius[^\n]*\n([\s\S]*?)(?=\n##|$)/i,
+    /##\s*Remediation\s+steps[^\n]*\n([\s\S]*?)(?=\n##|$)/i,
+    /##\s*Detection\s+and\s+validation[^\n]*\n([\s\S]*?)(?=\n##|$)/i,
+    /##\s*Forward\s+outlook[^\n]*\n([\s\S]*?)(?=\n##|$)/i
+  ]).join("\n\n");
+
+  const sourceText = toPlainText([summary, cleaned].filter(Boolean).join("\n\n"));
+  const sourceSentences = splitSentences(sourceText);
+
+  const normalizedDescription = clampText(
+    toPlainText(
+      description ||
+        legacyDescription ||
+        pickSentenceRange(
+          sourceSentences,
+          0,
+          5,
+          "The source described a security update, but complete technical details were not disclosed.",
+          760
+        )
+    ),
+    760
+  );
+
+  const normalizedWhy = clampText(
+    toPlainText(
+      whyItMatters ||
+        whyImportant ||
+        legacyWhy ||
+        pickSentenceRange(
+          sourceSentences,
+          5,
+          10,
+          `For ${category.replace(/-/g, " ")} teams, this update should be treated as a prioritization signal and validated against live asset exposure and detection coverage.`,
+          760
+        )
+    ),
+    760
+  );
+
+  const normalizedKeyPoints = buildKeyPoints(
+    keyTakeaways || keyPoints,
+    [normalizedDescription, normalizedWhy, sourceText].filter(Boolean).join(" "),
+    category
+  );
+
+  return [
+    "## Key Takeaways",
+    normalizedKeyPoints.map((point) => `- ${point}`).join("\n"),
+    "## Description",
+    normalizedDescription,
+    "## Why It Matters",
+    normalizedWhy
+  ].join("\n\n");
+};
+
 const estimateReadMinutes = (content: string): number => {
   const words = content
     .replace(/<[^>]+>/g, " ")
@@ -165,7 +399,11 @@ export default async function ArticlePage(
   const cleanTitle = stripEmojiInline(article.title);
   const cleanSummary = stripEmojiInline(article.summary);
   const renderedContent = stripEmojiMarkdown(
-    removeRepeatedSummaryInBody(article.content, article.summary) || stripLeadingHeading(article.content)
+    normalizeArticleSections(
+      removeRepeatedSummaryInBody(article.content, article.summary) || stripLeadingHeading(article.content),
+      article.summary,
+      article.category
+    )
   );
   const readMinutes = estimateReadMinutes(renderedContent);
   const sourceDomain = getDomain(article.original_url).toUpperCase();

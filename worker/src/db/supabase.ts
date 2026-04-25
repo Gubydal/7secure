@@ -260,3 +260,34 @@ export const markDigestArticlesSent = async (env: WorkerEnv, slugs: string[]): P
     console.error("digest_sent_articles upsert error:", (error as Error).message);
   }
 };
+
+export const saveDailyBriefing = async (
+  env: WorkerEnv,
+  briefing: {
+    newsletter_title: string;
+    snippets: Array<{ title: string; slug: string; hook: string }>;
+    article_slugs: string[];
+  }
+): Promise<void> => {
+  try {
+    const { error } = await getSupabaseAdmin(env)
+      .from("daily_briefings")
+      .upsert(
+        {
+          briefing_date: new Date().toISOString().slice(0, 10),
+          newsletter_title: briefing.newsletter_title,
+          snippets: briefing.snippets,
+          article_slugs: briefing.article_slugs
+        },
+        { onConflict: "briefing_date" }
+      );
+
+    if (error) {
+      console.error("daily_briefings upsert failed:", error.message);
+    } else {
+      console.log("Daily briefing saved:", briefing.newsletter_title);
+    }
+  } catch (error) {
+    console.error("daily_briefings upsert error:", (error as Error).message);
+  }
+};

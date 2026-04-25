@@ -5,7 +5,7 @@ import {
   getSubscribers,
   markDigestArticlesSent
 } from "../db/supabase";
-import type { WorkerEnv } from "../types";
+import type { WorkerEnv, ArticleSnippet } from "../types";
 
 export interface DigestSendResult {
   articleCount: number;
@@ -111,25 +111,34 @@ const displayNameFromSubscriber = (subscriber: DigestSubscriber): string => {
 
 const buildArticleScript = (
   article: DigestArticle
-): { keyPoints: string; description: string; whyImportant: string } => {
+): { keyPoints: string; description: string; whyImportant: string; incidentOverview: string; securityImplications: string; recommendedMitigations: string } => {
   const content = article.content || "";
-  
-  const keyPointsMatch = content.match(/##\s*Key Points\n([\s\S]*?)(?=\n##|$)/i);
-  const descriptionMatch = content.match(/##\s*Description\n([\s\S]*?)(?=\n##|$)/i);
-  const whyImportantMatch = content.match(/##\s*Why it's important\n([\s\S]*?)(?=\n##|$)/i);
 
-  if (!keyPointsMatch && !descriptionMatch && !whyImportantMatch) {
+  const keyPointsMatch = content.match(/##\s*Key\s*(?:Points?|Takeaways?)\n([\s\S]*?)(?=\n##|$)/i);
+  const descriptionMatch = content.match(/##\s*Description\n([\s\S]*?)(?=\n##|$)/i);
+  const whyImportantMatch = content.match(/##\s*(?:Why\s+this\s+matters|Why\s+it'?s\s+important|Why\s+It\s+Matters?)\n([\s\S]*?)(?=\n##|$)/i);
+  const incidentOverviewMatch = content.match(/##\s*Incident\s*Overview\n([\s\S]*?)(?=\n##|$)/i);
+  const securityImplicationsMatch = content.match(/##\s*Security\s*Implications?\n([\s\S]*?)(?=\n##|$)/i);
+  const recommendedMitigationsMatch = content.match(/##\s*Recommended\s*Mitigations?\n([\s\S]*?)(?=\n##|$)/i);
+
+  if (!keyPointsMatch && !descriptionMatch && !whyImportantMatch && !incidentOverviewMatch) {
     return {
       keyPoints: "",
       description: clamp(stripMarkdown(content), 300),
-      whyImportant: article.summary || ""
+      whyImportant: article.summary || "",
+      incidentOverview: "",
+      securityImplications: "",
+      recommendedMitigations: ""
     };
   }
 
   return {
     keyPoints: keyPointsMatch ? keyPointsMatch[1].trim() : "",
     description: descriptionMatch ? descriptionMatch[1].trim() : "",
-    whyImportant: whyImportantMatch ? whyImportantMatch[1].trim() : ""
+    whyImportant: whyImportantMatch ? whyImportantMatch[1].trim() : "",
+    incidentOverview: incidentOverviewMatch ? incidentOverviewMatch[1].trim() : "",
+    securityImplications: securityImplicationsMatch ? securityImplicationsMatch[1].trim() : "",
+    recommendedMitigations: recommendedMitigationsMatch ? recommendedMitigationsMatch[1].trim() : ""
   };
 };
 
@@ -234,7 +243,7 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
       const category = escapeHtml(humanizeCategory(article.category).toUpperCase());
       const title = escapeHtml(stripEmojiInline(article.title));
       const script = buildArticleScript(article);
-      
+
       const cleanScriptField = (text: string) => {
         const cleaned = text.replace(/[\[\]]/g, "").replace(/\.\.\./g, "").trim();
         return cleaned.length > 5 ? escapeHtml(stripEmojiInline(cleaned)) : "";
@@ -243,21 +252,21 @@ const buildLatestDevelopmentCards = (articles: DigestArticle[], siteBase: string
       const markdownListToHtml = (mdList: string): string => {
         const items = mdList.split('\n').filter(line => line.trim().startsWith('-'));
         if (items.length === 0) return escapeHtml(mdList);
-        return `<ul style="margin:8px 0 0 20px;padding:0;color:#334155;font-size:14px;line-height:1.6;font-family:Arial,sans-serif;">` + 
-          items.map(item => `<li style="margin-bottom:4px;">${escapeHtml(item.replace(/^- /, '').trim())}</li>`).join('') + 
-        `</ul>`;
+        return `<ul style="margin:8px 0 0 20px;padding:0;color:#334155;font-size:14px;line-height:1.6;font-family:Arial,sans-serif;">` +
+          items.map(item => `<li style="margin-bottom:4px;">${escapeHtml(item.replace(/^- /, '').trim())}</li>`).join('') +
+          `</ul>`;
       };
 
-      const keyPointsHtml = script.keyPoints 
-        ? `<div style="margin:16px 0 0 0;"><strong style="font-size:13px;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;font-family:Arial,sans-serif;">Key Points</strong>${markdownListToHtml(script.keyPoints)}</div>` 
+      const keyPointsHtml = script.keyPoints
+        ? `<div style="margin:16px 0 0 0;"><strong style="font-size:13px;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;font-family:Arial,sans-serif;">Key Points</strong>${markdownListToHtml(script.keyPoints)}</div>`
         : "";
-        
+
       const descriptionHtml = script.description
         ? `<div style="margin:16px 0 0 0;"><strong style="font-size:13px;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;font-family:Arial,sans-serif;">Description</strong><p style="margin:6px 0 0 0;font-size:14px;line-height:1.6;color:#334155;font-family:Arial,sans-serif;">${cleanScriptField(script.description)}</p></div>`
         : "";
-        
+
       const whyImportantHtml = script.whyImportant
-        ? `<div style="margin:16px 0 0 0;border-top:1px solid #e8ecf5;padding-top:14px;"><strong style="font-size:13px;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;font-family:Arial,sans-serif;">Why it's important</strong><p style="margin:6px 0 0 0;font-size:14px;line-height:1.6;color:#334155;font-family:Arial,sans-serif;">${cleanScriptField(script.whyImportant)}</p></div>`
+        ? `<div style="margin:16px 0 0 0;border-top:1px solid #e8ecf5;padding-top:14px;"><strong style="font-size:13px;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;font-family:Arial,sans-serif;">Why this matters</strong><p style="margin:6px 0 0 0;font-size:14px;line-height:1.6;color:#334155;font-family:Arial,sans-serif;">${cleanScriptField(script.whyImportant)}</p></div>`
         : "";
 
       const isCoverFallback = !imageSrc || /cover\.avif(?:$|\?)/i.test(imageSrc || "");
@@ -336,10 +345,33 @@ const buildRatingSection = (subscriberEmail: string, siteBase: string): string =
   </table>`;
 };
 
+const buildSnippetSection = (snippets: ArticleSnippet[], siteBase: string): string => {
+  if (!snippets.length) return "";
+  const items = snippets
+    .map((s) => {
+      const href = `${siteBase}/articles/${s.slug}`;
+      return `<tr><td style="padding:6px 0;font-family:Arial,sans-serif;font-size:14px;line-height:1.5;color:#334155;"><a href="${href}" style="color:#1d4ed8;text-decoration:underline;font-weight:600;">${escapeHtml(stripEmojiInline(s.title))}</a> — ${escapeHtml(stripEmojiInline(s.hook))}</td></tr>`;
+    })
+    .join("");
+  return `
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background-color:#f0f4ff;border:1px solid #c7d2fe;border-radius:12px;overflow:hidden;margin-bottom:20px;">
+    <tr>
+      <td style="padding:16px 20px 12px 20px;font-family:Arial,sans-serif;">
+        <div style="font-size:13px;font-weight:700;color:#4338ca;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">📋 Snippet of the Week</div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+          ${items}
+        </table>
+      </td>
+    </tr>
+  </table>`;
+};
+
 const buildHtmlDigest = (
   articles: DigestArticle[],
   subscriber: DigestSubscriber,
-  siteUrl: string
+  siteUrl: string,
+  newsletterTitle: string,
+  snippets: ArticleSnippet[]
 ): string => {
   const siteBase = toSiteBase(siteUrl);
   const date = new Date().toUTCString().slice(5, 16);
@@ -347,6 +379,7 @@ const buildHtmlDigest = (
   const unsubscribeUrl = `${siteBase}/unsubscribe?email=${encodeURIComponent(subscriber.email)}`;
   const coverImage = `${siteBase}/cover.avif`;
   const dailyRundownList = buildDailyRundownList(articles);
+  const snippetSection = buildSnippetSection(snippets, siteBase);
   const latestDevelopmentCards = buildLatestDevelopmentCards(articles, siteBase);
   const ratingSection = buildRatingSection(subscriber.email, siteBase);
   const quickHits = buildQuickHitsSection();
@@ -440,7 +473,7 @@ const buildHtmlDigest = (
                     <td style="font-family:Arial,sans-serif;">
                       <p class="card-text" style="margin:0;font-size:24px;line-height:1.3;font-weight:700;color:#0f172a;">Good morning, ${subscriberName}.</p>
                       <p class="card-muted" style="margin:10px 0 0 0;font-size:14px;line-height:1.7;color:#64748b;">${date} briefing: clear threat context, key developments, and quick actions worth prioritizing today.</p>
-                      <p class="card-text" style="margin:16px 0 6px 0;font-size:15px;line-height:1.4;font-weight:700;color:#0f172a;">In today's security rundown:</p>
+                      <p class="card-text" style="margin:16px 0 6px 0;font-size:15px;line-height:1.4;font-weight:700;color:#0f172a;">In today's security briefing:</p>
                       <ul style="margin:0 0 0 20px;padding:0;font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#475569;">
                         ${dailyRundownList}
                       </ul>
@@ -525,7 +558,7 @@ const buildTextDigest = (
     "",
     `Good morning, ${name}.`,
     "",
-    "In today's security rundown:"
+    "In today's security briefing:"
   ];
 
   for (const article of articles) {
@@ -547,9 +580,26 @@ const buildTextDigest = (
     lines.push(`${stripEmojiInline(article.title)}`);
     lines.push(`Category: ${humanizeCategory(article.category)}`);
     lines.push(`Why this matters: ${clamp(stripEmojiInline(article.summary), 240)}`);
-    lines.push(`Signal: ${stripEmojiInline(script.signal)}`);
-    lines.push(`Risk: ${stripEmojiInline(script.risk)}`);
-    lines.push(`Action: ${stripEmojiInline(script.action)}`);
+    if (script.keyPoints) {
+      lines.push(`Key Points:`);
+      const items = script.keyPoints.split('\n').filter(line => line.trim().startsWith('-'));
+      if (items.length > 0) {
+        items.forEach(item => lines.push(`  ${item.trim()}`));
+      } else {
+        lines.push(`  ${script.keyPoints}`);
+      }
+    }
+
+    const cleanText = (text: string) => stripEmojiInline(text.replace(/[\[\]]/g, "").replace(/\.\.\./g, "").trim());
+
+    if (script.description) {
+      const desc = cleanText(script.description);
+      if (desc.length > 5) lines.push(`Description: ${desc}`);
+    }
+    if (script.whyImportant) {
+      const why = cleanText(script.whyImportant);
+      if (why.length > 5) lines.push(`Why this matters: ${why}`);
+    }
     lines.push(`Original source: ${originalLink}`);
     lines.push(`7secure version: ${siteBase}/articles/${article.slug}`);
   }
@@ -574,7 +624,11 @@ const buildTextDigest = (
   return lines.join("\n");
 };
 
-export const sendDigest = async (env: WorkerEnv): Promise<DigestSendResult> => {
+export const sendDigest = async (
+  env: WorkerEnv,
+  newsletterTitle = "Daily Security Intelligence Brief",
+  snippets: ArticleSnippet[] = []
+): Promise<DigestSendResult> => {
   const [allArticles, subscribers] = await Promise.all([
     getRecentArticles(env),
     getSubscribers(env)
@@ -641,8 +695,8 @@ export const sendDigest = async (env: WorkerEnv): Promise<DigestSendResult> => {
         batch.map((subscriber) => ({
           from: fromEmail,
           to: [subscriber.email],
-          subject: "7secure Daily Security Briefing",
-          html: buildHtmlDigest(digestArticles, subscriber as DigestSubscriber, env.NEXT_PUBLIC_SITE_URL),
+          subject: newsletterTitle,
+          html: buildHtmlDigest(digestArticles, subscriber as DigestSubscriber, env.NEXT_PUBLIC_SITE_URL, newsletterTitle, snippets),
           text: buildTextDigest(digestArticles, subscriber as DigestSubscriber, env.NEXT_PUBLIC_SITE_URL)
         }))
       );
@@ -656,8 +710,8 @@ export const sendDigest = async (env: WorkerEnv): Promise<DigestSendResult> => {
           const single = await resend.emails.send({
             from: fromEmail,
             to: [subscriber.email],
-            subject: "7secure Daily Security Briefing",
-            html: buildHtmlDigest(digestArticles, subscriber as DigestSubscriber, env.NEXT_PUBLIC_SITE_URL),
+            subject: newsletterTitle,
+            html: buildHtmlDigest(digestArticles, subscriber as DigestSubscriber, env.NEXT_PUBLIC_SITE_URL, newsletterTitle, snippets),
             text: buildTextDigest(digestArticles, subscriber as DigestSubscriber, env.NEXT_PUBLIC_SITE_URL)
           });
 

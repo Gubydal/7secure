@@ -11,8 +11,11 @@ const AUTH_KEY = "sevensecure_subscriber_email";
 const NAV_ITEMS = [
   { href: "/", label: "Newsletter" },
   { href: "/articles", label: "Articles" },
+  { href: "/blog", label: "Blog" },
+  { href: "/weekly-poll", label: "Weekly Poll" },
   { href: "/tools", label: "Tools" },
-  { href: "/practices", label: "Practices" }
+  { href: "/practices", label: "Practices" },
+  { href: "/contact", label: "Contact" }
 ];
 
 const isActivePath = (pathname: string, href: string): boolean => {
