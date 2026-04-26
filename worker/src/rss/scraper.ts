@@ -1,9 +1,9 @@
 import type { RawFeedItem, WorkerEnv } from "../types";
 
 const SCRAPE_TIMEOUT_MS = 8_000;
-const MAX_SCRAPED_LENGTH = 8_000;
-const MIN_SCRAPED_LENGTH = 200;
-const MAX_ARTICLES_TO_SCRAPE = 12;
+const MAX_SCRAPED_LENGTH = 6_000;
+const MIN_SCRAPED_LENGTH = 300;
+const MAX_ARTICLES_TO_SCRAPE = 10;
 
 // Blocklist of domains/paths that typically block scraping or serve paywalls
 const SCRAPE_BLOCKLIST = [
@@ -14,7 +14,6 @@ const SCRAPE_BLOCKLIST = [
   /x\.com/i,
   /facebook\.com/i,
   /linkedin\.com\/pulse/i,
-  /medium\.com.*\?/i,
 ];
 
 const shouldSkipScraping = (url: string): boolean => {
@@ -50,6 +49,63 @@ const stripTags = (html: string): string =>
     .replace(/\s+/g, " ")
     .trim();
 
+// Lines/patterns that are navigation/metadata, NOT article content
+const JUNK_LINE_PATTERNS = [
+  /^\s*\d+\s*min\s*read\s*$/i,
+  /^\s*related\s+(products|articles|posts|stories)\s*$/i,
+  /^\s*share\s+(this|on)\s*$/i,
+  /^\s*follow\s+us\s*$/i,
+  /^\s*subscribe\s*$/i,
+  /^\s*categories?\s*[:\-]/i,
+  /^\s*tags?\s*[:\-]/i,
+  /^\s*author\s*[:\-]/i,
+  /^\s*by\s*[:\-]?\s*\w+/i,
+  /^\s*published\s*[:\-]/i,
+  /^\s*updated\s*[:\-]/i,
+  /^\s*source\s*[:\-]/i,
+  /^\s*image\s*[:\-]/i,
+  /^\s*photo\s*[:\-]/i,
+  /^\s*advertisement\s*$/i,
+  /^\s*sponsored\s*$/i,
+  /^\s*read\s+more\s*$/i,
+  /^\s*continue\s+reading\s*$/i,
+  /^\s*you\s+may\s+also\s+like\s*$/i,
+  /^\s*more\s+from\s+/i,
+  /^\s*about\s+the\s+author\s*$/i,
+  /^\s*editor's?\s+note\s*$/i,
+  /^\s*disclaimer\s*$/i,
+  /^\s*home\s*\/\s*/i,
+  /^\s*\w+\s+\d{1,2},?\s+\d{4}\s*$/,
+  /^\s*\d{1,2}\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{4}\s*$/i,
+];
+
+const isJunkLine = (line: string): boolean => {
+  return JUNK_LINE_PATTERNS.some((pattern) => pattern.test(line));
+};
+
+const cleanExtractedText = (text: string): string => {
+  const lines = text.split(/\n|\r/).map((l) => l.trim()).filter(Boolean);
+  const cleaned: string[] = [];
+
+  for (const line of lines) {
+    // Skip junk lines
+    if (isJunkLine(line)) continue;
+
+    // Skip very short lines that are likely navigation
+    if (line.length < 15 && !line.endsWith('.')) continue;
+
+    // Skip lines that are just URLs
+    if (/^https?:\/\//.test(line)) continue;
+
+    // Skip lines that look like social media handles
+    if (/^@\w+/.test(line)) continue;
+
+    cleaned.push(line);
+  }
+
+  return cleaned.join("\n").trim();
+};
+
 const extractArticleText = (html: string, url: string): string => {
   // Try to find article content in common containers
   const articlePatterns = [
@@ -66,7 +122,8 @@ const extractArticleText = (html: string, url: string): string => {
   for (const pattern of articlePatterns) {
     const match = html.match(pattern);
     if (match) {
-      const text = stripTags(match[0]);
+      const rawText = stripTags(match[0]);
+      const text = cleanExtractedText(rawText);
       const score = scoreTextBlock(text);
       if (score > bestScore) {
         bestScore = score;
@@ -78,12 +135,12 @@ const extractArticleText = (html: string, url: string): string => {
   // Fallback: extract all paragraphs and score them
   if (!bestText || bestText.length < MIN_SCRAPED_LENGTH) {
     const paragraphMatches = html.match(/<p[\s\S]*?<\/p>/gi) || [];
-    const paragraphTexts = paragraphMatches.map((p) => stripTags(p));
+    const paragraphTexts = paragraphMatches.map((p) => cleanExtractedText(stripTags(p)));
 
     for (let i = 0; i < paragraphTexts.length; i++) {
       let block = paragraphTexts[i];
       for (let j = 1; j <= 4 && i + j < paragraphTexts.length; j++) {
-        block += " " + paragraphTexts[i + j];
+        block += "\n" + paragraphTexts[i + j];
       }
       const score = scoreTextBlock(block);
       if (score > bestScore) {
@@ -101,27 +158,29 @@ const scoreTextBlock = (text: string): number => {
 
   let score = text.length;
 
-  if (/\b(home|about|contact|privacy|terms|cookie|subscribe|newsletter|follow us|share this)\b/i.test(text)) {
-    score *= 0.5;
-  }
-  if (/\b(twitter|facebook|linkedin|instagram|youtube)\b/i.test(text)) {
-    score *= 0.6;
-  }
-
+  // Reward sentences (indicates readable prose)
   const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
-  score += sentences.length * 50;
+  score += sentences.length * 80;
 
-  const securityTerms = /\b(cyber|security|vulnerability|exploit|threat|attack|breach|malware|ransomware|phishing|CVE|zero-day|CISA|NIST|APT|hacker|incident|compromise|payload|backdoor|trojan)\b/gi;
+  // Reward cybersecurity keywords
+  const securityTerms = /\b(cyber|security|vulnerability|exploit|threat|attack|breach|malware|ransomware|phishing|CVE|zero-day|CISA|NIST|APT|hacker|incident|compromise|payload|backdoor|trojan|credential|token|OAuth|supply.chain)\b/gi;
   const termMatches = text.match(securityTerms);
   if (termMatches) {
-    score += termMatches.length * 30;
+    score += termMatches.length * 40;
   }
 
+  // Reward specific technical details
   if (/\b(CVE-\d{4}-\d+|\d+\.\d+\.\d+|SHA-?256|MD5|IP address|port \d+|HTTP\/\d|TLS|SSL|VPN|firewall)\b/i.test(text)) {
-    score += 100;
+    score += 150;
   }
 
-  return score;
+  // Penalize if too much text looks like navigation
+  const navLines = text.split('\n').filter((line) =>
+    /\b(home|about|contact|privacy|terms|cookie|subscribe|newsletter|follow us|share this|read more|continue reading)\b/i.test(line)
+  ).length;
+  score -= navLines * 100;
+
+  return Math.max(0, score);
 };
 
 export const scrapeArticle = async (
@@ -180,7 +239,7 @@ export const scrapeArticle = async (
       ? articleText.slice(0, MAX_SCRAPED_LENGTH).trim() + "..."
       : articleText;
 
-    console.log(`Scraped ${truncated.length} chars from ${item.url}`);
+    console.log(`Scraped ${truncated.length} clean chars from ${item.url}`);
     return truncated;
 
   } catch (error) {
@@ -195,7 +254,7 @@ export const enrichArticlesWithScrapedContent = async (
 ): Promise<RawFeedItem[]> => {
   if (!items.length) return items;
 
-  // Limit scraping to top N articles to stay within Cloudflare subrequest limits
+  // Limit scraping to stay within Cloudflare subrequest limits
   const toScrape = items.slice(0, MAX_ARTICLES_TO_SCRAPE);
   const skipped = items.slice(MAX_ARTICLES_TO_SCRAPE);
 
