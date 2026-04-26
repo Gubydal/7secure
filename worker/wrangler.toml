@@ -9,6 +9,9 @@ crons = ["0 7 * * *"]
 [observability]
 enabled = false
 
+[limits]
+sub_requests = 100
+
 [vars]
 # OpenRouter configuration — API key set in Cloudflare Dashboard
 LLM_BASE_URL = "https://openrouter.ai/api/v1"

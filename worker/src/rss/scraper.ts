@@ -3,6 +3,7 @@ import type { RawFeedItem, WorkerEnv } from "../types";
 const SCRAPE_TIMEOUT_MS = 8_000;
 const MAX_SCRAPED_LENGTH = 8_000;
 const MIN_SCRAPED_LENGTH = 200;
+const MAX_ARTICLES_TO_SCRAPE = 12;
 
 // Blocklist of domains/paths that typically block scraping or serve paywalls
 const SCRAPE_BLOCKLIST = [
@@ -13,7 +14,7 @@ const SCRAPE_BLOCKLIST = [
   /x\.com/i,
   /facebook\.com/i,
   /linkedin\.com\/pulse/i,
-  /medium\.com.*\?/i, // Medium paywall variants
+  /medium\.com.*\?/i,
 ];
 
 const shouldSkipScraping = (url: string): boolean => {
@@ -50,8 +51,6 @@ const stripTags = (html: string): string =>
     .trim();
 
 const extractArticleText = (html: string, url: string): string => {
-  const lowerHtml = html.toLowerCase();
-
   // Try to find article content in common containers
   const articlePatterns = [
     /<article[\s\S]*?<\/article>/i,
@@ -68,7 +67,7 @@ const extractArticleText = (html: string, url: string): string => {
     const match = html.match(pattern);
     if (match) {
       const text = stripTags(match[0]);
-      const score = scoreTextBlock(text, url);
+      const score = scoreTextBlock(text);
       if (score > bestScore) {
         bestScore = score;
         bestText = text;
@@ -81,14 +80,12 @@ const extractArticleText = (html: string, url: string): string => {
     const paragraphMatches = html.match(/<p[\s\S]*?<\/p>/gi) || [];
     const paragraphTexts = paragraphMatches.map((p) => stripTags(p));
 
-    // Group consecutive paragraphs into blocks and score
     for (let i = 0; i < paragraphTexts.length; i++) {
       let block = paragraphTexts[i];
-      // Include next 2-4 paragraphs to form a coherent block
       for (let j = 1; j <= 4 && i + j < paragraphTexts.length; j++) {
         block += " " + paragraphTexts[i + j];
       }
-      const score = scoreTextBlock(block, url);
+      const score = scoreTextBlock(block);
       if (score > bestScore) {
         bestScore = score;
         bestText = block;
@@ -99,33 +96,27 @@ const extractArticleText = (html: string, url: string): string => {
   return bestText;
 };
 
-const scoreTextBlock = (text: string, url: string): number => {
+const scoreTextBlock = (text: string): number => {
   if (!text || text.length < MIN_SCRAPED_LENGTH) return 0;
 
   let score = text.length;
 
-  // Penalize navigation/footer-like text
   if (/\b(home|about|contact|privacy|terms|cookie|subscribe|newsletter|follow us|share this)\b/i.test(text)) {
     score *= 0.5;
   }
-
-  // Penalize social media links
   if (/\b(twitter|facebook|linkedin|instagram|youtube)\b/i.test(text)) {
     score *= 0.6;
   }
 
-  // Reward sentences (indicates readable prose)
   const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
   score += sentences.length * 50;
 
-  // Reward cybersecurity keywords
   const securityTerms = /\b(cyber|security|vulnerability|exploit|threat|attack|breach|malware|ransomware|phishing|CVE|zero-day|CISA|NIST|APT|hacker|incident|compromise|payload|backdoor|trojan)\b/gi;
   const termMatches = text.match(securityTerms);
   if (termMatches) {
     score += termMatches.length * 30;
   }
 
-  // Reward specific technical details
   if (/\b(CVE-\d{4}-\d+|\d+\.\d+\.\d+|SHA-?256|MD5|IP address|port \d+|HTTP\/\d|TLS|SSL|VPN|firewall)\b/i.test(text)) {
     score += 100;
   }
@@ -204,11 +195,15 @@ export const enrichArticlesWithScrapedContent = async (
 ): Promise<RawFeedItem[]> => {
   if (!items.length) return items;
 
-  console.log(`Scraping ${items.length} articles for full text...`);
+  // Limit scraping to top N articles to stay within Cloudflare subrequest limits
+  const toScrape = items.slice(0, MAX_ARTICLES_TO_SCRAPE);
+  const skipped = items.slice(MAX_ARTICLES_TO_SCRAPE);
+
+  console.log(`Scraping ${toScrape.length} articles for full text (skipping ${skipped.length})...`);
   const enriched: RawFeedItem[] = [];
 
   // Process sequentially to be polite to target sites
-  for (const item of items) {
+  for (const item of toScrape) {
     const scraped = await scrapeArticle(item, env);
     if (scraped) {
       enriched.push({
@@ -220,6 +215,9 @@ export const enrichArticlesWithScrapedContent = async (
       enriched.push(item);
     }
   }
+
+  // Add unscored items back without modification
+  enriched.push(...skipped);
 
   const scrapedCount = enriched.filter((item) =>
     item.sourceSnippet && item.sourceSnippet.length > 500
