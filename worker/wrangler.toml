@@ -10,12 +10,16 @@ crons = ["0 7 * * *"]
 enabled = false
 
 [vars]
+# NOTE: Set LLM_BASE_URL and LLM_API_KEY in Cloudflare Dashboard > Workers > 7secure-worker > Settings > Variables
+# Example Ollama endpoints:
+#   - Local tunnel:  https://your-ngrok-url.ngrok.io/v1
+#   - OpenRouter:    https://openrouter.ai/api/v1
+#   - Self-hosted:   https://your-server.com/v1
 LLM_BASE_URL = "https://api.longcat.chat/openai/v1"
-LLM_MODEL = "LongCat-Flash-Thinking-2601"
+LLM_MODEL = "kimi-k2-thinking:cloud"
 BRAVE_SEARCH_COUNTRY = "us"
 BRAVE_SEARCH_LANG = "en"
-BRAVE_SEARCH_RESULTS_PER_QUERY = "12"
+BRAVE_SEARCH_RESULTS_PER_QUERY = "16"
 BRAVE_SEARCH_FRESHNESS = "pw"
 RESEND_FROM_EMAIL = "7secure <onboarding@resend.dev>"
 NEXT_PUBLIC_SITE_URL = "https://7secure.pages.dev"
-
