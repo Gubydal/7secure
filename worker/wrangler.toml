@@ -10,6 +10,7 @@ crons = ["0 7 * * *"]
 enabled = false
 
 [limits]
+cpu_ms = 30000
 sub_requests = 100
 
 [vars]
