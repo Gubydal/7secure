@@ -12,7 +12,7 @@ enabled = false
 [vars]
 # OpenRouter configuration — API key MUST be set in Cloudflare Dashboard > Variables
 LLM_BASE_URL = "https://openrouter.ai/api/v1"
-LLM_MODEL = "google/gemini-2.5-flash-preview:free"
+LLM_MODEL = "google/gemini-2.5-flash-lite-preview-09-2025"
 BRAVE_SEARCH_COUNTRY = "us"
 BRAVE_SEARCH_LANG = "en"
 BRAVE_SEARCH_RESULTS_PER_QUERY = "16"
