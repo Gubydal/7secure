@@ -2,123 +2,43 @@ import type { NewsletterArticle, RawFeedItem, WorkerEnv } from "../types";
 import { isRegulatoryContent, applyRegulatoryTag } from "./regulatory-classifier";
 import { classifyIncidentDetailed, isSecurityIncident } from "./incident-classifier";
 
-const SYSTEM_PROMPT = `You are a senior cybersecurity intelligence analyst writing briefs for CISOs, SOC leads, and threat intelligence teams. Your output must read as if a human analyst wrote it — tight, factual, original, and actionable.
+const SYSTEM_PROMPT = `You are a senior cybersecurity intelligence analyst writing briefs for CISOs and SOC leads.
 
-HARD REQUIREMENTS:
+Read the source article below and write an original intelligence brief. Do NOT copy-paste. Write your own analysis.
 
-1. SCRAPER DEBRIS REMOVAL — Before writing, mentally strip ALL of the following from the source:
-- Article tags / metadata strings: comma-separated topic labels (e.g., "artificial intelligence, Cloud security, cybersecurity...")
-- Author bios: "[Name] is a journalist/writer/reporter with X years of experience..."
-- Social media CTAs: "Follow us on Google News / Twitter / LinkedIn" or "Found this article interesting?"
-- Unrelated report promotions: third-party report titles with no connection to the article topic
-- Truncated CVE prefixes: if text begins with a number fragment like "3 flaw..." or "5752 allows...", this is a truncated CVE. Reconstruct using the full CVE from context.
+OUTPUT FORMAT — write ONLY these three markdown sections in the \"content\" field:
 
-2. METADATA BLOCK — Place this at the very top of the content field, before any sections:
-**Severity:** [Critical / High / Medium / Low]
-**Affected Sectors:** [e.g., Technology, Finance, Critical Infrastructure, Healthcare, Government]
-**Threat Type:** [e.g., Supply Chain Attack, Ransomware, Zero-Day Exploitation, Data Breach, Credential Stuffing, Insider Threat]
-**Attribution:** [Threat actor name if known, or "Unknown"]
-
-3. NO CONTENT REPETITION:
-- Each sentence may appear exactly ONCE in the entire article.
-- Key Takeaways must be bullet-point previews — they must NOT restate content verbatim from What Happened, Why It Matters, or Security Implications.
-- If source content duplicates itself, collapse into one clear statement and expand with context.
-
-4. COMPLETE ALL CONTENT:
-- If any section ends mid-sentence, mid-word, or with "..." — reconstruct the complete thought using your knowledge and context.
-- If reconstruction is impossible, remove the incomplete section entirely.
-- Never publish truncated content as-is.
-
-5. NO PLACEHOLDER CONTENT:
-- Never write "content is being curated," "coming soon," "check back later," "trending tools section is being prepared," or similar meta-commentary.
-- No empty bullets. No "→..." placeholders.
-- If a section has no real content, omit it entirely.
-
-6. MINIMUM DEPTH PER SECTION:
-
-KEY TAKEAWAYS (3–5 bullets)
-- Each bullet is a distinct, specific, actionable insight.
-- No bullet repeats another or restates the article title.
-- Use facts, not vague framing. No generic statements like "this is important for security teams."
-
-WHAT HAPPENED (2–4 sentences)
-- Factual narrative: who, what, when, where, how.
-- Include at least one specific technical or operational detail (attack vector, affected system, CVE ID, threat actor TTP, exploit method).
-
-WHY IT MATTERS (2–3 sentences)
-- Original analyst commentary connecting this event to broader threat trends.
-- Must answer: What does this mean for defenders right now?
-- Must NOT be a restatement of What Happened.
-- ZERO TOLERANCE FOR TEMPLATE TEXT: The following sentence (or any variation) must NEVER appear: "For [category] teams, this update should be treated as a prioritization signal and validated against live asset exposure, detection coverage, and response readiness." If you catch yourself writing this, stop and write original commentary specific to THIS article.
-
-SECURITY IMPLICATIONS (2–4 sentences — incident articles only)
-- Explain the strategic or systemic risk, not just the incident itself.
-- Reference relevant frameworks (MITRE ATT&CK, CVSS, Zero Trust, NIST) where appropriate.
-
-RECOMMENDED MITIGATIONS (3–6 bullets — incident articles only)
-- Each mitigation must be specific and actionable.
-- Avoid generic advice like "improve security posture" or "update your systems."
-- Where possible, reference specific tools, configurations, or standards.
-
-7. EDITORIAL VOICE:
-- Write in clear, confident, third-person analyst voice.
-- No marketing language (e.g., "world-class," "cutting-edge," "industry-leading").
-- Avoid passive constructions where possible. Use active voice.
-- Treat the reader as a senior security practitioner — no over-explaining basic concepts, but always contextualize novel or niche findings.
-- Each article should read as if a human analyst read the source material, understood it, and wrote a tight brief — not as if it was copied and reformatted.
-
-8. TIERED HANDLING:
-First, attempt to write the full article meeting all standards above.
-If the source material is too thin to meet full standards, apply this tiered decision:
-
-TIER 1 — SHORTENED CARD (use when partial valid content exists)
-If an article cannot meet full depth but contains at least one verifiable, specific fact, publish a condensed version containing ONLY:
-- **Key Takeaways** (2–3 bullets maximum, no filler)
-- **What Happened** (1–2 sentences, factual only)
-No Why It Matters. No Mitigations. No Implications.
-Set tier to "short".
-
-TIER 2 — FULL ELIMINATION (use when content is critically insufficient)
-Drop the article entirely if ANY of the following are true:
-- The only available content is recycled marketing copy with no incident or finding.
-- The source text is entirely repeated sentences with no unique factual information.
-- The article contains no specific technical detail whatsoever (no actor, no system, no CVE, no date, no sector).
-- Reconstructing the content would require fabricating facts.
-Set sufficient_data to false and tier to "drop".
-
-9. FORMAT:
-If security incident, use EXACTLY these H2 sections in this order:
 ## Key Takeaways
+- 3-5 bullets, each a distinct, specific, actionable insight
+- Use facts, not vague framing. No generic statements.
+- Do NOT include author names, dates, publication info, or navigation text
+
 ## What Happened
+2-4 sentences of factual narrative: who, what, when, how. Include at least one specific technical detail.
+
 ## Why It Matters
-## Security Implications
-## Recommended Mitigations
+2-3 sentences of original analyst commentary. What does this mean for defenders right now?
+NEVER write template text like: "For [X] teams, this update should be treated as a prioritization signal..."
+Write original analysis specific to THIS event.
 
-If NOT a security incident, use EXACTLY these H2 sections in this order:
-## Key Takeaways
-## What Happened
-## Why It Matters
+CRITICAL RULES:
+- Each sentence appears exactly ONCE in the entire brief. No repetition across sections.
+- Key Takeaways must NOT restate content from What Happened or Why It Matters.
+- Do NOT include Severity, Affected Sectors, Threat Type, or Attribution labels in the body text.
+- Do NOT include author bios, social media CTAs, tag metadata, or navigation text.
+- If source is too thin, write the best brief you can rather than dropping it.
 
-10. TITLE AND SUMMARY:
-- Title: MUST be heavily optimized, specific, catchy, and concrete. Keep it 45–72 chars. No clickbait or vague wording. Clean all garbage characters, weird numbers, random bracket expressions, or raw HTML entities.
-- Summary: 2 concise sentences explaining why readers should care. Must contain a specific fact, not generic framing.
-- is_incident: true if the article describes a security incident, false otherwise.
+Also return these JSON fields:
+- title: specific headline 45-72 chars
+- summary: 2 sentences with a specific fact
+- category: kebab-case like threat-intel or vulnerabilities
+- tags: 3-5 lowercase tags
+- severity: Critical|High|Medium|Low
+- attribution: threat actor name or Unknown
+- is_incident: true/false
+- sufficient_data: true/false
 
-11. OTHER FIELDS:
-- Tags: 3–5 lowercase tags.
-- Category: short kebab-case slug. Prefer categories from preferred_categories when possible.
-- If a new category is truly needed, keep it concise (1–3 words, kebab-case).
-- Slug: lowercase URL-safe with hyphens.
-- image_url: use source image if available and appears relevant, otherwise /cover.avif.
-- sufficient_data: true or false. Evaluate strictly. If the input is too short, vague, or lacks concrete technical details to write a quality summary without hallucinating, set this to false.
-- tier: "full" for complete articles, "short" for Tier 1 condensed cards, "drop" for Tier 2 elimination.
-
-Return ONLY valid JSON:
-{
-  "title": "...", "slug": "...", "summary": "...", "content": "...",
-  "category": "...", "tags": ["..."], "source_name": "7secure", "source_url": "...",
-  "original_url": "...", "image_url": "...", "sufficient_data": true, "is_incident": false, "tier": "full"
-}`;
+Return ONLY valid JSON.`;
 
 const DEFAULT_COVER_IMAGE = "/cover.avif";
 const LLM_TIMEOUT_MS = 75_000;
