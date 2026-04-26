@@ -5,6 +5,7 @@ import { writeArticles, generateThreatPulse } from "./bridge/writer";
 import { logDigest, saveArticles, getExistingUrls, getTrackedCategories, saveDailyBriefing } from "./db/supabase";
 import { sendDigest } from "./email/digest";
 import { fetchFeeds } from "./rss/fetcher";
+import { enrichArticlesWithScrapedContent } from "./rss/scraper";
 import type { WorkerEnv } from "./types";
 
 export const runDailyPipeline = async (env: WorkerEnv): Promise<void> => {
@@ -14,11 +15,15 @@ export const runDailyPipeline = async (env: WorkerEnv): Promise<void> => {
     console.log(`Fetched ${raw.length} raw items`);
     const cleaned = cleanItems(raw);
     console.log(`Cleaned down to ${cleaned.length} items`);
-    
+
+    // Scrape full article text from source pages to give the LLM rich content
+    const enriched = await enrichArticlesWithScrapedContent(cleaned, env);
+    console.log(`Enriched articles with scraped content`);
+
     // De-duplicate against the database using original_url to prevent LLM from rewriting yesterday's articles over and over again
-    const allUrls = cleaned.map(item => item.url);
+    const allUrls = enriched.map(item => item.url);
     const existingUrlSet = await getExistingUrls(env, allUrls);
-    const newItems = cleaned.filter(item => !existingUrlSet.has(item.url));
+    const newItems = enriched.filter(item => !existingUrlSet.has(item.url));
     console.log(`Found ${newItems.length} truly NEW articles`);
 
     let preparedArticles: Awaited<ReturnType<typeof writeArticles>> = [];
