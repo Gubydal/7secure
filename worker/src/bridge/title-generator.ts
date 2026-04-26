@@ -106,9 +106,11 @@ export const generateNewsletterTitle = async (
       method: "POST",
       signal: controller.signal,
       headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${env.LLM_API_KEY}`
-      },
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${env.LLM_API_KEY}`,
+          "HTTP-Referer": env.NEXT_PUBLIC_SITE_URL || "https://7secure.pages.dev",
+          "X-Title": "7secure"
+        },
       body: JSON.stringify({
         model: env.LLM_MODEL,
         temperature: 0.3,
